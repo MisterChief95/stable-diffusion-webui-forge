@@ -22,22 +22,24 @@ class DynamicThresholdingForForge(scripts.Script):
             mimic_scale = gr.Slider(label='Mimic Scale', minimum=0.0, maximum=100.0, step=0.5, value=7.0)
             threshold_percentile = gr.Slider(label='Threshold Percentile', minimum=0.0, maximum=1.0, step=0.01,
                                              value=1.0)
-            mimic_mode = gr.Radio(label='Mimic Mode',
-                                  choices=['Constant', 'Linear Down', 'Cosine Down', 'Half Cosine Down', 'Linear Up',
-                                           'Cosine Up', 'Half Cosine Up', 'Power Up', 'Power Down', 'Linear Repeating',
-                                           'Cosine Repeating', 'Sawtooth'], value='Constant')
-            mimic_scale_min = gr.Slider(label='Mimic Scale Min', minimum=0.0, maximum=100.0, step=0.5, value=0.0)
-            cfg_mode = gr.Radio(label='Cfg Mode',
-                                choices=['Constant', 'Linear Down', 'Cosine Down', 'Half Cosine Down', 'Linear Up',
-                                         'Cosine Up', 'Half Cosine Up', 'Power Up', 'Power Down', 'Linear Repeating',
-                                         'Cosine Repeating', 'Sawtooth'], value='Constant')
-            cfg_scale_min = gr.Slider(label='Cfg Scale Min', minimum=0.0, maximum=100.0, step=0.5, value=0.0)
-            sched_val = gr.Slider(label='Sched Val', minimum=0.0, maximum=100.0, step=0.01, value=1.0)
-            separate_feature_channels = gr.Radio(label='Separate Feature Channels', choices=['enable', 'disable'],
-                                                 value='enable')
-            scaling_startpoint = gr.Radio(label='Scaling Startpoint', choices=['MEAN', 'ZERO'], value='MEAN')
-            variability_measure = gr.Radio(label='Variability Measure', choices=['AD', 'STD'], value='AD')
-            interpolate_phi = gr.Slider(label='Interpolate Phi', minimum=0.0, maximum=1.0, step=0.01, value=1.0)
+            
+            with gr.Accordion(open=False, label='Advanced'):
+                mimic_mode = gr.Radio(label='Mimic Mode',
+                                    choices=['Constant', 'Linear Down', 'Cosine Down', 'Half Cosine Down', 'Linear Up',
+                                            'Cosine Up', 'Half Cosine Up', 'Power Up', 'Power Down', 'Linear Repeating',
+                                            'Cosine Repeating', 'Sawtooth'], value='Constant')
+                mimic_scale_min = gr.Slider(label='Mimic Scale Min', minimum=0.0, maximum=100.0, step=0.5, value=0.0)
+                cfg_mode = gr.Radio(label='Cfg Mode',
+                                    choices=['Constant', 'Linear Down', 'Cosine Down', 'Half Cosine Down', 'Linear Up',
+                                            'Cosine Up', 'Half Cosine Up', 'Power Up', 'Power Down', 'Linear Repeating',
+                                            'Cosine Repeating', 'Sawtooth'], value='Constant')
+                cfg_scale_min = gr.Slider(label='Cfg Scale Min', minimum=0.0, maximum=100.0, step=0.5, value=0.0)
+                sched_val = gr.Slider(label='Sched Val', minimum=0.0, maximum=100.0, step=0.01, value=1.0)
+                separate_feature_channels = gr.Radio(label='Separate Feature Channels', choices=['enable', 'disable'],
+                                                    value='enable')
+                scaling_startpoint = gr.Radio(label='Scaling Startpoint', choices=['MEAN', 'ZERO'], value='MEAN')
+                variability_measure = gr.Radio(label='Variability Measure', choices=['AD', 'STD'], value='AD')
+                interpolate_phi = gr.Slider(label='Interpolate Phi', minimum=0.0, maximum=1.0, step=0.01, value=1.0)
 
         return enabled, mimic_scale, threshold_percentile, mimic_mode, mimic_scale_min, cfg_mode, cfg_scale_min, \
             sched_val, separate_feature_channels, scaling_startpoint, variability_measure, interpolate_phi
@@ -52,14 +54,13 @@ class DynamicThresholdingForForge(scripts.Script):
 
         if not enabled:
             return
+        
+        print('DEBUG: DynamicThresholdingForForge is enabled.')
 
-        unet = p.sd_model.forge_objects.unet
-
-        unet = opDynamicThresholdingNode(unet, mimic_scale, threshold_percentile, mimic_mode, mimic_scale_min,
-                                         cfg_mode, cfg_scale_min, sched_val, separate_feature_channels,
-                                         scaling_startpoint, variability_measure, interpolate_phi)[0]
-
-        p.sd_model.forge_objects.unet = unet
+        p.sd_model.forge_objects.unet = opDynamicThresholdingNode(
+            p.sd_model.forge_objects.unet, mimic_scale, threshold_percentile, mimic_mode, mimic_scale_min,
+            cfg_mode, cfg_scale_min, sched_val, separate_feature_channels,
+            scaling_startpoint, variability_measure, interpolate_phi)[0]
 
         # Below codes will add some logs to the texts below the image outputs on UI.
         # The extra_generation_params does not influence results.
