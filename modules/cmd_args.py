@@ -148,3 +148,7 @@ parser.add_argument(
     help="Path to directory with annotator model directories",
     default=None,
 )
+
+pkm = parser.add_mutually_exclusive_group()
+pkm.add_argument("--uv", action="store_true", help="Use the uv package manager")
+pkm.add_argument("--uv-symlink", action="store_true", help="Use the uv package manager with symlink")

@@ -13,18 +13,19 @@ set ERROR_REPORTING=FALSE
 
 mkdir tmp 2>NUL
 
+uv help python >tmp/stdout.txt 2>tmp/stderr.txt
+if %ERRORLEVEL% == 0 goto :check_pip
 %PYTHON% -c "" >tmp/stdout.txt 2>tmp/stderr.txt
 if %ERRORLEVEL% == 0 goto :check_pip
 echo Couldn't launch python
 goto :show_stdout_stderr
 
 :check_pip
-%PYTHON% -mpip --help >tmp/stdout.txt 2>tmp/stderr.txt
+uv help pip >tmp/stdout.txt 2>tmp/stderr.txt
 if %ERRORLEVEL% == 0 goto :start_venv
-if "%PIP_INSTALLER_LOCATION%" == "" goto :show_stdout_stderr
-%PYTHON% "%PIP_INSTALLER_LOCATION%" >tmp/stdout.txt 2>tmp/stderr.txt
+%PYTHON% -m pip --help >tmp/stdout.txt 2>tmp/stderr.txt
 if %ERRORLEVEL% == 0 goto :start_venv
-echo Couldn't install pip
+echo Couldn't launch pip
 goto :show_stdout_stderr
 
 :start_venv
@@ -52,23 +53,10 @@ call "%VENV_DIR%\Scripts\activate.bat"
 echo venv %PYTHON%
 
 :skip_venv
-if [%ACCELERATE%] == ["True"] goto :accelerate
 goto :launch
-
-:accelerate
-echo Checking for accelerate
-set ACCELERATE="%VENV_DIR%\Scripts\accelerate.exe"
-if EXIST %ACCELERATE% goto :accelerate_launch
 
 :launch
 %PYTHON% launch.py %*
-if EXIST tmp/restart goto :skip_venv
-pause
-exit /b
-
-:accelerate_launch
-echo Accelerating
-%ACCELERATE% launch --num_cpu_threads_per_process=6 launch.py
 if EXIST tmp/restart goto :skip_venv
 pause
 exit /b
@@ -94,5 +82,5 @@ type tmp\stderr.txt
 :endofscript
 
 echo.
-echo Launch unsuccessful. Exiting.
+echo Launch Unsuccessful! Exiting...
 pause
