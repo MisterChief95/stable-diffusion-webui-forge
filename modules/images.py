@@ -13,8 +13,7 @@ import numpy as np
 import piexif
 import piexif.helper
 from PIL import Image, ImageFont, ImageDraw, ImageColor, PngImagePlugin, ImageOps
-# pillow_avif needs to be imported somewhere in code for it to work
-import pillow_avif # noqa: F401
+from pillow_heif import AvifImagePlugin, HeifImagePlugin  # noqa: F401
 import string
 import json
 import hashlib

@@ -63,11 +63,7 @@ def initialize_forge():
     device = memory_management.get_torch_device()
     torch.zeros((1, 1)).to(device, torch.float32)
     memory_management.soft_empty_cache()
-
-    if memory_management.can_install_bnb():
-        from modules_forge.bnb_installer import try_install_bnb
-        try_install_bnb()
-
+    
     from backend import stream
     print('CUDA Using Stream:', stream.should_use_stream())
 

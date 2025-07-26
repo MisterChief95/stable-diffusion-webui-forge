@@ -372,6 +372,8 @@ def prepare_environment():
             # See https://intel.github.io/intel-extension-for-pytorch/index.html#installation for details.
             torch_index_url = os.environ.get('TORCH_INDEX_URL', "https://pytorch-extension.intel.com/release-whl/stable/xpu/us/")
             torch_command = os.environ.get('TORCH_COMMAND', f"pip install torch==2.0.0a0 intel-extension-for-pytorch==2.0.110+gitba7f6c1 --extra-index-url {torch_index_url}")
+
+    gradio_package = os.environ.get("GRADIO_PACKAGE", "gradio==4.43.0 gradio_imageslider==0.0.20 gradio_rangeslider==0.0.6")
     requirements_file = os.environ.get('REQS_FILE', "requirements.txt")
 
     xformers_package = os.environ.get('XFORMERS_PACKAGE', f"xformers==0.0.31.post1 --extra-index-url {torch_index_url}")
@@ -457,6 +459,9 @@ def prepare_environment():
     if not os.path.isfile(requirements_file):
         requirements_file = os.path.join(script_path, requirements_file)
 
+    if not is_installed("gradio"):
+        run_pip(f"install {gradio_package}", "gradio")
+
     if not requirements_met(requirements_file):
         run_pip(f"install -r \"{requirements_file}\"", "requirements")
         startup_timer.record("install requirements")
@@ -471,6 +476,10 @@ def prepare_environment():
     if args.update_all_extensions:
         git_pull_recursive(extensions_dir)
         startup_timer.record("update extensions")
+
+    if not requirements_met(requirements_file):
+        run_pip(f'install -r "{requirements_file}"', "requirements")
+        startup_timer.record("enforce requirements")
 
     if "--exit" in sys.argv:
         print("Exiting because of --exit argument")
