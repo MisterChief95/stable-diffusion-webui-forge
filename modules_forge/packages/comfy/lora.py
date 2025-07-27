@@ -1,23 +1,22 @@
 """
-    This file is part of ComfyUI.
-    Copyright (C) 2024 Comfy
+This file is part of ComfyUI.
+Copyright (C) 2024 Comfy
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from packages_3rdparty.comfyui_lora_collection import utils
-
+from .utils import flux_to_diffusers, unet_to_diffusers
 
 LORA_CLIP_MAP = {
     "mlp.fc1": "mlp_fc1",
@@ -30,19 +29,26 @@ LORA_CLIP_MAP = {
 
 
 def load_lora(lora, to_load):
-    # BFL loras for Flux; from ComfyUI: comfy/lora_convert.py
+    """
+    BFL LoRAs for Flux
+    Credit: comfy/lora_convert.py
+    """
+
     def convert_lora_bfl_control(sd):
-        import torch
         sd_out = {}
         for k in sd:
-            k_to = "diffusion_model.{}".format(k.replace(".lora_B.bias", ".diff_b").replace("_norm.scale", "_norm.scale.set_weight"))
+            k_to = "diffusion_model.{}".format(
+                k.replace(".lora_B.bias", ".diff_b").replace(
+                    "_norm.scale", "_norm.scale.set_weight"
+                )
+            )
             sd_out[k_to] = sd[k]
-        
+
         return sd_out
 
     if "img_in.lora_A.weight" in lora and "single_blocks.0.norm.key_norm.scale" in lora:
         lora = convert_lora_bfl_control(lora)
-        
+
     patch_dict = {}
     loaded_keys = set()
     for x in to_load:
@@ -83,7 +89,7 @@ def load_lora(lora, to_load):
             mid_name = None
         elif transformers_lora in lora.keys():
             A_name = transformers_lora
-            B_name ="{}.lora_linear_layer.down.weight".format(x)
+            B_name = "{}.lora_linear_layer.down.weight".format(x)
             mid_name = None
 
         if A_name is not None:
@@ -91,10 +97,12 @@ def load_lora(lora, to_load):
             if mid_name is not None and mid_name in lora.keys():
                 mid = lora[mid_name]
                 loaded_keys.add(mid_name)
-            patch_dict[to_load[x]] = ("lora", (lora[A_name], lora[B_name], alpha, mid, dora_scale))
+            patch_dict[to_load[x]] = (
+                "lora",
+                (lora[A_name], lora[B_name], alpha, mid, dora_scale),
+            )
             loaded_keys.add(A_name)
             loaded_keys.add(B_name)
-
 
         ######## loha
         hada_w1_a_name = "{}.hada_w1_a".format(x)
@@ -112,12 +120,23 @@ def load_lora(lora, to_load):
                 loaded_keys.add(hada_t1_name)
                 loaded_keys.add(hada_t2_name)
 
-            patch_dict[to_load[x]] = ("loha", (lora[hada_w1_a_name], lora[hada_w1_b_name], alpha, lora[hada_w2_a_name], lora[hada_w2_b_name], hada_t1, hada_t2, dora_scale))
+            patch_dict[to_load[x]] = (
+                "loha",
+                (
+                    lora[hada_w1_a_name],
+                    lora[hada_w1_b_name],
+                    alpha,
+                    lora[hada_w2_a_name],
+                    lora[hada_w2_b_name],
+                    hada_t1,
+                    hada_t2,
+                    dora_scale,
+                ),
+            )
             loaded_keys.add(hada_w1_a_name)
             loaded_keys.add(hada_w1_b_name)
             loaded_keys.add(hada_w2_a_name)
             loaded_keys.add(hada_w2_b_name)
-
 
         ######## lokr
         lokr_w1_name = "{}.lokr_w1".format(x)
@@ -163,16 +182,44 @@ def load_lora(lora, to_load):
             lokr_t2 = lora[lokr_t2_name]
             loaded_keys.add(lokr_t2_name)
 
-        if (lokr_w1 is not None) or (lokr_w2 is not None) or (lokr_w1_a is not None) or (lokr_w2_a is not None):
-            patch_dict[to_load[x]] = ("lokr", (lokr_w1, lokr_w2, alpha, lokr_w1_a, lokr_w1_b, lokr_w2_a, lokr_w2_b, lokr_t2, dora_scale))
+        if (
+            (lokr_w1 is not None)
+            or (lokr_w2 is not None)
+            or (lokr_w1_a is not None)
+            or (lokr_w2_a is not None)
+        ):
+            patch_dict[to_load[x]] = (
+                "lokr",
+                (
+                    lokr_w1,
+                    lokr_w2,
+                    alpha,
+                    lokr_w1_a,
+                    lokr_w1_b,
+                    lokr_w2_a,
+                    lokr_w2_b,
+                    lokr_t2,
+                    dora_scale,
+                ),
+            )
 
-        #glora
+        # glora
         a1_name = "{}.a1.weight".format(x)
         a2_name = "{}.a2.weight".format(x)
         b1_name = "{}.b1.weight".format(x)
         b2_name = "{}.b2.weight".format(x)
         if a1_name in lora:
-            patch_dict[to_load[x]] = ("glora", (lora[a1_name], lora[a2_name], lora[b1_name], lora[b2_name], alpha, dora_scale))
+            patch_dict[to_load[x]] = (
+                "glora",
+                (
+                    lora[a1_name],
+                    lora[a2_name],
+                    lora[b1_name],
+                    lora[b2_name],
+                    alpha,
+                    dora_scale,
+                ),
+            )
             loaded_keys.add(a1_name)
             loaded_keys.add(a2_name)
             loaded_keys.add(b1_name)
@@ -188,7 +235,10 @@ def load_lora(lora, to_load):
             patch_dict[to_load[x]] = ("diff", (w_norm,))
             if b_norm is not None:
                 loaded_keys.add(b_norm_name)
-                patch_dict["{}.bias".format(to_load[x][:-len(".weight")])] = ("diff", (b_norm,))
+                patch_dict["{}.bias".format(to_load[x][: -len(".weight")])] = (
+                    "diff",
+                    (b_norm,),
+                )
 
         diff_name = "{}.diff".format(x)
         diff_weight = lora.get(diff_name, None)
@@ -199,7 +249,10 @@ def load_lora(lora, to_load):
         diff_bias_name = "{}.diff_b".format(x)
         diff_bias = lora.get(diff_bias_name, None)
         if diff_bias is not None:
-            patch_dict["{}.bias".format(to_load[x][:-len(".weight")])] = ("diff", (diff_bias,))
+            patch_dict["{}.bias".format(to_load[x][: -len(".weight")])] = (
+                "diff",
+                (diff_bias,),
+            )
             loaded_keys.add(diff_bias_name)
 
         set_weight_name = "{}.set_weight".format(x)
@@ -217,68 +270,80 @@ def model_lora_keys_clip(model, key_map={}):
 
     text_model_lora_key = "lora_te_text_model_encoder_layers_{}_{}"
     clip_l_present = False
-    for b in range(32): #TODO: clean up
+    for b in range(32):  # TODO: clean up
         for c in LORA_CLIP_MAP:
             k = "clip_h.transformer.text_model.encoder.layers.{}.{}.weight".format(b, c)
             if k in sdk:
                 lora_key = text_model_lora_key.format(b, LORA_CLIP_MAP[c])
                 key_map[lora_key] = k
-                lora_key = "lora_te1_text_model_encoder_layers_{}_{}".format(b, LORA_CLIP_MAP[c])
+                lora_key = "lora_te1_text_model_encoder_layers_{}_{}".format(
+                    b, LORA_CLIP_MAP[c]
+                )
                 key_map[lora_key] = k
-                lora_key = "text_encoder.text_model.encoder.layers.{}.{}".format(b, c) #diffusers lora
+                lora_key = "text_encoder.text_model.encoder.layers.{}.{}".format(
+                    b, c
+                )  # diffusers lora
                 key_map[lora_key] = k
 
             k = "clip_l.transformer.text_model.encoder.layers.{}.{}.weight".format(b, c)
             if k in sdk:
                 lora_key = text_model_lora_key.format(b, LORA_CLIP_MAP[c])
                 key_map[lora_key] = k
-                lora_key = "lora_te1_text_model_encoder_layers_{}_{}".format(b, LORA_CLIP_MAP[c]) #SDXL base
+                lora_key = "lora_te1_text_model_encoder_layers_{}_{}".format(
+                    b, LORA_CLIP_MAP[c]
+                )  # SDXL base
                 key_map[lora_key] = k
                 clip_l_present = True
-                lora_key = "text_encoder.text_model.encoder.layers.{}.{}".format(b, c) #diffusers lora
+                lora_key = "text_encoder.text_model.encoder.layers.{}.{}".format(
+                    b, c
+                )  # diffusers lora
                 key_map[lora_key] = k
 
             k = "clip_g.transformer.text_model.encoder.layers.{}.{}.weight".format(b, c)
             if k in sdk:
                 if clip_l_present:
-                    lora_key = "lora_te2_text_model_encoder_layers_{}_{}".format(b, LORA_CLIP_MAP[c]) #SDXL base
+                    lora_key = "lora_te2_text_model_encoder_layers_{}_{}".format(
+                        b, LORA_CLIP_MAP[c]
+                    )  # SDXL base
                     key_map[lora_key] = k
-                    lora_key = "text_encoder_2.text_model.encoder.layers.{}.{}".format(b, c) #diffusers lora
+                    lora_key = "text_encoder_2.text_model.encoder.layers.{}.{}".format(
+                        b, c
+                    )  # diffusers lora
                     key_map[lora_key] = k
                 else:
-                    lora_key = "lora_te_text_model_encoder_layers_{}_{}".format(b, LORA_CLIP_MAP[c]) #TODO: test if this is correct for SDXL-Refiner
+                    lora_key = "lora_te_text_model_encoder_layers_{}_{}".format(
+                        b, LORA_CLIP_MAP[c]
+                    )  # TODO: test if this is correct for SDXL-Refiner
                     key_map[lora_key] = k
-                    lora_key = "text_encoder.text_model.encoder.layers.{}.{}".format(b, c) #diffusers lora
+                    lora_key = "text_encoder.text_model.encoder.layers.{}.{}".format(
+                        b, c
+                    )  # diffusers lora
                     key_map[lora_key] = k
-                    lora_key = "lora_prior_te_text_model_encoder_layers_{}_{}".format(b, LORA_CLIP_MAP[c]) #cascade lora: TODO put lora key prefix in the model config
+                    lora_key = "lora_prior_te_text_model_encoder_layers_{}_{}".format(
+                        b, LORA_CLIP_MAP[c]
+                    )  # cascade lora: TODO put lora key prefix in the model config
                     key_map[lora_key] = k
 
     for k in sdk:
         if k.endswith(".weight"):
-            if k.startswith("t5xxl.transformer."):#OneTrainer SD3 lora
-                l_key = k[len("t5xxl.transformer."):-len(".weight")]
+            if k.startswith("t5xxl.transformer."):  # OneTrainer SD3 lora
+                l_key = k[len("t5xxl.transformer.") : -len(".weight")]
                 lora_key = "lora_te3_{}".format(l_key.replace(".", "_"))
                 key_map[lora_key] = k
-    
-                #####
-                lora_key = "lora_te2_{}".format(l_key.replace(".", "_"))#OneTrainer Flux lora, by Forge
+
+                lora_key = "lora_te2_{}".format(
+                    l_key.replace(".", "_")
+                )  # OneTrainer Flux lora, by Forge
                 key_map[lora_key] = k
-                #####
-    #         elif k.startswith("hydit_clip.transformer.bert."): #HunyuanDiT Lora
-    #             l_key = k[len("hydit_clip.transformer.bert."):-len(".weight")]
-    #             lora_key = "lora_te1_{}".format(l_key.replace(".", "_"))
-    #             key_map[lora_key] = k
-    
-    
+
     k = "clip_g.transformer.text_projection.weight"
     if k in sdk:
-    #    key_map["lora_prior_te_text_projection"] = k #cascade lora?
-        key_map["text_encoder.text_projection"] = k #TODO: check if other lora have the text_projection too
-        key_map["lora_te2_text_projection"] = k #OneTrainer SD3 lora
-    
+        key_map["text_encoder.text_projection"] = k
+        key_map["lora_te2_text_projection"] = k  # OneTrainer SD3 lora
+
     k = "clip_l.transformer.text_projection.weight"
     if k in sdk:
-        key_map["lora_te1_text_projection"] = k #OneTrainer SD3 lora, not necessary but omits warning
+        key_map["lora_te1_text_projection"] = k
 
     return sdk, key_map
 
@@ -290,62 +355,48 @@ def model_lora_keys_unet(model, key_map={}):
     for k in sdk:
         if k.startswith("diffusion_model."):
             if k.endswith(".weight"):
-                key_lora = k[len("diffusion_model."):-len(".weight")].replace(".", "_")
+                key_lora = k[len("diffusion_model.") : -len(".weight")].replace(
+                    ".", "_"
+                )
                 key_map["lora_unet_{}".format(key_lora)] = k
-                key_map["{}".format(k[:-len(".weight")])] = k #generic lora format without any weird key names
+                key_map["{}".format(k[: -len(".weight")])] = k
             else:
-                key_map["{}".format(k)] = k #generic lora format for not .weight without any weird key names
+                key_map["{}".format(k)] = k
 
-    diffusers_keys = utils.unet_to_diffusers(model.diffusion_model.config)
+    diffusers_keys = unet_to_diffusers(model.diffusion_model.config)
     for k in diffusers_keys:
         if k.endswith(".weight"):
             unet_key = "diffusion_model.{}".format(diffusers_keys[k])
-            key_lora = k[:-len(".weight")].replace(".", "_")
+            key_lora = k[: -len(".weight")].replace(".", "_")
             key_map["lora_unet_{}".format(key_lora)] = unet_key
-            key_map["lycoris_{}".format(key_lora)] = unet_key #simpletuner lycoris format
-            
+            key_map["lycoris_{}".format(key_lora)] = (
+                unet_key  # simpletuner lycoris format
+            )
+
             diffusers_lora_prefix = ["", "unet."]
             for p in diffusers_lora_prefix:
-                diffusers_lora_key = "{}{}".format(p, k[:-len(".weight")].replace(".to_", ".processor.to_"))
+                diffusers_lora_key = "{}{}".format(
+                    p, k[: -len(".weight")].replace(".to_", ".processor.to_")
+                )
                 if diffusers_lora_key.endswith(".to_out.0"):
                     diffusers_lora_key = diffusers_lora_key[:-2]
                 key_map[diffusers_lora_key] = unet_key
 
-    # if 'stable-diffusion-3' in model.config.huggingface_repo.lower(): #Diffusers lora SD3
-        # diffusers_keys = utils.mmdit_to_diffusers(model.diffusion_model.config, output_prefix="diffusion_model.")
-        # for k in diffusers_keys:
-            # if k.endswith(".weight"):
-                # to = diffusers_keys[k]
-                # key_lora = "transformer.{}".format(k[:-len(".weight")]) #regular diffusers sd3 lora format
-                # key_map[key_lora] = to
-    
-                # key_lora = "base_model.model.{}".format(k[:-len(".weight")]) #format for flash-sd3 lora and others?
-                # key_map[key_lora] = to
-    
-                # key_lora = "lora_transformer_{}".format(k[:-len(".weight")].replace(".", "_")) #OneTrainer lora
-                # key_map[key_lora] = to
-    #
-    # if isinstance(model, comfy.model_base.AuraFlow): #Diffusers lora AuraFlow
-    #     diffusers_keys = utils.auraflow_to_diffusers(model.diffusion_model.config, output_prefix="diffusion_model.")
-    #     for k in diffusers_keys:
-    #         if k.endswith(".weight"):
-    #             to = diffusers_keys[k]
-    #             key_lora = "transformer.{}".format(k[:-len(".weight")]) #simpletrainer and probably regular diffusers lora format
-    #             key_map[key_lora] = to
-    #
-    # if isinstance(model, comfy.model_base.HunyuanDiT):
-    #     for k in sdk:
-    #         if k.startswith("diffusion_model.") and k.endswith(".weight"):
-    #             key_lora = k[len("diffusion_model."):-len(".weight")]
-    #             key_map["base_model.model.{}".format(key_lora)] = k #official hunyuan lora format
-
-    if 'flux' in model.config.huggingface_repo.lower(): #Diffusers lora Flux
-        diffusers_keys = utils.flux_to_diffusers(model.diffusion_model.config, output_prefix="diffusion_model.")
+    if "flux" in model.config.huggingface_repo.lower():  # Diffusers lora Flux
+        diffusers_keys = flux_to_diffusers(
+            model.diffusion_model.config, output_prefix="diffusion_model."
+        )
         for k in diffusers_keys:
             if k.endswith(".weight"):
                 to = diffusers_keys[k]
-                key_map["transformer.{}".format(k[:-len(".weight")])] = to  # simpletrainer and probably regular diffusers flux lora format
-                key_map["lycoris_{}".format(k[:-len(".weight")].replace(".", "_"))] = to  # simpletrainer lycoris
-                key_map["lora_transformer_{}".format(k[:-len(".weight")].replace(".", "_"))] = to  # onetrainer
+                key_map["transformer.{}".format(k[: -len(".weight")])] = (
+                    to  # simpletrainer and probably regular diffusers flux lora format
+                )
+                key_map["lycoris_{}".format(k[: -len(".weight")].replace(".", "_"))] = (
+                    to  # simpletrainer lycoris
+                )
+                key_map[
+                    "lora_transformer_{}".format(k[: -len(".weight")].replace(".", "_"))
+                ] = to  # onetrainer
 
     return sdk, key_map
