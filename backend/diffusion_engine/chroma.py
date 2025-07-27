@@ -11,6 +11,8 @@ from backend.modules.k_prediction import PredictionFlux
 from backend import memory_management
 
 class Chroma(ForgeDiffusionEngine):
+    matched_guesses = [model_list.Chroma]
+
     def __init__(self, estimated_config, huggingface_components):
         super().__init__(estimated_config, huggingface_components)
         self.is_inpaint = False

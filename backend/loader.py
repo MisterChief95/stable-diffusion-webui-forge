@@ -482,18 +482,7 @@ def split_state_dict(sd, additional_state_dicts: list = None):
 
     return state_dict, guess
 
-# To be removed once PR merged on huggingface_guess
-chroma_is_in_huggingface_guess = hasattr(huggingface_guess.model_list, "Chroma")
 
-if not chroma_is_in_huggingface_guess:
-    class GuessChroma:
-        huggingface_repo = 'Chroma'
-        unet_extra_config = {
-            'guidance_out_dim': 3072,
-            'guidance_hidden_dim': 5120,
-            'guidance_n_layers': 5
-        }
-        unet_remove_config = ['guidance_embed']
 @torch.inference_mode()
 def forge_loader(sd, additional_state_dicts=None):
     try:
@@ -501,17 +490,6 @@ def forge_loader(sd, additional_state_dicts=None):
     except:
         raise ValueError('Failed to recognize model type!')
     
-    if not chroma_is_in_huggingface_guess \
-        and estimated_config.huggingface_repo == "black-forest-labs/FLUX.1-schnell"  \
-        and "transformer" in state_dicts \
-        and "distilled_guidance_layer.layers.0.in_layer.bias" in state_dicts["transformer"]:
-        estimated_config.huggingface_repo = GuessChroma.huggingface_repo
-        for x in GuessChroma.unet_extra_config:
-            estimated_config.unet_config[x] = GuessChroma.unet_extra_config[x]
-        for x in GuessChroma.unet_remove_config:
-            del estimated_config.unet_config[x]
-        state_dicts['text_encoder'] = state_dicts['text_encoder_2']
-        del state_dicts['text_encoder_2'] 
     repo_name = estimated_config.huggingface_repo
 
     local_path = os.path.join(dir_path, 'huggingface', repo_name)
@@ -566,8 +544,6 @@ def forge_loader(sd, additional_state_dicts=None):
         else:
             huggingface_components['scheduler'].config.prediction_type = prediction_types.get(estimated_config.model_type.name, huggingface_components['scheduler'].config.prediction_type)
 
-    if not chroma_is_in_huggingface_guess and estimated_config.huggingface_repo == "Chroma":
-        return Chroma(estimated_config=estimated_config, huggingface_components=huggingface_components)
     for M in possible_models:
         if any(isinstance(estimated_config, x) for x in M.matched_guesses):
             return M(estimated_config=estimated_config, huggingface_components=huggingface_components)

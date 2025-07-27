@@ -33,7 +33,7 @@ def initialize_forge():
 
     INITIALIZED = True
 
-    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'packages_3rdparty'))
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'modules_forge', 'packages'))
 
     bad_list = ['--lowvram', '--medvram', '--medvram-sdxl']
 

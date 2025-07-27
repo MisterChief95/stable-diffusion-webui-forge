@@ -1,13 +1,12 @@
 import torch
 
-import packages_3rdparty.webui_lora_collection.lora as lora_utils_webui
-import packages_3rdparty.comfyui_lora_collection.lora as lora_utils_comfyui
+import comfy.lora as lora_utils_comfyui
 
 from backend import memory_management, utils
 
 
 extra_weight_calculators = {}
-lora_collection_priority = [lora_utils_webui, lora_utils_comfyui]
+lora_collection_priority = [lora_utils_comfyui]
 
 
 def get_function(function_name: str):
