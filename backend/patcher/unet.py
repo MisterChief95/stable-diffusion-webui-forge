@@ -1,4 +1,5 @@
 import copy
+
 import torch
 
 from backend.modules.k_model import KModel
@@ -9,12 +10,7 @@ class UnetPatcher(ModelPatcher):
     @classmethod
     def from_model(cls, model, diffusers_scheduler, config, k_predictor=None):
         model = KModel(model=model, diffusers_scheduler=diffusers_scheduler, k_predictor=k_predictor, config=config)
-        return UnetPatcher(
-            model,
-            load_device=model.diffusion_model.load_device,
-            offload_device=model.diffusion_model.offload_device,
-            current_device=model.diffusion_model.initial_device
-        )
+        return UnetPatcher(model, load_device=model.diffusion_model.load_device, offload_device=model.diffusion_model.offload_device, current_device=model.diffusion_model.initial_device)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -89,10 +85,10 @@ class UnetPatcher(ModelPatcher):
         return
 
     def append_transformer_option(self, k, v, ensure_uniqueness=False):
-        if 'transformer_options' not in self.model_options:
-            self.model_options['transformer_options'] = {}
+        if "transformer_options" not in self.model_options:
+            self.model_options["transformer_options"] = {}
 
-        to = self.model_options['transformer_options']
+        to = self.model_options["transformer_options"]
 
         if k not in to:
             to[k] = []
@@ -104,22 +100,22 @@ class UnetPatcher(ModelPatcher):
         return
 
     def set_transformer_option(self, k, v):
-        if 'transformer_options' not in self.model_options:
-            self.model_options['transformer_options'] = {}
+        if "transformer_options" not in self.model_options:
+            self.model_options["transformer_options"] = {}
 
-        self.model_options['transformer_options'][k] = v
+        self.model_options["transformer_options"][k] = v
         return
 
     def add_conditioning_modifier(self, modifier, ensure_uniqueness=False):
-        self.append_model_option('conditioning_modifiers', modifier, ensure_uniqueness)
+        self.append_model_option("conditioning_modifiers", modifier, ensure_uniqueness)
         return
 
     def add_sampler_pre_cfg_function(self, modifier, ensure_uniqueness=False):
-        self.append_model_option('sampler_pre_cfg_function', modifier, ensure_uniqueness)
+        self.append_model_option("sampler_pre_cfg_function", modifier, ensure_uniqueness)
         return
 
     def set_memory_peak_estimation_modifier(self, modifier):
-        self.model_options['memory_peak_estimation_modifier'] = modifier
+        self.model_options["memory_peak_estimation_modifier"] = modifier
         return
 
     def add_alphas_cumprod_modifier(self, modifier, ensure_uniqueness=False):
@@ -147,31 +143,31 @@ class UnetPatcher(ModelPatcher):
 
         """
 
-        self.append_model_option('alphas_cumprod_modifiers', modifier, ensure_uniqueness)
+        self.append_model_option("alphas_cumprod_modifiers", modifier, ensure_uniqueness)
         return
 
     def add_block_modifier(self, modifier, ensure_uniqueness=False):
-        self.append_transformer_option('block_modifiers', modifier, ensure_uniqueness)
+        self.append_transformer_option("block_modifiers", modifier, ensure_uniqueness)
         return
 
     def add_block_inner_modifier(self, modifier, ensure_uniqueness=False):
-        self.append_transformer_option('block_inner_modifiers', modifier, ensure_uniqueness)
+        self.append_transformer_option("block_inner_modifiers", modifier, ensure_uniqueness)
         return
 
     def add_controlnet_conditioning_modifier(self, modifier, ensure_uniqueness=False):
-        self.append_transformer_option('controlnet_conditioning_modifiers', modifier, ensure_uniqueness)
+        self.append_transformer_option("controlnet_conditioning_modifiers", modifier, ensure_uniqueness)
         return
 
     def set_group_norm_wrapper(self, wrapper):
-        self.set_transformer_option('group_norm_wrapper', wrapper)
+        self.set_transformer_option("group_norm_wrapper", wrapper)
         return
 
     def set_controlnet_model_function_wrapper(self, wrapper):
-        self.set_transformer_option('controlnet_model_function_wrapper', wrapper)
+        self.set_transformer_option("controlnet_model_function_wrapper", wrapper)
         return
 
     def set_model_replace_all(self, patch, target="attn1"):
-        for block_name in ['input', 'middle', 'output']:
+        for block_name in ["input", "middle", "output"]:
             for number in range(16):
                 for transformer_index in range(16):
                     self.set_model_patch_replace(patch, target, block_name, number, transformer_index)
@@ -180,7 +176,7 @@ class UnetPatcher(ModelPatcher):
     def load_frozen_patcher(self, filename, state_dict, strength):
         patch_dict = {}
         for k, w in state_dict.items():
-            model_key, patch_type, weight_index = k.split('::')
+            model_key, patch_type, weight_index = k.split("::")
             if model_key not in patch_dict:
                 patch_dict[model_key] = {}
             if patch_type not in patch_dict[model_key]:

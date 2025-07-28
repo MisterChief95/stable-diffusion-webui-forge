@@ -1,8 +1,9 @@
-import torch
-import math
 import itertools
+import math
 
+import torch
 from tqdm import trange
+
 from backend import memory_management
 from backend.patcher.base import ModelPatcher
 
@@ -13,7 +14,7 @@ def tiled_scale_multidim(samples, function, tile=(64, 64), overlap=8, upscale_am
     output = torch.empty([samples.shape[0], out_channels] + list(map(lambda a: round(a * upscale_amount), samples.shape[2:])), device=output_device)
 
     for b in trange(samples.shape[0]):
-        s = samples[b:b + 1]
+        s = samples[b : b + 1]
         out = torch.zeros([s.shape[0], out_channels] + list(map(lambda a: round(a * upscale_amount), s.shape[2:])), device=output_device)
         out_div = torch.zeros([s.shape[0], out_channels] + list(map(lambda a: round(a * upscale_amount), s.shape[2:])), device=output_device)
 
@@ -32,9 +33,9 @@ def tiled_scale_multidim(samples, function, tile=(64, 64), overlap=8, upscale_am
             for t in range(feather):
                 for d in range(2, dims + 2):
                     m = mask.narrow(d, t, 1)
-                    m *= ((1.0 / feather) * (t + 1))
+                    m *= (1.0 / feather) * (t + 1)
                     m = mask.narrow(d, mask.shape[d] - 1 - t, 1)
-                    m *= ((1.0 / feather) * (t + 1))
+                    m *= (1.0 / feather) * (t + 1)
 
             o = out
             o_d = out_div
@@ -45,7 +46,7 @@ def tiled_scale_multidim(samples, function, tile=(64, 64), overlap=8, upscale_am
             o += ps * mask
             o_d += mask
 
-        output[b:b + 1] = out / out_div
+        output[b : b + 1] = out / out_div
     return output
 
 
@@ -82,11 +83,7 @@ class VAE:
         self.first_stage_model.to(self.vae_dtype)
         self.output_device = memory_management.intermediate_device()
 
-        self.patcher = ModelPatcher(
-            self.first_stage_model,
-            load_device=self.device,
-            offload_device=offload_device
-        )
+        self.patcher = ModelPatcher(self.first_stage_model, load_device=self.device, offload_device=offload_device)
 
     def clone(self):
         n = VAE(no_init=True)
@@ -107,10 +104,7 @@ class VAE:
         steps += samples.shape[0] * get_tiled_scale_steps(samples.shape[3], samples.shape[2], tile_x * 2, tile_y // 2, overlap)
 
         decode_fn = lambda a: (self.first_stage_model.decode(a.to(self.vae_dtype).to(self.device)) + 1.0).float()
-        output = torch.clamp(((tiled_scale(samples, decode_fn, tile_x // 2, tile_y * 2, overlap, upscale_amount=self.downscale_ratio, output_device=self.output_device) +
-                               tiled_scale(samples, decode_fn, tile_x * 2, tile_y // 2, overlap, upscale_amount=self.downscale_ratio, output_device=self.output_device) +
-                               tiled_scale(samples, decode_fn, tile_x, tile_y, overlap, upscale_amount=self.downscale_ratio, output_device=self.output_device))
-                              / 3.0) / 2.0, min=0.0, max=1.0)
+        output = torch.clamp(((tiled_scale(samples, decode_fn, tile_x // 2, tile_y * 2, overlap, upscale_amount=self.downscale_ratio, output_device=self.output_device) + tiled_scale(samples, decode_fn, tile_x * 2, tile_y // 2, overlap, upscale_amount=self.downscale_ratio, output_device=self.output_device) + tiled_scale(samples, decode_fn, tile_x, tile_y, overlap, upscale_amount=self.downscale_ratio, output_device=self.output_device)) / 3.0) / 2.0, min=0.0, max=1.0)
         return output
 
     def encode_tiled_(self, pixel_samples, tile_x=512, tile_y=512, overlap=64):
@@ -118,7 +112,7 @@ class VAE:
         steps += pixel_samples.shape[0] * get_tiled_scale_steps(pixel_samples.shape[3], pixel_samples.shape[2], tile_x // 2, tile_y * 2, overlap)
         steps += pixel_samples.shape[0] * get_tiled_scale_steps(pixel_samples.shape[3], pixel_samples.shape[2], tile_x * 2, tile_y // 2, overlap)
 
-        encode_fn = lambda a: self.first_stage_model.encode((2. * a - 1.).to(self.vae_dtype).to(self.device)).float()
+        encode_fn = lambda a: self.first_stage_model.encode((2.0 * a - 1.0).to(self.vae_dtype).to(self.device)).float()
         samples = tiled_scale(pixel_samples, encode_fn, tile_x, tile_y, overlap, upscale_amount=(1 / self.downscale_ratio), out_channels=self.latent_channels, output_device=self.output_device)
         samples += tiled_scale(pixel_samples, encode_fn, tile_x * 2, tile_y // 2, overlap, upscale_amount=(1 / self.downscale_ratio), out_channels=self.latent_channels, output_device=self.output_device)
         samples += tiled_scale(pixel_samples, encode_fn, tile_x // 2, tile_y * 2, overlap, upscale_amount=(1 / self.downscale_ratio), out_channels=self.latent_channels, output_device=self.output_device)
@@ -138,8 +132,8 @@ class VAE:
 
             pixel_samples = torch.empty((samples_in.shape[0], 3, round(samples_in.shape[2] * self.downscale_ratio), round(samples_in.shape[3] * self.downscale_ratio)), device=self.output_device)
             for x in range(0, samples_in.shape[0], batch_number):
-                samples = samples_in[x:x + batch_number].to(self.vae_dtype).to(self.device)
-                pixel_samples[x:x + batch_number] = torch.clamp((self.first_stage_model.decode(samples).to(self.output_device).float() + 1.0) / 2.0, min=0.0, max=1.0)
+                samples = samples_in[x : x + batch_number].to(self.vae_dtype).to(self.device)
+                pixel_samples[x : x + batch_number] = torch.clamp((self.first_stage_model.decode(samples).to(self.output_device).float() + 1.0) / 2.0, min=0.0, max=1.0)
         except memory_management.OOM_EXCEPTION as e:
             print("Warning: Ran out of memory when regular VAE decoding, retrying with tiled VAE decoding.")
             pixel_samples = self.decode_tiled_(samples_in)
@@ -148,7 +142,7 @@ class VAE:
         return pixel_samples
 
     def decode(self, samples_in):
-        wrapper = self.patcher.model_options.get('model_vae_decode_wrapper', None)
+        wrapper = self.patcher.model_options.get("model_vae_decode_wrapper", None)
         if wrapper is None:
             return self.decode_inner(samples_in)
         else:
@@ -174,8 +168,8 @@ class VAE:
             batch_number = max(1, batch_number)
             samples = torch.empty((pixel_samples.shape[0], self.latent_channels, round(pixel_samples.shape[2] // self.downscale_ratio), round(pixel_samples.shape[3] // self.downscale_ratio)), device=self.output_device)
             for x in range(0, pixel_samples.shape[0], batch_number):
-                pixels_in = (2. * pixel_samples[x:x + batch_number] - 1.).to(self.vae_dtype).to(self.device)
-                samples[x:x + batch_number] = self.first_stage_model.encode(pixels_in, regulation).to(self.output_device).float()
+                pixels_in = (2.0 * pixel_samples[x : x + batch_number] - 1.0).to(self.vae_dtype).to(self.device)
+                samples[x : x + batch_number] = self.first_stage_model.encode(pixels_in, regulation).to(self.output_device).float()
 
         except memory_management.OOM_EXCEPTION as e:
             print("Warning: Ran out of memory when regular VAE encoding, retrying with tiled VAE encoding.")
@@ -184,7 +178,7 @@ class VAE:
         return samples
 
     def encode(self, pixel_samples):
-        wrapper = self.patcher.model_options.get('model_vae_encode_wrapper', None)
+        wrapper = self.patcher.model_options.get("model_vae_encode_wrapper", None)
         if wrapper is None:
             return self.encode_inner(pixel_samples)
         else:

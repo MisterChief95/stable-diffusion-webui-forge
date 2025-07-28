@@ -1,6 +1,6 @@
 from backend import memory_management
-from backend.patcher.base import ModelPatcher
 from backend.nn.base import ModuleDict, ObjectDict
+from backend.patcher.base import ModelPatcher
 
 
 class JointTextEncoder(ModuleDict):

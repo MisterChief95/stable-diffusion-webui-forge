@@ -60,7 +60,7 @@ class ModelPatcher:
         self.load_device = load_device
         self.offload_device = offload_device
 
-        if not hasattr(model, 'lora_loader'):
+        if not hasattr(model, "lora_loader"):
             model.lora_loader = LoraLoader(model)
 
         self.lora_loader: LoraLoader = model.lora_loader
@@ -84,7 +84,7 @@ class ModelPatcher:
         return n
 
     def is_clone(self, other):
-        if hasattr(other, 'model') and self.model is other.model:
+        if hasattr(other, "model") and self.model is other.model:
             return True
         return False
 
