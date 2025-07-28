@@ -1,8 +1,8 @@
-import math
+from modules import errors, scripts, shared, ui_components, ui_settings, infotext_utils
+from modules.ui_components import FormColumn
 
 import gradio as gr
-from modules import scripts, shared, ui_components, ui_settings, infotext_utils, errors
-from modules.ui_components import FormColumn
+import math
 
 
 class ExtraOptionsSection(scripts.Script):
@@ -25,7 +25,7 @@ class ExtraOptionsSection(scripts.Script):
         extra_options = shared.opts.extra_options_img2img if is_img2img else shared.opts.extra_options_txt2img
         elem_id_tabname = "extra_options_" + ("img2img" if is_img2img else "txt2img")
 
-        not_allowed = ['sd_model_checkpoint', 'sd_vae', 'CLIP_stop_at_last_layers', 'forge_additional_modules']
+        not_allowed = ("sd_model_checkpoint", "sd_vae", "CLIP_stop_at_last_layers", "forge_additional_modules")
         for na in not_allowed:
             if na in extra_options:
                 extra_options.remove(na)
@@ -74,14 +74,38 @@ class ExtraOptionsSection(scripts.Script):
                 p.override_settings[name] = value
 
 
-shared.options_templates.update(shared.options_section(('settings_in_ui', "Settings in UI", "ui"), {
-    "settings_in_ui": shared.OptionHTML("""
-This page allows you to add some settings to the main interface of txt2img and img2img tabs.
-"""),
-    "extra_options_txt2img": shared.OptionInfo([], "Settings for txt2img", ui_components.DropdownMulti, lambda: {"choices": list(shared.opts.data_labels.keys())}).js("info", "settingsHintsShowQuicksettings").info("setting entries that also appear in txt2img interfaces").needs_reload_ui(),
-    "extra_options_img2img": shared.OptionInfo([], "Settings for img2img", ui_components.DropdownMulti, lambda: {"choices": list(shared.opts.data_labels.keys())}).js("info", "settingsHintsShowQuicksettings").info("setting entries that also appear in img2img interfaces").needs_reload_ui(),
-    "extra_options_cols": shared.OptionInfo(1, "Number of columns for added settings", gr.Slider, {"step": 1, "minimum": 1, "maximum": 20}).info("displayed amount will depend on the actual browser window width").needs_reload_ui(),
-    "extra_options_accordion": shared.OptionInfo(False, "Place added settings into an accordion").needs_reload_ui()
-}))
-
-
+shared.options_templates.update(
+    shared.options_section(
+        ("settings_in_ui", "Settings in UI", "ui"),
+        {
+            "settings_in_ui": shared.OptionHTML("This page allows you to add some settings to the main interface of txt2img and img2img tabs."),
+            "extra_options_txt2img": shared.OptionInfo(
+                [],
+                "Settings for txt2img",
+                ui_components.DropdownMulti,
+                lambda: {"choices": list(shared.opts.data_labels.keys())},
+            )
+            .js("info", "settingsHintsShowQuicksettings")
+            .info("setting entries that also appear in txt2img interfaces")
+            .needs_reload_ui(),
+            "extra_options_img2img": shared.OptionInfo(
+                [],
+                "Settings for img2img",
+                ui_components.DropdownMulti,
+                lambda: {"choices": list(shared.opts.data_labels.keys())},
+            )
+            .js("info", "settingsHintsShowQuicksettings")
+            .info("setting entries that also appear in img2img interfaces")
+            .needs_reload_ui(),
+            "extra_options_cols": shared.OptionInfo(
+                1,
+                "Number of columns for added settings",
+                gr.Slider,
+                {"step": 1, "minimum": 1, "maximum": 20},
+            )
+            .info("displayed amount will depend on the actual browser window width")
+            .needs_reload_ui(),
+            "extra_options_accordion": shared.OptionInfo(False, "Place added settings into an accordion").needs_reload_ui(),
+        },
+    )
+)
