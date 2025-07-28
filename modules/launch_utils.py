@@ -374,13 +374,14 @@ def configure_forge_reference_checkout(a1111_home: Path):
         relative_path: str
 
     refs = [
-        ModelRef(arg_name="--ckpt-dir", relative_path="models/Stable-diffusion"),
-        ModelRef(arg_name="--vae-dir", relative_path="models/VAE"),
         ModelRef(arg_name="--embeddings-dir", relative_path="embeddings"),
-        ModelRef(arg_name="--lora-dir", relative_path="models/lora"),
-        # Ref A1111 need to have sd-webui-controlnet installed.
+        ModelRef(arg_name="--esrgan-models-path", relative_path="models/ESRGAN"),
+        ModelRef(arg_name="--lora-dir", relative_path="models/Lora"),
+        ModelRef(arg_name="--ckpt-dir", relative_path="models/Stable-diffusion"),
+        ModelRef(arg_name="--text-encoder-dir", relative_path="models/text_encoder"),
+        ModelRef(arg_name="--vae-dir", relative_path="models/VAE"),
         ModelRef(arg_name="--controlnet-dir", relative_path="models/ControlNet"),
-        ModelRef(arg_name="--controlnet-preprocessor-models-dir", relative_path="extensions/sd-webui-controlnet/annotator/downloads"),
+        ModelRef(arg_name="--controlnet-preprocessor-models-dir", relative_path="models/ControlNetPreprocessor"),
     ]
 
     for ref in refs:
