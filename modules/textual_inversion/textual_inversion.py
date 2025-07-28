@@ -14,8 +14,6 @@ from PIL import Image, PngImagePlugin
 
 from modules import shared, devices, sd_hijack, sd_models, images, sd_samplers, errors, hashes
 
-from modules.textual_inversion.image_embedding import embedding_to_b64, embedding_from_b64, insert_image_data_embed, extract_image_data_embed, caption_image_overlay
-
 
 TextualInversionTemplate = namedtuple("TextualInversionTemplate", ["name", "path"])
 textual_inversion_templates = {}
@@ -48,24 +46,8 @@ class Embedding:
         self.hash = None
         self.shorthash = None
 
-    def save(self, filename):
-        embedding_data = {
-            "string_to_token": {"*": 265},
-            "string_to_param": {"*": self.vec},
-            "name": self.name,
-            "step": self.step,
-            "sd_checkpoint": self.sd_checkpoint,
-            "sd_checkpoint_name": self.sd_checkpoint_name,
-        }
-
-        torch.save(embedding_data, filename)
-
-        if shared.opts.save_optimizer_state and self.optimizer_state_dict is not None:
-            optimizer_saved_dict = {
-                'hash': self.checksum(),
-                'optimizer_state_dict': self.optimizer_state_dict,
-            }
-            torch.save(optimizer_saved_dict, f"{filename}.optim")
+    def save(self, *args, **kwargs):
+        raise NotImplementedError()
 
     def checksum(self):
         if self.cached_checksum is not None:
@@ -155,23 +137,7 @@ class EmbeddingDatabase:
         name, ext = os.path.splitext(filename)
         ext = ext.upper()
 
-        if ext in ['.PNG', '.WEBP', '.JXL', '.AVIF']:
-            _, second_ext = os.path.splitext(name)
-            if second_ext.upper() == '.PREVIEW':
-                return
-
-            embed_image = Image.open(path)
-            if hasattr(embed_image, 'text') and 'sd-ti-embedding' in embed_image.text:
-                data = embedding_from_b64(embed_image.text['sd-ti-embedding'])
-                name = data.get('name', name)
-            else:
-                data = extract_image_data_embed(embed_image)
-                if data:
-                    name = data.get('name', name)
-                else:
-                    # if data is None, means this is not an embedding, just a preview image
-                    return
-        elif ext in ['.BIN', '.PT']:
+        if ext in ['.BIN', '.PT']:
             data = torch.load(path, map_location="cpu")
         elif ext in ['.SAFETENSORS']:
             data = safetensors.torch.load_file(path, device="cpu")
@@ -229,13 +195,6 @@ class EmbeddingDatabase:
         sorted_word_embeddings = {e.name: e for e in sorted(self.word_embeddings.values(), key=lambda e: e.name.lower())}
         self.word_embeddings.clear()
         self.word_embeddings.update(sorted_word_embeddings)
-
-        displayed_embeddings = (tuple(self.word_embeddings.keys()), tuple(self.skipped_embeddings.keys()))
-        if shared.opts.textual_inversion_print_at_load and self.previously_displayed_embeddings != displayed_embeddings:
-            self.previously_displayed_embeddings = displayed_embeddings
-            print(f"Textual inversion embeddings loaded({len(self.word_embeddings)}): {', '.join(self.word_embeddings.keys())}")
-            if self.skipped_embeddings:
-                print(f"Textual inversion embeddings skipped({len(self.skipped_embeddings)}): {', '.join(self.skipped_embeddings.keys())}")
 
     def find_embedding_at_position(self, tokens, offset):
         token = tokens[offset]
