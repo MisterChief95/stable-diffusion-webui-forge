@@ -106,7 +106,7 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
             load_state_dict(model, state_dict, log_name=cls_name, ignore_errors=["transformer.encoder.embed_tokens.weight", "logit_scale"])
 
             return model
-        if cls_name in ["UNet2DConditionModel", "FluxTransformer2DModel", "SD3Transformer2DModel", "ChromaTransformer2DModel"]:
+        if cls_name in ["UNet2DConditionModel", "FluxTransformer2DModel", "ChromaTransformer2DModel"]:
             assert isinstance(state_dict, dict) and len(state_dict) > 16, "You do not have model state dict!"
 
             model_loader = None
@@ -120,9 +120,6 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
                 from backend.nn.chroma import IntegratedChromaTransformer2DModel
 
                 model_loader = lambda c: IntegratedChromaTransformer2DModel(**c)
-            # elif cls_name == 'SD3Transformer2DModel':
-            #     from backend.nn.mmditx import MMDiTX
-            #     model_loader = lambda c: MMDiTX(**c)
 
             unet_config = guess.unet_config.copy()
             state_dict_parameters = memory_management.state_dict_parameters(state_dict)
@@ -218,7 +215,6 @@ def replace_state_dict(sd, asd, guess):
 
     ##  identify model type
     flux_test_key = "model.diffusion_model.double_blocks.0.img_attn.norm.key_norm.scale"
-    sd3_test_key = "model.diffusion_model.final_layer.adaLN_modulation.1.bias"
     legacy_test_key = "model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn2.to_k.weight"
 
     model_type = "-"
@@ -234,8 +230,6 @@ def replace_state_dict(sd, asd, guess):
                 model_type = "sdxl"
     elif flux_test_key in sd:
         model_type = "flux"
-    elif sd3_test_key in sd:
-        model_type = "sd3"
 
     ##  prefixes used by various model types for CLIP-L
     prefix_L = {
@@ -245,7 +239,6 @@ def replace_state_dict(sd, asd, guess):
         "xlrf": None,
         "sdxl": "conditioner.embedders.0.transformer.",
         "flux": "text_encoders.clip_l.transformer.",
-        "sd3": "text_encoders.clip_l.transformer.",
     }
     ##  prefixes used by various model types for CLIP-G
     prefix_G = {
@@ -255,7 +248,6 @@ def replace_state_dict(sd, asd, guess):
         "xlrf": "conditioner.embedders.0.model.transformer.",
         "sdxl": "conditioner.embedders.1.model.transformer.",
         "flux": None,
-        "sd3": "text_encoders.clip_g.transformer.",
     }
     ##  prefixes used by various model types for CLIP-H
     prefix_H = {
@@ -265,18 +257,13 @@ def replace_state_dict(sd, asd, guess):
         "xlrf": None,
         "sdxl": None,
         "flux": None,
-        "sd3": None,
     }
 
-    ##  VAE format 0 (extracted from model, could be sd1, sd2, sdxl, sd3).
+    ##  VAE format 0 (extracted from model, could be sd1, sd2, sdxl).
     if "first_stage_model.decoder.conv_in.weight" in asd:
         channels = asd["first_stage_model.decoder.conv_in.weight"].shape[1]
         if model_type == "sd1" or model_type == "sd2" or model_type == "xlrf" or model_type == "sdxl":
             if channels == 4:
-                for k, v in asd.items():
-                    sd[k] = v
-        elif model_type == "sd3":
-            if channels == 16:
                 for k, v in asd.items():
                     sd[k] = v
 
@@ -303,7 +290,7 @@ def replace_state_dict(sd, asd, guess):
             old_prefix = CLIP_G[CLIP_key]
 
             if new_prefix is not None:
-                if "resblocks" not in CLIP_key and model_type != "sd3":  # need to convert
+                if "resblocks" not in CLIP_key:  # need to convert
 
                     def convert_transformers(statedict, prefix_from, prefix_to, number):
                         keys_to_replace = {

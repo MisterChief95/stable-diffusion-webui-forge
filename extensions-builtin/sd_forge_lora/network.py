@@ -11,7 +11,7 @@ class SdVersion(enum.Enum):
     SD1 = 2
     SD2 = 3
     SDXL = 4
-#    SD3 = 5
+    # SD3 = 5
     Flux = 6
 
 class NetworkOnDisk:
@@ -50,7 +50,7 @@ class NetworkOnDisk:
         )
 
         self.sd_version = self.detect_version()
-    
+
     def detect_version(self):
         if str(self.metadata.get('modelspec.implementation', '')) == 'https://github.com/black-forest-labs/flux':
             return SdVersion.Flux
@@ -66,7 +66,7 @@ class NetworkOnDisk:
             return SdVersion.SD1
 
         return SdVersion.Unknown
-    
+
     def set_hash(self, v):
         self.hash = v
         self.shorthash = self.hash[0:12]
