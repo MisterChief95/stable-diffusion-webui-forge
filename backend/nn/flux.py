@@ -4,10 +4,11 @@
 
 
 import math
-import torch
 
-from torch import nn
+import torch
 from einops import rearrange, repeat
+from torch import nn
+
 from backend.attention import attention_function
 from backend.utils import fp16_fix, tensor2parameter
 
@@ -23,7 +24,7 @@ def rope(pos, dim, theta):
         scale = torch.arange(0, dim, 2, dtype=torch.float32, device=pos.device) / dim
     else:
         scale = torch.arange(0, dim, 2, dtype=torch.float64, device=pos.device) / dim
-    omega = 1.0 / (theta ** scale)
+    omega = 1.0 / (theta**scale)
 
     # out = torch.einsum("...n,d->...nd", pos, omega)
     out = pos.unsqueeze(-1) * omega.unsqueeze(0)
@@ -101,12 +102,13 @@ class MLPEmbedder(nn.Module):
         return self.out_layer(x)
 
 
-if hasattr(torch, 'rms_norm'):
+if hasattr(torch, "rms_norm"):
     functional_rms_norm = torch.rms_norm
 else:
+
     def functional_rms_norm(x, normalized_shape, weight, eps):
         if x.dtype in [torch.bfloat16, torch.float32]:
-            n = torch.rsqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + eps) * weight
+            n = torch.rsqrt(torch.mean(x**2, dim=-1, keepdim=True) + eps) * weight
         else:
             n = torch.rsqrt(torch.mean(x.float() ** 2, dim=-1, keepdim=True) + eps).to(x.dtype) * weight
         return x * n
@@ -246,7 +248,7 @@ class DoubleStreamBlock(nn.Module):
 
         attn = attention(q, k, v, pe=pe)
         del pe, q, k, v
-        txt_attn, img_attn = attn[:, :txt.shape[1]], attn[:, txt.shape[1]:]
+        txt_attn, img_attn = attn[:, : txt.shape[1]], attn[:, txt.shape[1] :]
         del attn
 
         img = img + img_mod1_gate * self.img_attn.proj(img_attn)
@@ -270,7 +272,7 @@ class SingleStreamBlock(nn.Module):
         self.hidden_dim = hidden_size
         self.num_heads = num_heads
         head_dim = hidden_size // num_heads
-        self.scale = qk_scale or head_dim ** -0.5
+        self.scale = qk_scale or head_dim**-0.5
         self.mlp_hidden_dim = int(hidden_size * mlp_ratio)
         self.linear1 = nn.Linear(hidden_size, hidden_size * 3 + self.mlp_hidden_dim)
         self.linear2 = nn.Linear(hidden_size + self.mlp_hidden_dim, hidden_size)
@@ -360,12 +362,7 @@ class IntegratedFluxTransformer2DModel(nn.Module):
             ]
         )
 
-        self.single_blocks = nn.ModuleList(
-            [
-                SingleStreamBlock(self.hidden_size, self.num_heads, mlp_ratio=mlp_ratio)
-                for _ in range(depth_single_blocks)
-            ]
-        )
+        self.single_blocks = nn.ModuleList([SingleStreamBlock(self.hidden_size, self.num_heads, mlp_ratio=mlp_ratio) for _ in range(depth_single_blocks)])
 
         self.final_layer = LastLayer(self.hidden_size, 1, self.out_channels)
 
@@ -391,7 +388,7 @@ class IntegratedFluxTransformer2DModel(nn.Module):
         for block in self.single_blocks:
             img = block(img, vec=vec, pe=pe)
         del pe
-        img = img[:, txt.shape[1]:, ...]
+        img = img[:, txt.shape[1] :, ...]
         del txt
         img = self.final_layer(img, vec)
         del vec
@@ -407,8 +404,8 @@ class IntegratedFluxTransformer2DModel(nn.Module):
         x = torch.nn.functional.pad(x, (0, pad_w, 0, pad_h), mode="circular")
         img = rearrange(x, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=patch_size, pw=patch_size)
         del x, pad_h, pad_w
-        h_len = ((h + (patch_size // 2)) // patch_size)
-        w_len = ((w + (patch_size // 2)) // patch_size)
+        h_len = (h + (patch_size // 2)) // patch_size
+        w_len = (w + (patch_size // 2)) // patch_size
         img_ids = torch.zeros((h_len, w_len, 3), device=input_device, dtype=input_dtype)
         img_ids[..., 1] = img_ids[..., 1] + torch.linspace(0, h_len - 1, steps=h_len, device=input_device, dtype=input_dtype)[:, None]
         img_ids[..., 2] = img_ids[..., 2] + torch.linspace(0, w_len - 1, steps=w_len, device=input_device, dtype=input_dtype)[None, :]

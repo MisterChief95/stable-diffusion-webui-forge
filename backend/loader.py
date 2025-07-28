@@ -119,9 +119,9 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
             elif cls_name == 'ChromaTransformer2DModel':
                 from backend.nn.chroma import IntegratedChromaTransformer2DModel
                 model_loader = lambda c: IntegratedChromaTransformer2DModel(**c)
-            elif cls_name == 'SD3Transformer2DModel':
-                from backend.nn.mmditx import MMDiTX
-                model_loader = lambda c: MMDiTX(**c)
+            # elif cls_name == 'SD3Transformer2DModel':
+            #     from backend.nn.mmditx import MMDiTX
+            #     model_loader = lambda c: MMDiTX(**c)
 
             unet_config = guess.unet_config.copy()
             state_dict_parameters = memory_management.state_dict_parameters(state_dict)

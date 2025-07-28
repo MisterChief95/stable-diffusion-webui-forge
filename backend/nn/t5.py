@@ -1,14 +1,14 @@
-import torch
 import math
 
-from backend.attention import attention_pytorch as attention_function
+import torch
 from transformers.activations import NewGELUActivation
 
+from backend.attention import attention_pytorch as attention_function
 
 activations = {
     "gelu_pytorch_tanh": lambda a: torch.nn.functional.gelu(a, approximate="tanh"),
     "relu": torch.nn.functional.relu,
-    "gelu_new":  lambda a: NewGELUActivation()(a),
+    "gelu_new": lambda a: NewGELUActivation()(a),
 }
 
 
@@ -98,14 +98,8 @@ class T5Attention(torch.nn.Module):
         max_exact = num_buckets // 2
         is_small = relative_position < max_exact
 
-        relative_position_if_large = max_exact + (
-                torch.log(relative_position.float() / max_exact)
-                / math.log(max_distance / max_exact)
-                * (num_buckets - max_exact)
-        ).to(torch.long)
-        relative_position_if_large = torch.min(
-            relative_position_if_large, torch.full_like(relative_position_if_large, num_buckets - 1)
-        )
+        relative_position_if_large = max_exact + (torch.log(relative_position.float() / max_exact) / math.log(max_distance / max_exact) * (num_buckets - max_exact)).to(torch.long)
+        relative_position_if_large = torch.min(relative_position_if_large, torch.full_like(relative_position_if_large, num_buckets - 1))
 
         relative_buckets += torch.where(is_small, relative_position, relative_position_if_large)
         return relative_buckets
@@ -170,9 +164,7 @@ class T5Stack(torch.nn.Module):
     def __init__(self, num_layers, model_dim, inner_dim, ff_dim, ff_activation, gated_act, num_heads, relative_attention):
         super().__init__()
 
-        self.block = torch.nn.ModuleList(
-            [T5Block(model_dim, inner_dim, ff_dim, ff_activation, gated_act, num_heads, relative_attention_bias=((not relative_attention) or (i == 0))) for i in range(num_layers)]
-        )
+        self.block = torch.nn.ModuleList([T5Block(model_dim, inner_dim, ff_dim, ff_activation, gated_act, num_heads, relative_attention_bias=((not relative_attention) or (i == 0))) for i in range(num_layers)])
         self.final_layer_norm = T5LayerNorm(model_dim)
 
     def forward(self, x, attention_mask=None):

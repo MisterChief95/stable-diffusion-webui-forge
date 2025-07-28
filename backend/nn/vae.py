@@ -1,8 +1,9 @@
-import torch
 import numpy as np
-from backend.attention import attention_function_single_head_spatial
+import torch
 from diffusers.configuration_utils import ConfigMixin, register_to_config
 from torch import nn
+
+from backend.attention import attention_function_single_head_spatial
 
 
 def nonlinearity(x):
@@ -48,7 +49,7 @@ class Upsample(nn.Module):
             split = 8
             l = out.shape[1] // split
             for i in range(0, out.shape[1], l):
-                out[:, i:i + l] = torch.nn.functional.interpolate(x[:, i:i + l].to(torch.float32), scale_factor=2.0, mode="nearest").to(x.dtype)
+                out[:, i : i + l] = torch.nn.functional.interpolate(x[:, i : i + l].to(torch.float32), scale_factor=2.0, mode="nearest").to(x.dtype)
             del x
             x = out
 
@@ -272,7 +273,7 @@ class Decoder(nn.Module):
 
 
 class IntegratedAutoencoderKL(nn.Module, ConfigMixin):
-    config_name = 'config.json'
+    config_name = "config.json"
 
     @register_to_config
     def __init__(self, in_channels=3, out_channels=3, down_block_types=("DownEncoderBlock2D",), up_block_types=("UpDecoderBlock2D",), block_out_channels=(64,), layers_per_block=1, act_fn="silu", latent_channels=4, norm_num_groups=32, sample_size=32, scaling_factor=0.18215, shift_factor=0.0, latents_mean=None, latents_std=None, force_upcast=True, use_quant_conv=True, use_post_quant_conv=True):

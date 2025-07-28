@@ -2,21 +2,29 @@
 
 from dataclasses import dataclass
 
-import math
 import torch
-
-from torch import nn
 from einops import rearrange, repeat
-from backend.attention import attention_function
-from backend.utils import fp16_fix, tensor2parameter
-from backend.nn.flux import attention, rope, timestep_embedding, EmbedND, MLPEmbedder, RMSNorm, QKNorm, SelfAttention
+from torch import nn
+
+from backend.nn.flux import (
+    EmbedND,
+    MLPEmbedder,
+    QKNorm,
+    RMSNorm,
+    SelfAttention,
+    attention,
+    rope,
+    timestep_embedding,
+)
+from backend.utils import fp16_fix
+
 
 class Approximator(nn.Module):
-    def __init__(self, in_dim: int, out_dim: int, hidden_dim: int, n_layers = 4):
+    def __init__(self, in_dim: int, out_dim: int, hidden_dim: int, n_layers=4):
         super().__init__()
         self.in_proj = nn.Linear(in_dim, hidden_dim, bias=True)
-        self.layers = nn.ModuleList([MLPEmbedder(hidden_dim, hidden_dim) for x in range( n_layers)])
-        self.norms = nn.ModuleList([RMSNorm( hidden_dim) for x in range( n_layers)])
+        self.layers = nn.ModuleList([MLPEmbedder(hidden_dim, hidden_dim) for x in range(n_layers)])
+        self.norms = nn.ModuleList([RMSNorm(hidden_dim) for x in range(n_layers)])
         self.out_proj = nn.Linear(hidden_dim, out_dim)
 
     def forward(self, x):
@@ -26,11 +34,13 @@ class Approximator(nn.Module):
         x = self.out_proj(x)
         return x
 
+
 @dataclass
 class ModulationOut:
     shift: torch.Tensor
     scale: torch.Tensor
     gate: torch.Tensor
+
 
 class DoubleStreamBlock(nn.Module):
     def __init__(self, hidden_size, num_heads, mlp_ratio, qkv_bias=False):
@@ -75,7 +85,7 @@ class DoubleStreamBlock(nn.Module):
         k = torch.cat((txt_k, img_k), dim=2)
         v = torch.cat((txt_v, img_v), dim=2)
         attn = attention(q, k, v, pe=pe)
-        txt_attn, img_attn = attn[:, :txt.shape[1]], attn[:, txt.shape[1]:]
+        txt_attn, img_attn = attn[:, : txt.shape[1]], attn[:, txt.shape[1] :]
         img = img + img_mod1.gate * self.img_attn.proj(img_attn)
         img = img + img_mod2.gate * self.img_mlp((1 + img_mod2.scale) * self.img_norm2(img) + img_mod2.shift)
         txt = txt + txt_mod1.gate * self.txt_attn.proj(txt_attn)
@@ -90,7 +100,7 @@ class SingleStreamBlock(nn.Module):
         self.hidden_dim = hidden_size
         self.num_heads = num_heads
         head_dim = hidden_size // num_heads
-        self.scale = qk_scale or head_dim ** -0.5
+        self.scale = qk_scale or head_dim**-0.5
         self.mlp_hidden_dim = int(hidden_size * mlp_ratio)
         self.linear1 = nn.Linear(hidden_size, hidden_size * 3 + self.mlp_hidden_dim)
         self.linear2 = nn.Linear(hidden_size + self.mlp_hidden_dim, hidden_size)
@@ -169,15 +179,10 @@ class IntegratedChromaTransformer2DModel(nn.Module):
             ]
         )
 
-        self.single_blocks = nn.ModuleList(
-            [
-                SingleStreamBlock(self.hidden_size, self.num_heads, mlp_ratio=mlp_ratio)
-                for _ in range(depth_single_blocks)
-            ]
-        )
+        self.single_blocks = nn.ModuleList([SingleStreamBlock(self.hidden_size, self.num_heads, mlp_ratio=mlp_ratio) for _ in range(depth_single_blocks)])
 
         self.final_layer = LastLayer(self.hidden_size, 1, self.out_channels)
-        
+
     @staticmethod
     def distribute_modulations(tensor, single_block_count: int = 38, double_blocks_count: int = 19):
         """
@@ -202,57 +207,41 @@ class IntegratedChromaTransformer2DModel(nn.Module):
         for key in block_dict.keys():
             if "single_blocks" in key:
                 # Single block: 1 ModulationOut
-                block_dict[key] = ModulationOut(
-                    shift=tensor[:, idx:idx+1, :],
-                    scale=tensor[:, idx+1:idx+2, :],
-                    gate=tensor[:, idx+2:idx+3, :]
-                )
+                block_dict[key] = ModulationOut(shift=tensor[:, idx : idx + 1, :], scale=tensor[:, idx + 1 : idx + 2, :], gate=tensor[:, idx + 2 : idx + 3, :])
                 idx += 3  # Advance by 3 vectors
             elif "img_mod" in key:
                 # Double block: List of 2 ModulationOut
                 double_block = []
                 for _ in range(2):  # Create 2 ModulationOut objects
-                    double_block.append(
-                        ModulationOut(
-                            shift=tensor[:, idx:idx+1, :],
-                            scale=tensor[:, idx+1:idx+2, :],
-                            gate=tensor[:, idx+2:idx+3, :]
-                        )
-                    )
+                    double_block.append(ModulationOut(shift=tensor[:, idx : idx + 1, :], scale=tensor[:, idx + 1 : idx + 2, :], gate=tensor[:, idx + 2 : idx + 3, :]))
                     idx += 3  # Advance by 3 vectors per ModulationOut
                 block_dict[key] = double_block
             elif "txt_mod" in key:
                 # Double block: List of 2 ModulationOut
                 double_block = []
                 for _ in range(2):  # Create 2 ModulationOut objects
-                    double_block.append(
-                        ModulationOut(
-                            shift=tensor[:, idx:idx+1, :],
-                            scale=tensor[:, idx+1:idx+2, :],
-                            gate=tensor[:, idx+2:idx+3, :]
-                        )
-                    )
+                    double_block.append(ModulationOut(shift=tensor[:, idx : idx + 1, :], scale=tensor[:, idx + 1 : idx + 2, :], gate=tensor[:, idx + 2 : idx + 3, :]))
                     idx += 3  # Advance by 3 vectors per ModulationOut
                 block_dict[key] = double_block
             elif "final_layer" in key:
                 # Final layer: 1 ModulationOut
                 block_dict[key] = [
-                    tensor[:, idx:idx+1, :],
-                    tensor[:, idx+1:idx+2, :],
+                    tensor[:, idx : idx + 1, :],
+                    tensor[:, idx + 1 : idx + 2, :],
                 ]
                 idx += 2  # Advance by 2 vectors
         return block_dict
-        
+
     def inner_forward(self, img, img_ids, txt, txt_ids, timesteps):
         if img.ndim != 3 or txt.ndim != 3:
             raise ValueError("Input img and txt tensors must have 3 dimensions.")
         img = self.img_in(img)
         device = img.device
-        dtype = img.dtype # torch.bfloat16
+        dtype = img.dtype  # torch.bfloat16
         nb_double_block = len(self.double_blocks)
         nb_single_block = len(self.single_blocks)
-        
-        mod_index_length = nb_double_block*12 + nb_single_block*3 + 2
+
+        mod_index_length = nb_double_block * 12 + nb_single_block * 3 + 2
         distill_timestep = timestep_embedding(timesteps.detach().clone(), 16).to(device=device, dtype=dtype)
         distil_guidance = timestep_embedding(torch.zeros_like(timesteps), 16).to(device=device, dtype=dtype)
         modulation_index = timestep_embedding(torch.arange(mod_index_length), 32).to(device=device, dtype=dtype)
@@ -261,7 +250,7 @@ class IntegratedChromaTransformer2DModel(nn.Module):
         input_vec = torch.cat([timestep_guidance, modulation_index], dim=-1)
         mod_vectors = self.distilled_guidance_layer(input_vec)
         mod_vectors_dict = self.distribute_modulations(mod_vectors, nb_single_block, nb_double_block)
-        
+
         txt = self.txt_in(txt)
         ids = torch.cat((txt_ids, img_ids), dim=1)
         del txt_ids, img_ids
@@ -277,7 +266,7 @@ class IntegratedChromaTransformer2DModel(nn.Module):
             single_mod = mod_vectors_dict[f"single_blocks.{i}.modulation.lin"]
             img = block(img, mod=single_mod, pe=pe)
         del pe
-        img = img[:, txt.shape[1]:, ...]
+        img = img[:, txt.shape[1] :, ...]
         final_mod = mod_vectors_dict["final_layer.adaLN_modulation.1"]
         img = self.final_layer(img, final_mod)
         return img
@@ -292,8 +281,8 @@ class IntegratedChromaTransformer2DModel(nn.Module):
         x = torch.nn.functional.pad(x, (0, pad_w, 0, pad_h), mode="circular")
         img = rearrange(x, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=patch_size, pw=patch_size)
         del x, pad_h, pad_w
-        h_len = ((h + (patch_size // 2)) // patch_size)
-        w_len = ((w + (patch_size // 2)) // patch_size)
+        h_len = (h + (patch_size // 2)) // patch_size
+        w_len = (w + (patch_size // 2)) // patch_size
         img_ids = torch.zeros((h_len, w_len, 3), device=input_device, dtype=input_dtype)
         img_ids[..., 1] = img_ids[..., 1] + torch.linspace(0, h_len - 1, steps=h_len, device=input_device, dtype=input_dtype)[:, None]
         img_ids[..., 2] = img_ids[..., 2] + torch.linspace(0, w_len - 1, steps=w_len, device=input_device, dtype=input_dtype)[None, :]

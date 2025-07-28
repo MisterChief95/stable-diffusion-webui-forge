@@ -1,41 +1,40 @@
-import torch
 import torch.nn as nn
 
-from backend.nn.unet import timestep_embedding, exists, conv_nd, SpatialTransformer, TimestepEmbedSequential, ResBlock, Downsample
+from backend.nn.unet import Downsample, ResBlock, SpatialTransformer, TimestepEmbedSequential, conv_nd, exists, timestep_embedding
 
 
 class ControlNet(nn.Module):
     def __init__(
-            self,
-            in_channels,
-            model_channels,
-            hint_channels,
-            num_res_blocks,
-            dropout=0,
-            channel_mult=(1, 2, 4, 8),
-            conv_resample=True,
-            dims=2,
-            num_classes=None,
-            use_checkpoint=False,
-            num_heads=-1,
-            num_head_channels=-1,
-            num_heads_upsample=-1,
-            use_scale_shift_norm=False,
-            resblock_updown=False,
-            use_new_attention_order=False,
-            use_spatial_transformer=False,
-            transformer_depth=1,
-            context_dim=None,
-            n_embed=None,
-            disable_self_attentions=None,
-            num_attention_blocks=None,
-            disable_middle_self_attn=False,
-            use_linear_in_transformer=False,
-            adm_in_channels=None,
-            transformer_depth_middle=None,
-            transformer_depth_output=None,
-            dtype=None,
-            **kwargs,
+        self,
+        in_channels,
+        model_channels,
+        hint_channels,
+        num_res_blocks,
+        dropout=0,
+        channel_mult=(1, 2, 4, 8),
+        conv_resample=True,
+        dims=2,
+        num_classes=None,
+        use_checkpoint=False,
+        num_heads=-1,
+        num_head_channels=-1,
+        num_heads_upsample=-1,
+        use_scale_shift_norm=False,
+        resblock_updown=False,
+        use_new_attention_order=False,
+        use_spatial_transformer=False,
+        transformer_depth=1,
+        context_dim=None,
+        n_embed=None,
+        disable_self_attentions=None,
+        num_attention_blocks=None,
+        disable_middle_self_attn=False,
+        use_linear_in_transformer=False,
+        adm_in_channels=None,
+        transformer_depth_middle=None,
+        transformer_depth_output=None,
+        dtype=None,
+        **kwargs,
     ):
         super().__init__()
         assert use_spatial_transformer
@@ -108,32 +107,10 @@ class ControlNet(nn.Module):
             else:
                 raise ValueError()
 
-        self.input_blocks = nn.ModuleList(
-            [
-                TimestepEmbedSequential(
-                    nn.Conv2d(in_channels, model_channels, 3, padding=1)
-                )
-            ]
-        )
+        self.input_blocks = nn.ModuleList([TimestepEmbedSequential(nn.Conv2d(in_channels, model_channels, 3, padding=1))])
         self.zero_convs = nn.ModuleList([self.make_zero_conv(model_channels)])
 
-        self.input_hint_block = TimestepEmbedSequential(
-            conv_nd(dims, hint_channels, 16, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 16, 16, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 16, 32, 3, padding=1, stride=2),
-            nn.SiLU(),
-            conv_nd(dims, 32, 32, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 32, 96, 3, padding=1, stride=2),
-            nn.SiLU(),
-            conv_nd(dims, 96, 96, 3, padding=1),
-            nn.SiLU(),
-            conv_nd(dims, 96, 256, 3, padding=1, stride=2),
-            nn.SiLU(),
-            conv_nd(dims, 256, model_channels, 3, padding=1)
-        )
+        self.input_hint_block = TimestepEmbedSequential(conv_nd(dims, hint_channels, 16, 3, padding=1), nn.SiLU(), conv_nd(dims, 16, 16, 3, padding=1), nn.SiLU(), conv_nd(dims, 16, 32, 3, padding=1, stride=2), nn.SiLU(), conv_nd(dims, 32, 32, 3, padding=1), nn.SiLU(), conv_nd(dims, 32, 96, 3, padding=1, stride=2), nn.SiLU(), conv_nd(dims, 96, 96, 3, padding=1), nn.SiLU(), conv_nd(dims, 96, 256, 3, padding=1, stride=2), nn.SiLU(), conv_nd(dims, 256, model_channels, 3, padding=1))
 
         self._feature_size = model_channels
         input_block_chans = [model_channels]
@@ -167,13 +144,7 @@ class ControlNet(nn.Module):
                         disabled_sa = False
 
                     if not exists(num_attention_blocks) or nr < num_attention_blocks[level]:
-                        layers.append(
-                            SpatialTransformer(
-                                ch, num_heads, dim_head, depth=num_transformers, context_dim=context_dim,
-                                disable_self_attn=disabled_sa, use_linear=use_linear_in_transformer,
-                                use_checkpoint=use_checkpoint
-                            )
-                        )
+                        layers.append(SpatialTransformer(ch, num_heads, dim_head, depth=num_transformers, context_dim=context_dim, disable_self_attn=disabled_sa, use_linear=use_linear_in_transformer, use_checkpoint=use_checkpoint))
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
                 self.zero_convs.append(self.make_zero_conv(ch))
                 self._feature_size += ch
@@ -193,9 +164,7 @@ class ControlNet(nn.Module):
                             down=True,
                         )
                         if resblock_updown
-                        else Downsample(
-                            ch, conv_resample, dims=dims, out_channels=out_ch
-                        )
+                        else Downsample(ch, conv_resample, dims=dims, out_channels=out_ch)
                     )
                 )
                 ch = out_ch
@@ -218,14 +187,11 @@ class ControlNet(nn.Module):
                 dims=dims,
                 use_checkpoint=use_checkpoint,
                 use_scale_shift_norm=use_scale_shift_norm,
-            )]
+            )
+        ]
         if transformer_depth_middle >= 0:
             mid_block += [
-                SpatialTransformer(
-                    ch, num_heads, dim_head, depth=transformer_depth_middle, context_dim=context_dim,
-                    disable_self_attn=disable_middle_self_attn, use_linear=use_linear_in_transformer,
-                    use_checkpoint=use_checkpoint
-                ),
+                SpatialTransformer(ch, num_heads, dim_head, depth=transformer_depth_middle, context_dim=context_dim, disable_self_attn=disable_middle_self_attn, use_linear=use_linear_in_transformer, use_checkpoint=use_checkpoint),
                 ResBlock(
                     ch,
                     time_embed_dim,
@@ -233,7 +199,8 @@ class ControlNet(nn.Module):
                     dims=dims,
                     use_checkpoint=use_checkpoint,
                     use_scale_shift_norm=use_scale_shift_norm,
-                )]
+                ),
+            ]
         self.middle_block = TimestepEmbedSequential(*mid_block)
         self.middle_block_out = self.make_zero_conv(ch)
         self._feature_size += ch
