@@ -7,18 +7,21 @@ import os
 from modules.timer import startup_timer
 
 
-def imports():
-    logging.getLogger("torch.distributed.nn").setLevel(logging.ERROR)  # sshh...
-    logging.getLogger("xformers").addFilter(lambda record: 'A matching Triton is not available' not in record.getMessage())
-
-    import torch  # noqa: F401
-    startup_timer.record("import torch")
-    import pytorch_lightning  # noqa: F401
-    startup_timer.record("import torch")
+def shush():
+    logging.getLogger("torch.distributed.nn").setLevel(logging.ERROR)
+    logging.getLogger("xformers").addFilter(lambda record: "triton" not in record.getMessage().lower())
     warnings.filterwarnings(action="ignore", category=DeprecationWarning, module="pytorch_lightning")
     warnings.filterwarnings(action="ignore", category=UserWarning, module="torchvision")
 
-    os.environ.setdefault('GRADIO_ANALYTICS_ENABLED', 'False')
+
+def imports():
+    import torch  # noqa: F401
+    import torchvision  # noqa: F401
+    import pytorch_lightning  # noqa: F401
+    startup_timer.record("import torch")
+
+    os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
+
     import gradio  # noqa: F401
     startup_timer.record("import gradio")
 

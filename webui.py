@@ -18,7 +18,10 @@ from modules_forge import main_thread
 startup_timer = timer.startup_timer
 startup_timer.record("launcher")
 
+initialize.shush()
+
 initialize_forge()
+startup_timer.record("forge init")
 
 initialize.imports()
 
