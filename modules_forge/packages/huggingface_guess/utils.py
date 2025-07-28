@@ -72,27 +72,19 @@ def transformers_convert(sd, prefix_from, prefix_to, number):
     for resblock in range(number):
         for x in resblock_to_replace:
             for y in ["weight", "bias"]:
-                k = "{}transformer.resblocks.{}.{}.{}".format(
-                    prefix_from, resblock, x, y
-                )
-                k_to = "{}encoder.layers.{}.{}.{}".format(
-                    prefix_to, resblock, resblock_to_replace[x], y
-                )
+                k = "{}transformer.resblocks.{}.{}.{}".format(prefix_from, resblock, x, y)
+                k_to = "{}encoder.layers.{}.{}.{}".format(prefix_to, resblock, resblock_to_replace[x], y)
                 if k in sd:
                     sd[k_to] = sd.pop(k)
 
         for y in ["weight", "bias"]:
-            k_from = "{}transformer.resblocks.{}.attn.in_proj_{}".format(
-                prefix_from, resblock, y
-            )
+            k_from = "{}transformer.resblocks.{}.attn.in_proj_{}".format(prefix_from, resblock, y)
             if k_from in sd:
                 weights = sd.pop(k_from)
                 shape_from = weights.shape[0] // 3
                 for x in range(3):
                     p = ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj"]
-                    k_to = "{}encoder.layers.{}.{}.{}".format(
-                        prefix_to, resblock, p[x], y
-                    )
+                    k_to = "{}encoder.layers.{}.{}.{}".format(prefix_to, resblock, p[x], y)
                     sd[k_to] = weights[shape_from * x : shape_from * (x + 1)]
 
     return sd
@@ -107,9 +99,7 @@ def clip_text_transformers_convert(sd, prefix_from, prefix_to):
 
     tp = "{}text_projection".format(prefix_from)
     if tp in sd:
-        sd["{}text_projection.weight".format(prefix_to)] = (
-            sd.pop(tp).transpose(0, 1).contiguous()
-        )
+        sd["{}text_projection.weight".format(prefix_to)] = sd.pop(tp).transpose(0, 1).contiguous()
     return sd
 
 
@@ -198,44 +188,28 @@ def unet_to_diffusers(unet_config):
         n = 1 + (num_res_blocks[x] + 1) * x
         for i in range(num_res_blocks[x]):
             for b in UNET_MAP_RESNET:
-                diffusers_unet_map[
-                    "down_blocks.{}.resnets.{}.{}".format(x, i, UNET_MAP_RESNET[b])
-                ] = "input_blocks.{}.0.{}".format(n, b)
+                diffusers_unet_map["down_blocks.{}.resnets.{}.{}".format(x, i, UNET_MAP_RESNET[b])] = "input_blocks.{}.0.{}".format(n, b)
             num_transformers = transformer_depth.pop(0)
             if num_transformers > 0:
                 for b in UNET_MAP_ATTENTIONS:
-                    diffusers_unet_map[
-                        "down_blocks.{}.attentions.{}.{}".format(x, i, b)
-                    ] = "input_blocks.{}.1.{}".format(n, b)
+                    diffusers_unet_map["down_blocks.{}.attentions.{}.{}".format(x, i, b)] = "input_blocks.{}.1.{}".format(n, b)
                 for t in range(num_transformers):
                     for b in TRANSFORMER_BLOCKS:
-                        diffusers_unet_map[
-                            "down_blocks.{}.attentions.{}.transformer_blocks.{}.{}".format(
-                                x, i, t, b
-                            )
-                        ] = "input_blocks.{}.1.transformer_blocks.{}.{}".format(n, t, b)
+                        diffusers_unet_map["down_blocks.{}.attentions.{}.transformer_blocks.{}.{}".format(x, i, t, b)] = "input_blocks.{}.1.transformer_blocks.{}.{}".format(n, t, b)
             n += 1
         for k in ["weight", "bias"]:
-            diffusers_unet_map["down_blocks.{}.downsamplers.0.conv.{}".format(x, k)] = (
-                "input_blocks.{}.0.op.{}".format(n, k)
-            )
+            diffusers_unet_map["down_blocks.{}.downsamplers.0.conv.{}".format(x, k)] = "input_blocks.{}.0.op.{}".format(n, k)
 
     i = 0
     for b in UNET_MAP_ATTENTIONS:
-        diffusers_unet_map["mid_block.attentions.{}.{}".format(i, b)] = (
-            "middle_block.1.{}".format(b)
-        )
+        diffusers_unet_map["mid_block.attentions.{}.{}".format(i, b)] = "middle_block.1.{}".format(b)
     for t in range(transformers_mid):
         for b in TRANSFORMER_BLOCKS:
-            diffusers_unet_map[
-                "mid_block.attentions.{}.transformer_blocks.{}.{}".format(i, t, b)
-            ] = "middle_block.1.transformer_blocks.{}.{}".format(t, b)
+            diffusers_unet_map["mid_block.attentions.{}.transformer_blocks.{}.{}".format(i, t, b)] = "middle_block.1.transformer_blocks.{}.{}".format(t, b)
 
     for i, n in enumerate([0, 2]):
         for b in UNET_MAP_RESNET:
-            diffusers_unet_map[
-                "mid_block.resnets.{}.{}".format(i, UNET_MAP_RESNET[b])
-            ] = "middle_block.{}.{}".format(n, b)
+            diffusers_unet_map["mid_block.resnets.{}.{}".format(i, UNET_MAP_RESNET[b])] = "middle_block.{}.{}".format(n, b)
 
     num_res_blocks = list(reversed(num_res_blocks))
     for x in range(num_blocks):
@@ -244,31 +218,19 @@ def unet_to_diffusers(unet_config):
         for i in range(l):
             c = 0
             for b in UNET_MAP_RESNET:
-                diffusers_unet_map[
-                    "up_blocks.{}.resnets.{}.{}".format(x, i, UNET_MAP_RESNET[b])
-                ] = "output_blocks.{}.0.{}".format(n, b)
+                diffusers_unet_map["up_blocks.{}.resnets.{}.{}".format(x, i, UNET_MAP_RESNET[b])] = "output_blocks.{}.0.{}".format(n, b)
             c += 1
             num_transformers = transformer_depth_output.pop()
             if num_transformers > 0:
                 c += 1
                 for b in UNET_MAP_ATTENTIONS:
-                    diffusers_unet_map[
-                        "up_blocks.{}.attentions.{}.{}".format(x, i, b)
-                    ] = "output_blocks.{}.1.{}".format(n, b)
+                    diffusers_unet_map["up_blocks.{}.attentions.{}.{}".format(x, i, b)] = "output_blocks.{}.1.{}".format(n, b)
                 for t in range(num_transformers):
                     for b in TRANSFORMER_BLOCKS:
-                        diffusers_unet_map[
-                            "up_blocks.{}.attentions.{}.transformer_blocks.{}.{}".format(
-                                x, i, t, b
-                            )
-                        ] = "output_blocks.{}.1.transformer_blocks.{}.{}".format(
-                            n, t, b
-                        )
+                        diffusers_unet_map["up_blocks.{}.attentions.{}.transformer_blocks.{}.{}".format(x, i, t, b)] = "output_blocks.{}.1.transformer_blocks.{}.{}".format(n, t, b)
             if i == l - 1:
                 for k in ["weight", "bias"]:
-                    diffusers_unet_map[
-                        "up_blocks.{}.upsamplers.0.conv.{}".format(x, k)
-                    ] = "output_blocks.{}.{}.conv.{}".format(n, c, k)
+                    diffusers_unet_map["up_blocks.{}.upsamplers.0.conv.{}".format(x, k)] = "output_blocks.{}.{}.conv.{}".format(n, c, k)
             n += 1
 
     for k in UNET_MAP_BASIC:
@@ -423,9 +385,7 @@ def auraflow_to_diffusers(mmdit_config, output_prefix=""):
             }
 
         for k in block_map:
-            key_map["{}.{}.{}".format(prefix_from, index, k)] = "{}.{}.{}".format(
-                prefix_to, index, block_map[k]
-            )
+            key_map["{}.{}.{}".format(prefix_from, index, k)] = "{}.{}.{}".format(prefix_to, index, block_map[k])
 
     MAP_BASIC = {
         ("positional_encoding", "pos_embed.pos_embed"),
@@ -454,11 +414,7 @@ def repeat_to_batch_size(tensor, batch_size, dim=0):
     if tensor.shape[dim] > batch_size:
         return tensor.narrow(dim, 0, batch_size)
     elif tensor.shape[dim] < batch_size:
-        return tensor.repeat(
-            dim * [1]
-            + [math.ceil(batch_size / tensor.shape[dim])]
-            + [1] * (len(tensor.shape) - 1 - dim)
-        ).narrow(dim, 0, batch_size)
+        return tensor.repeat(dim * [1] + [math.ceil(batch_size / tensor.shape[dim])] + [1] * (len(tensor.shape) - 1 - dim)).narrow(dim, 0, batch_size)
     return tensor
 
 
@@ -470,9 +426,7 @@ def resize_to_batch_size(tensor, batch_size):
     if batch_size <= 1:
         return tensor[:batch_size]
 
-    output = torch.empty(
-        [batch_size] + list(tensor.shape)[1:], dtype=tensor.dtype, device=tensor.device
-    )
+    output = torch.empty([batch_size] + list(tensor.shape)[1:], dtype=tensor.dtype, device=tensor.device)
     if batch_size < in_batch_size:
         scale = (in_batch_size - 1) / (batch_size - 1)
         for i in range(batch_size):

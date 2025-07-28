@@ -69,9 +69,7 @@ class BASE:
             self.unet_config[x] = self.unet_extra_config[x]
 
     def process_clip_state_dict(self, state_dict):
-        state_dict = utils.state_dict_prefix_replace(
-            state_dict, {k: "" for k in self.text_encoder_key_prefix}, filter_keys=True
-        )
+        state_dict = utils.state_dict_prefix_replace(state_dict, {k: "" for k in self.text_encoder_key_prefix}, filter_keys=True)
         return state_dict
 
     def process_unet_state_dict(self, state_dict):
@@ -121,32 +119,21 @@ class SD15(BASE):
     def process_clip_state_dict(self, state_dict):
         k = list(state_dict.keys())
         for x in k:
-            if x.startswith("cond_stage_model.transformer.") and not x.startswith(
-                "cond_stage_model.transformer.text_model."
-            ):
+            if x.startswith("cond_stage_model.transformer.") and not x.startswith("cond_stage_model.transformer.text_model."):
                 y = x.replace(
                     "cond_stage_model.transformer.",
                     "cond_stage_model.transformer.text_model.",
                 )
                 state_dict[y] = state_dict.pop(x)
 
-        if (
-            "cond_stage_model.transformer.text_model.embeddings.position_ids"
-            in state_dict
-        ):
-            ids = state_dict[
-                "cond_stage_model.transformer.text_model.embeddings.position_ids"
-            ]
+        if "cond_stage_model.transformer.text_model.embeddings.position_ids" in state_dict:
+            ids = state_dict["cond_stage_model.transformer.text_model.embeddings.position_ids"]
             if ids.dtype == torch.float32:
-                state_dict[
-                    "cond_stage_model.transformer.text_model.embeddings.position_ids"
-                ] = ids.round()
+                state_dict["cond_stage_model.transformer.text_model.embeddings.position_ids"] = ids.round()
 
         replace_prefix = {}
         replace_prefix["cond_stage_model."] = "clip_l."
-        state_dict = utils.state_dict_prefix_replace(
-            state_dict, replace_prefix, filter_keys=True
-        )
+        state_dict = utils.state_dict_prefix_replace(state_dict, replace_prefix, filter_keys=True)
         return state_dict
 
     def process_clip_state_dict_for_saving(self, state_dict):
@@ -181,21 +168,15 @@ class SDXLRefiner(BASE):
         keys_to_replace = {}
         replace_prefix = {}
         replace_prefix["conditioner.embedders.0.model."] = "clip_g."
-        state_dict = utils.state_dict_prefix_replace(
-            state_dict, replace_prefix, filter_keys=True
-        )
+        state_dict = utils.state_dict_prefix_replace(state_dict, replace_prefix, filter_keys=True)
 
-        state_dict = utils.clip_text_transformers_convert(
-            state_dict, "clip_g.", "clip_g.transformer."
-        )
+        state_dict = utils.clip_text_transformers_convert(state_dict, "clip_g.", "clip_g.transformer.")
         state_dict = utils.state_dict_key_replace(state_dict, keys_to_replace)
         return state_dict
 
     def process_clip_state_dict_for_saving(self, state_dict):
         replace_prefix = {}
-        state_dict_g = diffusers_convert.convert_text_enc_state_dict_v20(
-            state_dict, "clip_g"
-        )
+        state_dict_g = diffusers_convert.convert_text_enc_state_dict_v20(state_dict, "clip_g")
         if "clip_g.transformer.text_model.embeddings.position_ids" in state_dict_g:
             state_dict_g.pop("clip_g.transformer.text_model.embeddings.position_ids")
         replace_prefix["clip_g"] = "conditioner.embedders.0.model"
@@ -230,13 +211,9 @@ class SDXL(BASE):
             self.sampling_settings["sigma_min"] = 0.002
             return ModelType.EDM
         elif "edm_vpred.sigma_max" in state_dict:
-            self.sampling_settings["sigma_max"] = float(
-                state_dict["edm_vpred.sigma_max"].item()
-            )
+            self.sampling_settings["sigma_max"] = float(state_dict["edm_vpred.sigma_max"].item())
             if "edm_vpred.sigma_min" in state_dict:
-                self.sampling_settings["sigma_min"] = float(
-                    state_dict["edm_vpred.sigma_min"].item()
-                )
+                self.sampling_settings["sigma_min"] = float(state_dict["edm_vpred.sigma_min"].item())
             return ModelType.V_PREDICTION_EDM
         elif "v_pred" in state_dict:
             return ModelType.V_PREDICTION
@@ -247,33 +224,23 @@ class SDXL(BASE):
         keys_to_replace = {}
         replace_prefix = {}
 
-        replace_prefix["conditioner.embedders.0.transformer.text_model"] = (
-            "clip_l.transformer.text_model"
-        )
+        replace_prefix["conditioner.embedders.0.transformer.text_model"] = "clip_l.transformer.text_model"
         replace_prefix["conditioner.embedders.1.model."] = "clip_g."
-        state_dict = utils.state_dict_prefix_replace(
-            state_dict, replace_prefix, filter_keys=True
-        )
+        state_dict = utils.state_dict_prefix_replace(state_dict, replace_prefix, filter_keys=True)
 
         state_dict = utils.state_dict_key_replace(state_dict, keys_to_replace)
-        state_dict = utils.clip_text_transformers_convert(
-            state_dict, "clip_g.", "clip_g.transformer."
-        )
+        state_dict = utils.clip_text_transformers_convert(state_dict, "clip_g.", "clip_g.transformer.")
         return state_dict
 
     def process_clip_state_dict_for_saving(self, state_dict):
         replace_prefix = {}
         # keys_to_replace = {}
-        state_dict_g = diffusers_convert.convert_text_enc_state_dict_v20(
-            state_dict, "clip_g"
-        )
+        state_dict_g = diffusers_convert.convert_text_enc_state_dict_v20(state_dict, "clip_g")
         for k in state_dict:
             if k.startswith("clip_l"):
                 state_dict_g[k] = state_dict[k]
 
-        state_dict_g["clip_l.transformer.text_model.embeddings.position_ids"] = (
-            torch.arange(77).expand((1, -1))
-        )
+        state_dict_g["clip_l.transformer.text_model.embeddings.position_ids"] = torch.arange(77).expand((1, -1))
         pop_keys = ["clip_l.transformer.text_projection.weight", "clip_l.logit_scale"]
         for p in pop_keys:
             if p in state_dict_g:
@@ -286,192 +253,6 @@ class SDXL(BASE):
 
     def clip_target(self, state_dict={}):
         return {"clip_l": "text_encoder", "clip_g": "text_encoder_2"}
-
-
-class SSD1B(SDXL):
-    unet_config = {
-        "model_channels": 320,
-        "use_linear_in_transformer": True,
-        "transformer_depth": [0, 0, 2, 2, 4, 4],
-        "context_dim": 2048,
-        "adm_in_channels": 2816,
-        "use_temporal_attention": False,
-    }
-
-
-class Segmind_Vega(SDXL):
-    unet_config = {
-        "model_channels": 320,
-        "use_linear_in_transformer": True,
-        "transformer_depth": [0, 0, 1, 1, 2, 2],
-        "context_dim": 2048,
-        "adm_in_channels": 2816,
-        "use_temporal_attention": False,
-    }
-
-
-class KOALA_700M(SDXL):
-    unet_config = {
-        "model_channels": 320,
-        "use_linear_in_transformer": True,
-        "transformer_depth": [0, 2, 5],
-        "context_dim": 2048,
-        "adm_in_channels": 2816,
-        "use_temporal_attention": False,
-    }
-
-
-class KOALA_1B(SDXL):
-    unet_config = {
-        "model_channels": 320,
-        "use_linear_in_transformer": True,
-        "transformer_depth": [0, 2, 6],
-        "context_dim": 2048,
-        "adm_in_channels": 2816,
-        "use_temporal_attention": False,
-    }
-
-
-class SVD_img2vid(BASE):
-    unet_config = {
-        "model_channels": 320,
-        "in_channels": 8,
-        "use_linear_in_transformer": True,
-        "transformer_depth": [1, 1, 1, 1, 1, 1, 0, 0],
-        "context_dim": 1024,
-        "adm_in_channels": 768,
-        "use_temporal_attention": True,
-        "use_temporal_resblock": True,
-    }
-
-    unet_extra_config = {
-        "num_heads": -1,
-        "num_head_channels": 64,
-        "attn_precision": torch.float32,
-    }
-
-    clip_vision_prefix = "conditioner.embedders.0.open_clip.model.visual."
-
-    latent_format = latent.SD15
-
-    sampling_settings = {"sigma_max": 700.0, "sigma_min": 0.002}
-
-
-class SV3D_u(SVD_img2vid):
-    unet_config = {
-        "model_channels": 320,
-        "in_channels": 8,
-        "use_linear_in_transformer": True,
-        "transformer_depth": [1, 1, 1, 1, 1, 1, 0, 0],
-        "context_dim": 1024,
-        "adm_in_channels": 256,
-        "use_temporal_attention": True,
-        "use_temporal_resblock": True,
-    }
-
-    vae_key_prefix = ["conditioner.embedders.1.encoder."]
-
-
-class SV3D_p(SV3D_u):
-    unet_config = {
-        "model_channels": 320,
-        "in_channels": 8,
-        "use_linear_in_transformer": True,
-        "transformer_depth": [1, 1, 1, 1, 1, 1, 0, 0],
-        "context_dim": 1024,
-        "adm_in_channels": 1280,
-        "use_temporal_attention": True,
-        "use_temporal_resblock": True,
-    }
-
-
-class Stable_Zero123(BASE):
-    unet_config = {
-        "context_dim": 768,
-        "model_channels": 320,
-        "use_linear_in_transformer": False,
-        "adm_in_channels": None,
-        "use_temporal_attention": False,
-        "in_channels": 8,
-    }
-
-    unet_extra_config = {
-        "num_heads": 8,
-        "num_head_channels": -1,
-    }
-
-    required_keys = {
-        "cc_projection.weight": None,
-        "cc_projection.bias": None,
-    }
-
-    clip_vision_prefix = "cond_stage_model.model.visual."
-
-    latent_format = latent.SD15
-
-
-class Stable_Cascade_C(BASE):
-    unet_config = {
-        "stable_cascade_stage": "c",
-    }
-
-    unet_extra_config = {}
-
-    latent_format = latent.SC_Prior
-    supported_inference_dtypes = [torch.bfloat16, torch.float32]
-
-    sampling_settings = {
-        "shift": 2.0,
-    }
-
-    vae_key_prefix = ["vae."]
-    text_encoder_key_prefix = ["text_encoder."]
-    clip_vision_prefix = "clip_l_vision."
-
-    def process_unet_state_dict(self, state_dict):
-        key_list = list(state_dict.keys())
-        for y in ["weight", "bias"]:
-            suffix = "in_proj_{}".format(y)
-            keys = filter(lambda a: a.endswith(suffix), key_list)
-            for k_from in keys:
-                weights = state_dict.pop(k_from)
-                prefix = k_from[: -(len(suffix) + 1)]
-                shape_from = weights.shape[0] // 3
-                for x in range(3):
-                    p = ["to_q", "to_k", "to_v"]
-                    k_to = "{}.{}.{}".format(prefix, p[x], y)
-                    state_dict[k_to] = weights[shape_from * x : shape_from * (x + 1)]
-        return state_dict
-
-    def process_clip_state_dict(self, state_dict):
-        state_dict = utils.state_dict_prefix_replace(
-            state_dict, {k: "" for k in self.text_encoder_key_prefix}, filter_keys=True
-        )
-        if "clip_g.text_projection" in state_dict:
-            state_dict["clip_g.transformer.text_projection.weight"] = state_dict.pop(
-                "clip_g.text_projection"
-            ).transpose(0, 1)
-        return state_dict
-
-    def clip_target(self, state_dict={}):
-        return {"clip_g": "text_encoder"}
-
-
-class Stable_Cascade_B(Stable_Cascade_C):
-    unet_config = {
-        "stable_cascade_stage": "b",
-    }
-
-    unet_extra_config = {}
-
-    latent_format = latent.SC_B
-    supported_inference_dtypes = [torch.float16, torch.bfloat16, torch.float32]
-
-    sampling_settings = {
-        "shift": 1.0,
-    }
-
-    clip_vision_prefix = None
 
 
 class SD15_instructpix2pix(SD15):
@@ -494,84 +275,6 @@ class SDXL_instructpix2pix(SDXL):
         "adm_in_channels": 2816,
         "use_temporal_attention": False,
         "in_channels": 8,
-    }
-
-
-class StableAudio(BASE):
-    unet_config = {
-        "audio_model": "dit1.0",
-    }
-
-    sampling_settings = {"sigma_max": 500.0, "sigma_min": 0.03}
-
-    unet_extra_config = {}
-    latent_format = latent.StableAudio1
-
-    text_encoder_key_prefix = ["text_encoders."]
-    vae_key_prefix = ["pretransform.model."]
-
-    def process_unet_state_dict(self, state_dict):
-        for k in list(state_dict.keys()):
-            if (
-                k.endswith(".cross_attend_norm.beta")
-                or k.endswith(".ff_norm.beta")
-                or k.endswith(".pre_norm.beta")
-            ):  # These weights are all zero
-                state_dict.pop(k)
-        return state_dict
-
-    def process_unet_state_dict_for_saving(self, state_dict):
-        replace_prefix = {"": "model.model."}
-        return utils.state_dict_prefix_replace(state_dict, replace_prefix)
-
-
-class AuraFlow(BASE):
-    unet_config = {
-        "cond_seq_dim": 2048,
-    }
-
-    sampling_settings = {
-        "multiplier": 1.0,
-        "shift": 1.73,
-    }
-
-    unet_extra_config = {}
-    latent_format = latent.SDXL
-
-    vae_key_prefix = ["vae."]
-    text_encoder_key_prefix = ["text_encoders."]
-
-
-class HunyuanDiT(BASE):
-    unet_config = {
-        "image_model": "hydit",
-    }
-
-    unet_extra_config = {
-        "attn_precision": torch.float32,
-    }
-
-    sampling_settings = {
-        "linear_start": 0.00085,
-        "linear_end": 0.018,
-    }
-
-    latent_format = latent.SDXL
-
-    vae_key_prefix = ["vae."]
-    text_encoder_key_prefix = ["text_encoders."]
-
-
-class HunyuanDiT1(HunyuanDiT):
-    unet_config = {
-        "image_model": "hydit1",
-    }
-
-    unet_extra_config = {}
-
-    sampling_settings = {
-        "linear_start": 0.00085,
-        "linear_end": 0.03,
     }
 
 
@@ -601,16 +304,10 @@ class Flux(BASE):
         result = {}
         pref = self.text_encoder_key_prefix[0]
 
-        if (
-            "{}clip_l.transformer.text_model.final_layer_norm.weight".format(pref)
-            in state_dict
-        ):
+        if "{}clip_l.transformer.text_model.final_layer_norm.weight".format(pref) in state_dict:
             result["clip_l"] = "text_encoder"
 
-        if (
-            "{}t5xxl.transformer.encoder.final_layer_norm.weight".format(pref)
-            in state_dict
-        ):
+        if "{}t5xxl.transformer.encoder.final_layer_norm.weight".format(pref) in state_dict:
             result["t5xxl"] = "text_encoder_2"
 
         return result
@@ -649,37 +346,19 @@ class Chroma(FluxSchnell):
         result = {}
         pref = self.text_encoder_key_prefix[0]
 
-        if (
-            "{}t5xxl.transformer.encoder.final_layer_norm.weight".format(pref)
-            in state_dict
-        ):
+        if "{}t5xxl.transformer.encoder.final_layer_norm.weight".format(pref) in state_dict:
             result["t5xxl"] = "text_encoder"
 
         return result
 
 
 models = [
-    Stable_Zero123,
     SD15_instructpix2pix,
     SD15,
     SDXL_instructpix2pix,
     SDXLRefiner,
     SDXL,
-    SSD1B,
-    KOALA_700M,
-    KOALA_1B,
-    Segmind_Vega,
-    Stable_Cascade_C,
-    Stable_Cascade_B,
-    SV3D_u,
-    SV3D_p,
-    StableAudio,
-    AuraFlow,
-    HunyuanDiT,
-    HunyuanDiT1,
     Flux,
     FluxSchnell,
     Chroma,
 ]
-
-models += [SVD_img2vid]
