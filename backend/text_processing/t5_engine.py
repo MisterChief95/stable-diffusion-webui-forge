@@ -1,13 +1,12 @@
+from collections import namedtuple
+
 import torch
 
-from collections import namedtuple
-from backend.text_processing import parsing, emphasis
 from backend import memory_management
-
+from backend.text_processing import emphasis, parsing
 from modules.shared import opts
 
-
-PromptChunkFix = namedtuple('PromptChunkFix', ['offset', 'embedding'])
+PromptChunkFix = namedtuple("PromptChunkFix", ["offset", "embedding"])
 
 
 class PromptChunk:
@@ -30,21 +29,21 @@ class T5TextProcessingEngine:
 
         vocab = self.tokenizer.get_vocab()
 
-        self.comma_token = vocab.get(',</w>', None)
+        self.comma_token = vocab.get(",</w>", None)
 
         self.token_mults = {}
 
-        tokens_with_parens = [(k, v) for k, v in vocab.items() if '(' in k or ')' in k or '[' in k or ']' in k]
+        tokens_with_parens = [(k, v) for k, v in vocab.items() if "(" in k or ")" in k or "[" in k or "]" in k]
         for text, ident in tokens_with_parens:
             mult = 1.0
             for c in text:
-                if c == '[':
+                if c == "[":
                     mult /= 1.1
-                if c == ']':
+                if c == "]":
                     mult *= 1.1
-                if c == '(':
+                if c == "(":
                     mult *= 1.1
-                if c == ')':
+                if c == ")":
                     mult /= 1.1
 
             if mult != 1.0:
@@ -93,7 +92,7 @@ class T5TextProcessingEngine:
             chunk = PromptChunk()
 
         for tokens, (text, weight) in zip(tokenized, parsed):
-            if text == 'BREAK' and weight == -1:
+            if text == "BREAK" and weight == -1:
                 next_chunk()
                 continue
 
@@ -125,12 +124,12 @@ class T5TextProcessingEngine:
                 #   pad all chunks to length of longest chunk
                 max_tokens = 0
                 for chunk in chunks:
-                    max_tokens = max (len(chunk.tokens), max_tokens)
+                    max_tokens = max(len(chunk.tokens), max_tokens)
 
                 for chunk in chunks:
                     tokens = chunk.tokens
                     multipliers = chunk.multipliers
-                    
+
                     remaining_count = max_tokens - len(tokens)
                     if remaining_count > 0:
                         tokens += [self.id_pad] * remaining_count

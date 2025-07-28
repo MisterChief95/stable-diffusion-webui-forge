@@ -1,15 +1,14 @@
 import math
+from collections import namedtuple
+
 import torch
 
-from collections import namedtuple
-from backend.text_processing import parsing, emphasis
-from backend.text_processing.textual_inversion import EmbeddingDatabase
 from backend import memory_management
-
+from backend.text_processing import emphasis, parsing
+from backend.text_processing.textual_inversion import EmbeddingDatabase
 from modules.shared import opts
 
-
-PromptChunkFix = namedtuple('PromptChunkFix', ['offset', 'embedding'])
+PromptChunkFix = namedtuple("PromptChunkFix", ["offset", "embedding"])
 last_extra_generation_params = {}
 
 
@@ -21,7 +20,7 @@ class PromptChunk:
 
 
 class CLIPEmbeddingForTextualInversion(torch.nn.Module):
-    def __init__(self, wrapped, embeddings, textual_inversion_key='clip_l'):
+    def __init__(self, wrapped, embeddings, textual_inversion_key="clip_l"):
         super().__init__()
         self.wrapped = wrapped
         self.embeddings = embeddings
@@ -43,7 +42,7 @@ class CLIPEmbeddingForTextualInversion(torch.nn.Module):
                 emb = embedding.vec[self.textual_inversion_key] if isinstance(embedding.vec, dict) else embedding.vec
                 emb = emb.to(inputs_embeds)
                 emb_len = min(tensor.shape[0] - offset - 1, emb.shape[0])
-                tensor = torch.cat([tensor[0:offset + 1], emb[0:emb_len], tensor[offset + 1 + emb_len:]]).to(dtype=inputs_embeds.dtype)
+                tensor = torch.cat([tensor[0 : offset + 1], emb[0:emb_len], tensor[offset + 1 + emb_len :]]).to(dtype=inputs_embeds.dtype)
 
             vecs.append(tensor)
 
@@ -51,11 +50,7 @@ class CLIPEmbeddingForTextualInversion(torch.nn.Module):
 
 
 class ClassicTextProcessingEngine:
-    def __init__(
-            self, text_encoder, tokenizer, chunk_length=75,
-            embedding_dir=None, embedding_key='clip_l', embedding_expected_shape=768, emphasis_name="Original",
-            text_projection=False, minimal_clip_skip=1, clip_skip=1, return_pooled=False, final_layer_norm=True
-    ):
+    def __init__(self, text_encoder, tokenizer, chunk_length=75, embedding_dir=None, embedding_key="clip_l", embedding_expected_shape=768, emphasis_name="Original", text_projection=False, minimal_clip_skip=1, clip_skip=1, return_pooled=False, final_layer_norm=True):
         super().__init__()
 
         self.embeddings = EmbeddingDatabase(tokenizer, embedding_expected_shape)
@@ -87,21 +82,21 @@ class ClassicTextProcessingEngine:
 
         vocab = self.tokenizer.get_vocab()
 
-        self.comma_token = vocab.get(',</w>', None)
+        self.comma_token = vocab.get(",</w>", None)
 
         self.token_mults = {}
 
-        tokens_with_parens = [(k, v) for k, v in vocab.items() if '(' in k or ')' in k or '[' in k or ']' in k]
+        tokens_with_parens = [(k, v) for k, v in vocab.items() if "(" in k or ")" in k or "[" in k or "]" in k]
         for text, ident in tokens_with_parens:
             mult = 1.0
             for c in text:
-                if c == '[':
+                if c == "[":
                     mult /= 1.1
-                if c == ']':
+                if c == "]":
                     mult *= 1.1
-                if c == '(':
+                if c == "(":
                     mult *= 1.1
-                if c == ')':
+                if c == ")":
                     mult /= 1.1
 
             if mult != 1.0:
@@ -132,7 +127,7 @@ class ClassicTextProcessingEngine:
 
         outputs = self.text_encoder.transformer(tokens, output_hidden_states=True)
 
-        layer_id = - max(self.clip_skip, self.minimal_clip_skip)
+        layer_id = -max(self.clip_skip, self.minimal_clip_skip)
         z = outputs.hidden_states[layer_id]
 
         if self.final_layer_norm:
@@ -141,7 +136,7 @@ class ClassicTextProcessingEngine:
         if self.return_pooled:
             pooled_output = outputs.pooler_output
 
-            if self.text_projection and self.embedding_key != 'clip_l':
+            if self.text_projection and self.embedding_key != "clip_l":
                 pooled_output = self.text_encoder.transformer.text_projection(pooled_output)
 
             z.pooled = pooled_output
@@ -180,7 +175,7 @@ class ClassicTextProcessingEngine:
             chunk = PromptChunk()
 
         for tokens, (text, weight) in zip(tokenized, parsed):
-            if text == 'BREAK' and weight == -1:
+            if text == "BREAK" and weight == -1:
                 next_chunk()
                 continue
 
@@ -278,7 +273,7 @@ class ClassicTextProcessingEngine:
             names = []
 
             for name, embedding in used_embeddings.items():
-                print(f'[Textual Inversion] Used Embedding [{name}] in CLIP of [{self.embedding_key}]')
+                print(f"[Textual Inversion] Used Embedding [{name}] in CLIP of [{self.embedding_key}]")
                 names.append(name.replace(":", "").replace(",", ""))
 
             if "TI" in last_extra_generation_params:
@@ -300,11 +295,11 @@ class ClassicTextProcessingEngine:
         if self.id_end != self.id_pad:
             for batch_pos in range(len(remade_batch_tokens)):
                 index = remade_batch_tokens[batch_pos].index(self.id_end)
-                tokens[batch_pos, index + 1:tokens.shape[1]] = self.id_pad
+                tokens[batch_pos, index + 1 : tokens.shape[1]] = self.id_pad
 
         z = self.encode_with_transformers(tokens)
 
-        pooled = getattr(z, 'pooled', None)
+        pooled = getattr(z, "pooled", None)
 
         self.emphasis.tokens = remade_batch_tokens
         self.emphasis.multipliers = torch.asarray(batch_multipliers).to(z)

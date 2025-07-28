@@ -1,7 +1,7 @@
 import re
 
-
-re_attention = re.compile(r"""
+re_attention = re.compile(
+    r"""
 \\\(|
 \\\)|
 \\\[|
@@ -15,7 +15,9 @@ re_attention = re.compile(r"""
 ]|
 [^\\()\[\]:]+|
 :
-""", re.X)
+""",
+    re.X,
+)
 
 re_break = re.compile(r"\s*\bBREAK\b\s*", re.S)
 
@@ -40,17 +42,17 @@ def parse_prompt_attention(text, emphasis):
             text = m.group(0)
             weight = m.group(1)
 
-            if text.startswith('\\'):
+            if text.startswith("\\"):
                 res.append([text[1:], 1.0])
-            elif text == '(':
+            elif text == "(":
                 round_brackets.append(len(res))
-            elif text == '[':
+            elif text == "[":
                 square_brackets.append(len(res))
             elif weight is not None and round_brackets:
                 multiply_range(round_brackets.pop(), float(weight))
-            elif text == ')' and round_brackets:
+            elif text == ")" and round_brackets:
                 multiply_range(round_brackets.pop(), round_bracket_multiplier)
-            elif text == ']' and square_brackets:
+            elif text == "]" and square_brackets:
                 multiply_range(square_brackets.pop(), square_bracket_multiplier)
             else:
                 parts = re.split(re_break, text)
