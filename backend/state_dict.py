@@ -1,6 +1,3 @@
-import torch
-
-
 def load_state_dict(model, sd, ignore_errors=[], log_name=None, ignore_start=None):
     missing, unexpected = model.load_state_dict(sd, strict=False)
     missing = [x for x in missing if x not in ignore_errors]
@@ -12,9 +9,9 @@ def load_state_dict(model, sd, ignore_errors=[], log_name=None, ignore_start=Non
 
     log_name = log_name or type(model).__name__
     if len(missing) > 0:
-        print(f'{log_name} Missing: {missing}')
+        print(f"{log_name} Missing: {missing}")
     if len(unexpected) > 0:
-        print(f'{log_name} Unexpected: {unexpected}')
+        print(f"{log_name} Unexpected: {unexpected}")
     return
 
 
@@ -22,18 +19,18 @@ def state_dict_has(sd, prefix):
     return any(x.startswith(prefix) for x in sd.keys())
 
 
-def filter_state_dict_with_prefix(sd, prefix, new_prefix=''):
+def filter_state_dict_with_prefix(sd, prefix, new_prefix=""):
     new_sd = {}
 
     for k, v in list(sd.items()):
         if k.startswith(prefix):
-            new_sd[new_prefix + k[len(prefix):]] = v
+            new_sd[new_prefix + k[len(prefix) :]] = v
             del sd[k]
 
     return new_sd
 
 
-def try_filter_state_dict(sd, prefix_list, new_prefix=''):
+def try_filter_state_dict(sd, prefix_list, new_prefix=""):
     for prefix in prefix_list:
         if state_dict_has(sd, prefix):
             return filter_state_dict_with_prefix(sd, prefix, new_prefix)
@@ -77,7 +74,7 @@ def transformers_convert(sd, prefix_from, prefix_to, number):
                 for x in range(3):
                     p = ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj"]
                     k_to = "{}encoder.layers.{}.{}.{}".format(prefix_to, resblock, p[x], y)
-                    sd[k_to] = weights[shape_from*x:shape_from*(x + 1)]
+                    sd[k_to] = weights[shape_from * x : shape_from * (x + 1)]
     return sd
 
 
@@ -94,7 +91,7 @@ def state_dict_prefix_replace(state_dict, replace_prefix, filter_keys=False):
     else:
         out = state_dict
     for rp in replace_prefix:
-        replace = list(map(lambda a: (a, "{}{}".format(replace_prefix[rp], a[len(rp):])), filter(lambda a: a.startswith(rp), state_dict.keys())))
+        replace = list(map(lambda a: (a, "{}{}".format(replace_prefix[rp], a[len(rp) :])), filter(lambda a: a.startswith(rp), state_dict.keys())))
         for x in replace:
             w = state_dict.pop(x[0])
             out[x[1]] = w

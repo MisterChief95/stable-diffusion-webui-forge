@@ -1,10 +1,10 @@
 import math
-import torch
+
 import einops
+import torch
 
-from backend.args import args
 from backend import memory_management
-
+from backend.args import args
 
 BROKEN_XFORMERS = False
 if memory_management.xformers_enabled():
@@ -42,7 +42,7 @@ def attention_basic(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
         b, _, dim_head = q.shape
         dim_head //= heads
 
-    scale = dim_head ** -0.5
+    scale = dim_head**-0.5
 
     h = heads
     if skip_reshape:
@@ -52,26 +52,22 @@ def attention_basic(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
         )
     else:
         q, k, v = map(
-            lambda t: t.unsqueeze(3)
-            .reshape(b, -1, heads, dim_head)
-            .permute(0, 2, 1, 3)
-            .reshape(b * heads, -1, dim_head)
-            .contiguous(),
+            lambda t: t.unsqueeze(3).reshape(b, -1, heads, dim_head).permute(0, 2, 1, 3).reshape(b * heads, -1, dim_head).contiguous(),
             (q, k, v),
         )
 
     if attn_precision == torch.float32:
-        sim = torch.einsum('b i d, b j d -> b i j', q.float(), k.float()) * scale
+        sim = torch.einsum("b i d, b j d -> b i j", q.float(), k.float()) * scale
     else:
-        sim = torch.einsum('b i d, b j d -> b i j', q, k) * scale
+        sim = torch.einsum("b i d, b j d -> b i j", q, k) * scale
 
     del q, k
 
     if exists(mask):
         if mask.dtype == torch.bool:
-            mask = einops.rearrange(mask, 'b ... -> b (...)')
+            mask = einops.rearrange(mask, "b ... -> b (...)")
             max_neg_value = -torch.finfo(sim.dtype).max
-            mask = einops.repeat(mask, 'b j -> (b h) () j', h=h)
+            mask = einops.repeat(mask, "b j -> (b h) () j", h=h)
             sim.masked_fill_(~mask, max_neg_value)
         else:
             if len(mask.shape) == 2:
@@ -82,13 +78,8 @@ def attention_basic(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
             sim.add_(mask)
 
     sim = sim.softmax(dim=-1)
-    out = torch.einsum('b i j, b j d -> b i d', sim.to(v.dtype), v)
-    out = (
-        out.unsqueeze(0)
-        .reshape(b, heads, -1, dim_head)
-        .permute(0, 2, 1, 3)
-        .reshape(b, -1, heads * dim_head)
-    )
+    out = torch.einsum("b i j, b j d -> b i d", sim.to(v.dtype), v)
+    out = out.unsqueeze(0).reshape(b, heads, -1, dim_head).permute(0, 2, 1, 3).reshape(b, -1, heads * dim_head)
     return out
 
 
@@ -101,7 +92,7 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
         b, _, dim_head = q.shape
         dim_head //= heads
 
-    scale = dim_head ** -0.5
+    scale = dim_head**-0.5
 
     h = heads
     if skip_reshape:
@@ -111,11 +102,7 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
         )
     else:
         q, k, v = map(
-            lambda t: t.unsqueeze(3)
-            .reshape(b, -1, heads, dim_head)
-            .permute(0, 2, 1, 3)
-            .reshape(b * heads, -1, dim_head)
-            .contiguous(),
+            lambda t: t.unsqueeze(3).reshape(b, -1, heads, dim_head).permute(0, 2, 1, 3).reshape(b * heads, -1, dim_head).contiguous(),
             (q, k, v),
         )
 
@@ -130,7 +117,7 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
         element_size = q.element_size()
         upcast = False
 
-    gb = 1024 ** 3
+    gb = 1024**3
     tensor_size = q.shape[0] * q.shape[1] * k.shape[1] * element_size
     modifier = 3
     mem_required = tensor_size * modifier
@@ -143,8 +130,7 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
 
     if steps > 64:
         max_res = math.floor(math.sqrt(math.sqrt(mem_free_total / 2.5)) / 8) * 64
-        raise RuntimeError(f'Not enough memory, use lower resolution (max approx. {max_res}x{max_res}). '
-                           f'Need: {mem_required / 64 / gb:0.1f}GB free, Have:{mem_free_total / gb:0.1f}GB free')
+        raise RuntimeError(f"Not enough memory, use lower resolution (max approx. {max_res}x{max_res}). " f"Need: {mem_required / 64 / gb:0.1f}GB free, Have:{mem_free_total / gb:0.1f}GB free")
 
     if mask is not None:
         if len(mask.shape) == 2:
@@ -162,10 +148,10 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
             for i in range(0, q.shape[1], slice_size):
                 end = i + slice_size
                 if upcast:
-                    with torch.autocast(enabled=False, device_type='cuda'):
-                        s1 = torch.einsum('b i d, b j d -> b i j', q[:, i:end].float(), k.float()) * scale
+                    with torch.autocast(enabled=False, device_type="cuda"):
+                        s1 = torch.einsum("b i d, b j d -> b i j", q[:, i:end].float(), k.float()) * scale
                 else:
-                    s1 = torch.einsum('b i d, b j d -> b i j', q[:, i:end], k) * scale
+                    s1 = torch.einsum("b i d, b j d -> b i j", q[:, i:end], k) * scale
 
                 if mask is not None:
                     if len(mask.shape) == 2:
@@ -177,7 +163,7 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
                 del s1
                 first_op_done = True
 
-                r1[:, i:end] = torch.einsum('b i j, b j d -> b i d', s2, v)
+                r1[:, i:end] = torch.einsum("b i j, b j d -> b i d", s2, v)
                 del s2
             break
         except memory_management.OOM_EXCEPTION as e:
@@ -196,12 +182,7 @@ def attention_split(q, k, v, heads, mask=None, attn_precision=None, skip_reshape
 
     del q, k, v
 
-    r1 = (
-        r1.unsqueeze(0)
-        .reshape(b, heads, -1, dim_head)
-        .permute(0, 2, 1, 3)
-        .reshape(b, -1, heads * dim_head)
-    )
+    r1 = r1.unsqueeze(0).reshape(b, heads, -1, dim_head).permute(0, 2, 1, 3).reshape(b, -1, heads * dim_head)
     return r1
 
 
@@ -229,22 +210,15 @@ def attention_xformers(q, k, v, heads, mask=None, attn_precision=None, skip_resh
     if mask is not None:
         pad = 8 - q.shape[1] % 8
         mask_out = torch.empty([q.shape[0], q.shape[1], q.shape[1] + pad], dtype=q.dtype, device=q.device)
-        mask_out[:, :, :mask.shape[-1]] = mask
-        mask = mask_out[:, :, :mask.shape[-1]]
+        mask_out[:, :, : mask.shape[-1]] = mask
+        mask = mask_out[:, :, : mask.shape[-1]]
 
     out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=mask)
 
     if skip_reshape:
-        out = (
-            out.unsqueeze(0)
-            .reshape(b, heads, -1, dim_head)
-            .permute(0, 2, 1, 3)
-            .reshape(b, -1, heads * dim_head)
-        )
+        out = out.unsqueeze(0).reshape(b, heads, -1, dim_head).permute(0, 2, 1, 3).reshape(b, -1, heads * dim_head)
     else:
-        out = (
-            out.reshape(b, -1, heads * dim_head)
-        )
+        out = out.reshape(b, -1, heads * dim_head)
 
     return out
 
@@ -261,19 +235,17 @@ def attention_pytorch(q, k, v, heads, mask=None, attn_precision=None, skip_resha
         )
 
     out = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=False)
-    out = (
-        out.transpose(1, 2).reshape(b, -1, heads * dim_head)
-    )
+    out = out.transpose(1, 2).reshape(b, -1, heads * dim_head)
     return out
 
 
 def slice_attention_single_head_spatial(q, k, v):
     r1 = torch.zeros_like(k, device=q.device)
-    scale = (int(q.shape[-1]) ** (-0.5))
+    scale = int(q.shape[-1]) ** (-0.5)
 
     mem_free_total = memory_management.get_free_memory(q.device)
 
-    gb = 1024 ** 3
+    gb = 1024**3
     tensor_size = q.shape[0] * q.shape[1] * k.shape[2] * q.element_size()
     modifier = 3 if q.element_size() == 2 else 2.5
     mem_required = tensor_size * modifier
@@ -332,8 +304,7 @@ def xformers_attention_single_head_spatial(q, k, v):
         out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None)
         out = out.transpose(1, 2).reshape(B, C, H, W)
     except NotImplementedError as e:
-        out = slice_attention_single_head_spatial(q.view(B, -1, C), k.view(B, -1, C).transpose(1, 2),
-                                                  v.view(B, -1, C).transpose(1, 2)).reshape(B, C, H, W)
+        out = slice_attention_single_head_spatial(q.view(B, -1, C), k.view(B, -1, C).transpose(1, 2), v.view(B, -1, C).transpose(1, 2)).reshape(B, C, H, W)
     return out
 
 
@@ -350,8 +321,7 @@ def pytorch_attention_single_head_spatial(q, k, v):
         out = out.transpose(2, 3).reshape(B, C, H, W)
     except memory_management.OOM_EXCEPTION as e:
         print("scaled_dot_product_attention OOMed: switched to slice attention")
-        out = slice_attention_single_head_spatial(q.view(B, -1, C), k.view(B, -1, C).transpose(1, 2),
-                                                  v.view(B, -1, C).transpose(1, 2)).reshape(B, C, H, W)
+        out = slice_attention_single_head_spatial(q.view(B, -1, C), k.view(B, -1, C).transpose(1, 2), v.view(B, -1, C).transpose(1, 2)).reshape(B, C, H, W)
     return out
 
 
@@ -392,9 +362,7 @@ class AttentionProcessorForge:
             batch_size, channel, height, width = hidden_states.shape
             hidden_states = hidden_states.view(batch_size, channel, height * width).transpose(1, 2)
 
-        batch_size, sequence_length, _ = (
-            hidden_states.shape if encoder_hidden_states is None else encoder_hidden_states.shape
-        )
+        batch_size, sequence_length, _ = hidden_states.shape if encoder_hidden_states is None else encoder_hidden_states.shape
 
         if attention_mask is not None:
             attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length, batch_size)

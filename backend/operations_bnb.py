@@ -1,11 +1,11 @@
 # Copyright Forge 2024
 
-import torch
 import bitsandbytes as bnb
-
-from backend import utils, memory_management
-from bitsandbytes.nn.modules import Params4bit, QuantState
+import torch
 from bitsandbytes.functional import dequantize_4bit
+from bitsandbytes.nn.modules import Params4bit, QuantState
+
+from backend import memory_management, utils
 
 
 def functional_linear_4bits(x, weight, bias):
@@ -20,12 +20,12 @@ def functional_dequantize_4bit(weight):
 
     weight_original_device = weight.device
 
-    if weight_original_device.type != 'cuda':
+    if weight_original_device.type != "cuda":
         weight = weight.cuda()
 
     weight = dequantize_4bit(weight, quant_state=weight.quant_state, blocksize=weight.blocksize, quant_type=weight.quant_type)
 
-    if weight_original_device.type != 'cuda':
+    if weight_original_device.type != "cuda":
         weight = weight.to(device=weight_original_device)
 
     return weight
@@ -118,26 +118,26 @@ class ForgeLoader4Bit(torch.nn.Module):
         return
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
-        quant_state_keys = {k[len(prefix + "weight."):] for k in state_dict.keys() if k.startswith(prefix + "weight.")}
+        quant_state_keys = {k[len(prefix + "weight.") :] for k in state_dict.keys() if k.startswith(prefix + "weight.")}
 
-        if any('bitsandbytes' in k for k in quant_state_keys):
+        if any("bitsandbytes" in k for k in quant_state_keys):
             quant_state_dict = {k: state_dict[prefix + "weight." + k] for k in quant_state_keys}
 
             self.weight = ForgeParams4bit.from_prequantized(
-                data=state_dict[prefix + 'weight'],
+                data=state_dict[prefix + "weight"],
                 quantized_stats=quant_state_dict,
                 requires_grad=False,
                 device=self.dummy.device,
             )
 
-            if prefix + 'bias' in state_dict:
-                self.bias = torch.nn.Parameter(state_dict[prefix + 'bias'].to(self.dummy))
+            if prefix + "bias" in state_dict:
+                self.bias = torch.nn.Parameter(state_dict[prefix + "bias"].to(self.dummy))
 
             del self.dummy
-        elif hasattr(self, 'dummy'):
-            if prefix + 'weight' in state_dict:
+        elif hasattr(self, "dummy"):
+            if prefix + "weight" in state_dict:
                 self.weight = ForgeParams4bit(
-                    state_dict[prefix + 'weight'].to(self.dummy),
+                    state_dict[prefix + "weight"].to(self.dummy),
                     requires_grad=False,
                     compress_statistics=False,
                     blocksize=64,
@@ -145,8 +145,8 @@ class ForgeLoader4Bit(torch.nn.Module):
                     quant_storage=torch.uint8,
                 )
 
-            if prefix + 'bias' in state_dict:
-                self.bias = torch.nn.Parameter(state_dict[prefix + 'bias'].to(self.dummy))
+            if prefix + "bias" in state_dict:
+                self.bias = torch.nn.Parameter(state_dict[prefix + "bias"].to(self.dummy))
 
             del self.dummy
         else:
@@ -154,16 +154,8 @@ class ForgeLoader4Bit(torch.nn.Module):
 
     def reload_weight(self, weight):
         weight_original_device = weight.device
-        weight = ForgeParams4bit(
-            weight,
-            requires_grad=False,
-            compress_statistics=self.weight.compress_statistics,
-            blocksize=self.weight.blocksize,
-            quant_type=self.weight.quant_type,
-            quant_storage=self.weight.quant_storage,
-            bnb_quantized=False
-        )
-        if weight_original_device.type == 'cuda':
+        weight = ForgeParams4bit(weight, requires_grad=False, compress_statistics=self.weight.compress_statistics, blocksize=self.weight.blocksize, quant_type=self.weight.quant_type, quant_storage=self.weight.quant_storage, bnb_quantized=False)
+        if weight_original_device.type == "cuda":
             weight = weight.to(weight_original_device)
         else:
             weight = weight.cuda().to(weight_original_device)

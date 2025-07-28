@@ -61,7 +61,4 @@ parser.add_argument("--disable-gpu-warning", action="store_true")
 args = parser.parse_known_args()[0]
 
 # Some dynamic args that may be changed by webui rather than cmd flags.
-dynamic_args = dict(
-    embedding_dir='./embeddings',
-    emphasis_name='original'
-)
+dynamic_args = dict(embedding_dir="./embeddings", emphasis_name="original")

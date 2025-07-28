@@ -11,7 +11,11 @@ import torch
 from backend import memory_management, utils
 from backend.args import args, dynamic_args
 from backend.operations import cleanup_cache
-from backend.sampling.condition import Condition, compile_conditions, compile_weighted_conditions
+from backend.sampling.condition import (
+    Condition,
+    compile_conditions,
+    compile_weighted_conditions,
+)
 
 
 def get_area_and_mult(conds, x_in, timestep_in):

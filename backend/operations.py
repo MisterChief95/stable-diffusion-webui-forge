@@ -1,40 +1,40 @@
 # Copyright Forge 2024
 
-import time
-import torch
 import contextlib
+import time
 
-from backend import stream, memory_management, utils
+import torch
+
+from backend import memory_management, stream, utils
 from backend.patcher.lora import merge_lora_to_weight
-
 
 stash = {}
 
 
 def get_weight_and_bias(layer, weight_args=None, bias_args=None, weight_fn=None, bias_fn=None):
-    scale_weight = getattr(layer, 'scale_weight', None)
-    patches = getattr(layer, 'forge_online_loras', None)
+    scale_weight = getattr(layer, "scale_weight", None)
+    patches = getattr(layer, "forge_online_loras", None)
     weight_patches, bias_patches = None, None
 
     if patches is not None:
-        weight_patches = patches.get('weight', None)
+        weight_patches = patches.get("weight", None)
 
     if patches is not None:
-        bias_patches = patches.get('bias', None)
+        bias_patches = patches.get("bias", None)
 
     weight = None
     if layer.weight is not None:
         weight = layer.weight
         if weight_fn is not None:
             if weight_args is not None:
-                fn_device = weight_args.get('device', None)
+                fn_device = weight_args.get("device", None)
                 if fn_device is not None:
                     weight = weight.to(device=fn_device)
             weight = weight_fn(weight)
         if weight_args is not None:
             weight = weight.to(**weight_args)
         if scale_weight is not None:
-            weight = weight*scale_weight.to(device=weight.device, dtype=weight.dtype)
+            weight = weight * scale_weight.to(device=weight.device, dtype=weight.dtype)
         if weight_patches is not None:
             weight = merge_lora_to_weight(patches=weight_patches, weight=weight, key="online weight lora", computation_dtype=weight.dtype)
 
@@ -43,7 +43,7 @@ def get_weight_and_bias(layer, weight_args=None, bias_args=None, weight_fn=None,
         bias = layer.bias
         if bias_fn is not None:
             if bias_args is not None:
-                fn_device = bias_args.get('device', None)
+                fn_device = bias_args.get("device", None)
                 if fn_device is not None:
                     bias = bias.to(device=fn_device)
             bias = bias_fn(bias)
@@ -58,7 +58,7 @@ def weights_manual_cast(layer, x, skip_weight_dtype=False, skip_bias_dtype=False
     weight, bias, signal = None, None, None
     non_blocking = True
 
-    if getattr(x.device, 'type', None) == 'mps':
+    if getattr(x.device, "type", None) == "mps":
         non_blocking = False
 
     target_dtype = x.dtype
@@ -135,13 +135,13 @@ class ForgeOperations:
             self.parameters_manual_cast = current_manual_cast_enabled
 
         def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
-            if hasattr(self, 'dummy'):
-                if prefix + 'weight' in state_dict:
-                    self.weight = torch.nn.Parameter(state_dict[prefix + 'weight'].to(self.dummy))
-                if prefix + 'scale_weight' in state_dict:
-                     self.scale_weight = torch.nn.Parameter(state_dict[prefix + 'scale_weight'])                    
-                if prefix + 'bias' in state_dict:
-                    self.bias = torch.nn.Parameter(state_dict[prefix + 'bias'].to(self.dummy))
+            if hasattr(self, "dummy"):
+                if prefix + "weight" in state_dict:
+                    self.weight = torch.nn.Parameter(state_dict[prefix + "weight"].to(self.dummy))
+                if prefix + "scale_weight" in state_dict:
+                    self.scale_weight = torch.nn.Parameter(state_dict[prefix + "scale_weight"])
+                if prefix + "bias" in state_dict:
+                    self.bias = torch.nn.Parameter(state_dict[prefix + "bias"].to(self.dummy))
                 del self.dummy
             else:
                 super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
@@ -158,8 +158,8 @@ class ForgeOperations:
     class Conv2d(torch.nn.Conv2d):
 
         def __init__(self, *args, **kwargs):
-            kwargs['device'] = current_device
-            kwargs['dtype'] = current_dtype
+            kwargs["device"] = current_device
+            kwargs["dtype"] = current_dtype
             super().__init__(*args, **kwargs)
             self.parameters_manual_cast = current_manual_cast_enabled
 
@@ -178,8 +178,8 @@ class ForgeOperations:
     class Conv3d(torch.nn.Conv3d):
 
         def __init__(self, *args, **kwargs):
-            kwargs['device'] = current_device
-            kwargs['dtype'] = current_dtype
+            kwargs["device"] = current_device
+            kwargs["dtype"] = current_dtype
             super().__init__(*args, **kwargs)
             self.parameters_manual_cast = current_manual_cast_enabled
 
@@ -198,8 +198,8 @@ class ForgeOperations:
     class Conv1d(torch.nn.Conv1d):
 
         def __init__(self, *args, **kwargs):
-            kwargs['device'] = current_device
-            kwargs['dtype'] = current_dtype
+            kwargs["device"] = current_device
+            kwargs["dtype"] = current_dtype
             super().__init__(*args, **kwargs)
             self.parameters_manual_cast = current_manual_cast_enabled
 
@@ -218,8 +218,8 @@ class ForgeOperations:
     class ConvTranspose2d(torch.nn.ConvTranspose2d):
 
         def __init__(self, *args, **kwargs):
-            kwargs['device'] = current_device
-            kwargs['dtype'] = current_dtype
+            kwargs["device"] = current_device
+            kwargs["dtype"] = current_dtype
             super().__init__(*args, **kwargs)
             self.parameters_manual_cast = current_manual_cast_enabled
 
@@ -243,8 +243,8 @@ class ForgeOperations:
     class ConvTranspose1d(torch.nn.ConvTranspose1d):
 
         def __init__(self, *args, **kwargs):
-            kwargs['device'] = current_device
-            kwargs['dtype'] = current_dtype
+            kwargs["device"] = current_device
+            kwargs["dtype"] = current_dtype
             super().__init__(*args, **kwargs)
             self.parameters_manual_cast = current_manual_cast_enabled
 
@@ -268,8 +268,8 @@ class ForgeOperations:
     class ConvTranspose3d(torch.nn.ConvTranspose3d):
 
         def __init__(self, *args, **kwargs):
-            kwargs['device'] = current_device
-            kwargs['dtype'] = current_dtype
+            kwargs["device"] = current_device
+            kwargs["dtype"] = current_dtype
             super().__init__(*args, **kwargs)
             self.parameters_manual_cast = current_manual_cast_enabled
 
@@ -293,8 +293,8 @@ class ForgeOperations:
     class GroupNorm(torch.nn.GroupNorm):
 
         def __init__(self, *args, **kwargs):
-            kwargs['device'] = current_device
-            kwargs['dtype'] = current_dtype
+            kwargs["device"] = current_device
+            kwargs["dtype"] = current_dtype
             super().__init__(*args, **kwargs)
             self.parameters_manual_cast = current_manual_cast_enabled
 
@@ -312,8 +312,8 @@ class ForgeOperations:
     class LayerNorm(torch.nn.LayerNorm):
 
         def __init__(self, *args, **kwargs):
-            kwargs['device'] = current_device
-            kwargs['dtype'] = current_dtype
+            kwargs["device"] = current_device
+            kwargs["dtype"] = current_dtype
             super().__init__(*args, **kwargs)
             self.parameters_manual_cast = current_manual_cast_enabled
 
@@ -331,7 +331,7 @@ class ForgeOperations:
     class Embedding(torch.nn.Embedding):
 
         def __init__(self, *args, **kwargs):
-            kwargs['device'] = current_device
+            kwargs["device"] = current_device
             super().__init__(*args, **kwargs)
             self.parameters_manual_cast = current_manual_cast_enabled
             self.bias = None
@@ -350,7 +350,12 @@ class ForgeOperations:
 
 
 try:
-    from backend.operations_bnb import ForgeLoader4Bit, ForgeParams4bit, functional_linear_4bits, functional_dequantize_4bit
+    from backend.operations_bnb import (
+        ForgeLoader4Bit,
+        ForgeParams4bit,
+        functional_dequantize_4bit,
+        functional_linear_4bits,
+    )
 
     class ForgeOperationsBNB4bits(ForgeOperations):
         class Linear(ForgeLoader4Bit):
@@ -364,7 +369,7 @@ try:
                     # And it only invokes one time, and most linear does not have bias
                     self.bias = utils.tensor2parameter(self.bias.to(x.dtype))
 
-                if hasattr(self, 'forge_online_loras'):
+                if hasattr(self, "forge_online_loras"):
                     weight, bias, signal = weights_manual_cast(self, x, weight_fn=functional_dequantize_4bit, bias_fn=None, skip_bias_dtype=True)
                     with main_stream_worker(weight, bias, signal):
                         return torch.nn.functional.linear(x, weight, bias)
@@ -372,7 +377,7 @@ try:
                 if not self.parameters_manual_cast:
                     return functional_linear_4bits(x, self.weight, self.bias)
                 elif not self.weight.bnb_quantized:
-                    assert x.device.type == 'cuda', 'BNB Must Use CUDA as Computation Device!'
+                    assert x.device.type == "cuda", "BNB Must Use CUDA as Computation Device!"
                     layer_original_device = self.weight.device
                     self.weight = self.weight._quantize(x.device)
                     bias = self.bias.to(x.device) if self.bias is not None else None
@@ -402,23 +407,23 @@ class ForgeOperationsGGUF(ForgeOperations):
             self.parameters_manual_cast = current_manual_cast_enabled
 
         def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
-            if hasattr(self, 'dummy'):
+            if hasattr(self, "dummy"):
                 computation_dtype = self.dummy.dtype
                 if computation_dtype not in [torch.float16, torch.bfloat16]:
                     # GGUF cast only supports 16bits otherwise super slow
                     computation_dtype = torch.float16
-                if prefix + 'weight' in state_dict:
-                    self.weight = state_dict[prefix + 'weight'].to(device=self.dummy.device)
+                if prefix + "weight" in state_dict:
+                    self.weight = state_dict[prefix + "weight"].to(device=self.dummy.device)
                     self.weight.computation_dtype = computation_dtype
-                if prefix + 'bias' in state_dict:
-                    self.bias = state_dict[prefix + 'bias'].to(device=self.dummy.device)
+                if prefix + "bias" in state_dict:
+                    self.bias = state_dict[prefix + "bias"].to(device=self.dummy.device)
                     self.bias.computation_dtype = computation_dtype
                 del self.dummy
             else:
-                if prefix + 'weight' in state_dict:
-                    self.weight = state_dict[prefix + 'weight']
-                if prefix + 'bias' in state_dict:
-                    self.bias = state_dict[prefix + 'bias']
+                if prefix + "weight" in state_dict:
+                    self.weight = state_dict[prefix + "weight"]
+                if prefix + "bias" in state_dict:
+                    self.bias = state_dict[prefix + "bias"]
             return
 
         def _apply(self, fn, recurse=True):
@@ -430,7 +435,7 @@ class ForgeOperationsGGUF(ForgeOperations):
             if self.bias is not None and self.bias.dtype != x.dtype:
                 self.bias = utils.tensor2parameter(dequantize_tensor(self.bias).to(x.dtype))
 
-            if self.weight is not None and self.weight.dtype != x.dtype and getattr(self.weight, 'gguf_cls', None) is None:
+            if self.weight is not None and self.weight.dtype != x.dtype and getattr(self.weight, "gguf_cls", None) is None:
                 self.weight = utils.tensor2parameter(self.weight.to(x.dtype))
 
             weight, bias, signal = weights_manual_cast(self, x, weight_fn=dequantize_tensor, bias_fn=None, skip_bias_dtype=True)
@@ -445,14 +450,14 @@ def using_forge_operations(operations=None, device=None, dtype=None, manual_cast
     current_device, current_dtype, current_manual_cast_enabled, current_bnb_dtype = device, dtype, manual_cast_enabled, bnb_dtype
 
     if operations is None:
-        if bnb_dtype in ['gguf']:
+        if bnb_dtype in ["gguf"]:
             operations = ForgeOperationsGGUF
-        elif bnb_avaliable and bnb_dtype in ['nf4', 'fp4']:
+        elif bnb_avaliable and bnb_dtype in ["nf4", "fp4"]:
             operations = ForgeOperationsBNB4bits
         else:
             operations = ForgeOperations
 
-    op_names = ['Linear', 'Conv1d', 'Conv2d', 'Conv3d', 'ConvTranspose1d', 'ConvTranspose2d', 'ConvTranspose3d', 'GroupNorm', 'LayerNorm', 'Embedding']
+    op_names = ["Linear", "Conv1d", "Conv2d", "Conv3d", "ConvTranspose1d", "ConvTranspose2d", "ConvTranspose3d", "GroupNorm", "LayerNorm", "Embedding"]
     backups = {op_name: getattr(torch.nn, op_name) for op_name in op_names}
 
     try:
@@ -469,17 +474,14 @@ def using_forge_operations(operations=None, device=None, dtype=None, manual_cast
 
 def shift_manual_cast(model, enabled):
     for m in model.modules():
-        if hasattr(m, 'parameters_manual_cast'):
+        if hasattr(m, "parameters_manual_cast"):
             m.parameters_manual_cast = enabled
     return
 
 
 @contextlib.contextmanager
 def automatic_memory_management():
-    memory_management.free_memory(
-        memory_required=3 * 1024 * 1024 * 1024,
-        device=memory_management.get_torch_device()
-    )
+    memory_management.free_memory(memory_required=3 * 1024 * 1024 * 1024, device=memory_management.get_torch_device())
 
     module_list = []
 
@@ -511,7 +513,7 @@ def automatic_memory_management():
     memory_management.soft_empty_cache()
     end = time.perf_counter()
 
-    print(f'Automatic Memory Management: {len(module_list)} Modules in {(end - start):.2f} seconds.')
+    print(f"Automatic Memory Management: {len(module_list)} Modules in {(end - start):.2f} seconds.")
     return
 
 
@@ -519,11 +521,11 @@ class DynamicSwapInstaller:
     @staticmethod
     def _install_module(module: torch.nn.Module, target_device: torch.device):
         original_class = module.__class__
-        module.__dict__['forge_backup_original_class'] = original_class
+        module.__dict__["forge_backup_original_class"] = original_class
 
         def hacked_get_attr(self, name: str):
-            if '_parameters' in self.__dict__:
-                _parameters = self.__dict__['_parameters']
+            if "_parameters" in self.__dict__:
+                _parameters = self.__dict__["_parameters"]
                 if name in _parameters:
                     p = _parameters[name]
                     if p is None:
@@ -532,22 +534,26 @@ class DynamicSwapInstaller:
                         return torch.nn.Parameter(p.to(target_device), requires_grad=p.requires_grad)
                     else:
                         return p.to(target_device)
-            if '_buffers' in self.__dict__:
-                _buffers = self.__dict__['_buffers']
+            if "_buffers" in self.__dict__:
+                _buffers = self.__dict__["_buffers"]
                 if name in _buffers:
                     return _buffers[name].to(target_device)
             return super(original_class, self).__getattr__(name)
 
-        module.__class__ = type('DynamicSwap_' + original_class.__name__, (original_class,), {
-            '__getattr__': hacked_get_attr,
-        })
+        module.__class__ = type(
+            "DynamicSwap_" + original_class.__name__,
+            (original_class,),
+            {
+                "__getattr__": hacked_get_attr,
+            },
+        )
 
         return
 
     @staticmethod
     def _uninstall_module(module: torch.nn.Module):
-        if 'forge_backup_original_class' in module.__dict__:
-            module.__class__ = module.__dict__.pop('forge_backup_original_class')
+        if "forge_backup_original_class" in module.__dict__:
+            module.__class__ = module.__dict__.pop("forge_backup_original_class")
         return
 
     @staticmethod
@@ -561,4 +567,3 @@ class DynamicSwapInstaller:
         for m in model.modules():
             DynamicSwapInstaller._uninstall_module(m)
         return
-

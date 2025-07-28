@@ -1,7 +1,6 @@
 import gguf
 import torch
 
-
 quants_mapping = {
     gguf.GGMLQuantizationType.Q2_K: gguf.Q2_K,
     gguf.GGMLQuantizationType.Q3_K: gguf.Q3_K,
@@ -60,7 +59,7 @@ def dequantize_tensor(tensor):
     if tensor is None:
         return None
 
-    if not hasattr(tensor, 'gguf_cls'):
+    if not hasattr(tensor, "gguf_cls"):
         return tensor
 
     gguf_cls = tensor.gguf_cls

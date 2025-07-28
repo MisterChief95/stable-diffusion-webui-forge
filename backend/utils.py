@@ -1,19 +1,21 @@
-import gguf
-import torch
-import os
 import json
+import os
+
+import gguf
 import safetensors.torch
+import torch
+
 import backend.misc.checkpoint_pickle
 from backend.operations_gguf import ParameterGGUF
 
 
 def read_arbitrary_config(directory):
-    config_path = os.path.join(directory, 'config.json')
+    config_path = os.path.join(directory, "config.json")
 
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"No config.json file found in the directory: {directory}")
 
-    with open(config_path, 'rt', encoding='utf-8') as file:
+    with open(config_path, "rt", encoding="utf-8") as file:
         config_data = json.load(file)
 
     return config_data
@@ -31,7 +33,7 @@ def load_torch_file(ckpt, safe_load=False, device=None):
             sd[str(tensor.name)] = ParameterGGUF(tensor)
     else:
         if safe_load:
-            if not 'weights_only' in torch.load.__code__.co_varnames:
+            if not "weights_only" in torch.load.__code__.co_varnames:
                 print("Warning torch.load doesn't support weights_only on this pytorch version, loading unsafely.")
                 safe_load = False
         if safe_load:
@@ -147,9 +149,9 @@ def nested_move_to_device(obj, **kwargs):
     return obj
 
 
-def get_state_dict_after_quant(model, prefix=''):
+def get_state_dict_after_quant(model, prefix=""):
     for m in model.modules():
-        if hasattr(m, 'weight') and hasattr(m.weight, 'bnb_quantized'):
+        if hasattr(m, "weight") and hasattr(m.weight, "bnb_quantized"):
             if not m.weight.bnb_quantized:
                 original_device = m.weight.device
                 m.cuda()
@@ -162,14 +164,15 @@ def get_state_dict_after_quant(model, prefix=''):
 
 def beautiful_print_gguf_state_dict_statics(state_dict):
     from gguf.constants import GGMLQuantizationType
+
     type_counts = {}
     for k, v in state_dict.items():
-        gguf_cls = getattr(v, 'gguf_cls', None)
+        gguf_cls = getattr(v, "gguf_cls", None)
         if gguf_cls is not None:
             type_name = gguf_cls.__name__
             if type_name in type_counts:
                 type_counts[type_name] += 1
             else:
                 type_counts[type_name] = 1
-    print(f'GGUF state dict: {type_counts}')
+    print(f"GGUF state dict: {type_counts}")
     return

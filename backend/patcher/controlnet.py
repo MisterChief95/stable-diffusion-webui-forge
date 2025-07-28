@@ -5,7 +5,12 @@ import torch
 from backend import memory_management, state_dict, utils
 from backend.misc import image_resize
 from backend.nn.cnets import cldm, t2i_adapter
-from backend.operations import ForgeOperations, main_stream_worker, using_forge_operations, weights_manual_cast
+from backend.operations import (
+    ForgeOperations,
+    main_stream_worker,
+    using_forge_operations,
+    weights_manual_cast,
+)
 from backend.patcher.base import ModelPatcher
 
 
