@@ -199,7 +199,7 @@ class UiSettings:
                         calculate_all_checkpoint_hash = gr.Button(value='Calculate hash for all checkpoint', elem_id="calculate_all_checkpoint_hash")
                         calculate_all_checkpoint_hash_threads = gr.Number(value=1, label="Number of parallel calculations", elem_id="calculate_all_checkpoint_hash_threads", precision=0, minimum=1)
 
-                with gr.TabItem("Licenses", id="licenses", elem_id="settings_tab_licenses"):
+                with gr.TabItem("Licenses", id="licenses", elem_id="settings_tab_licenses") as license_tab:
                     gr.HTML(shared.html("licenses.html"), elem_id="licenses")
 
                 self.show_all_pages = gr.Button(value="Show all pages", elem_id="settings_show_all_pages")
@@ -219,6 +219,8 @@ class UiSettings:
                     return f'{text} in {t.total:.1f}s'
 
                 return handler
+
+            license_tab.select(fn=None, _js="populateLicense")
 
             unload_sd_model.click(
                 fn=call_func_and_return_text(sd_models.unload_model_weights, 'Unloaded all models'),
