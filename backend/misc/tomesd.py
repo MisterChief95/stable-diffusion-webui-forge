@@ -1,7 +1,7 @@
-import torch
 import math
+from typing import Callable, Tuple
 
-from typing import Tuple, Callable
+import torch
 
 
 def do_nothing(x: torch.Tensor, mode: str = None):
@@ -10,18 +10,12 @@ def do_nothing(x: torch.Tensor, mode: str = None):
 
 def mps_gather_workaround(input, dim, index):
     if input.shape[-1] == 1:
-        return torch.gather(
-            input.unsqueeze(-1),
-            dim - 1 if dim < 0 else dim,
-            index.unsqueeze(-1)
-        ).squeeze(-1)
+        return torch.gather(input.unsqueeze(-1), dim - 1 if dim < 0 else dim, index.unsqueeze(-1)).squeeze(-1)
     else:
         return torch.gather(input, dim, index)
 
 
-def bipartite_soft_matching_random2d(metric: torch.Tensor,
-                                     w: int, h: int, sx: int, sy: int, r: int,
-                                     no_rand: bool = False) -> Tuple[Callable, Callable]:
+def bipartite_soft_matching_random2d(metric: torch.Tensor, w: int, h: int, sx: int, sy: int, r: int, no_rand: bool = False) -> Tuple[Callable, Callable]:
     """
     Partitions the tokens into src and dst and merges r tokens from src to dst.
     Dst tokens are partitioned by choosing one randomy in each (sx, sy) region.
@@ -59,7 +53,7 @@ def bipartite_soft_matching_random2d(metric: torch.Tensor,
         # Image is not divisible by sx or sy so we need to move it into a new buffer
         if (hsy * sy) < h or (wsx * sx) < w:
             idx_buffer = torch.zeros(h, w, device=metric.device, dtype=torch.int64)
-            idx_buffer[:(hsy * sy), :(wsx * sx)] = idx_buffer_view
+            idx_buffer[: (hsy * sy), : (wsx * sx)] = idx_buffer_view
         else:
             idx_buffer = idx_buffer_view
 

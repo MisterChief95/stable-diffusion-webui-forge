@@ -63,7 +63,7 @@ UNET_MAP_BASIC = {
     ("time_embed.0.weight", "time_embedding.linear_1.weight"),
     ("time_embed.0.bias", "time_embedding.linear_1.bias"),
     ("time_embed.2.weight", "time_embedding.linear_2.weight"),
-    ("time_embed.2.bias", "time_embedding.linear_2.bias")
+    ("time_embed.2.bias", "time_embedding.linear_2.bias"),
 }
 
 

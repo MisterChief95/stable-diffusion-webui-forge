@@ -1,12 +1,11 @@
-import torch
 import numpy as np
-
+import torch
 from PIL import Image
 
 
 def bislerp(samples, width, height):
     def slerp(b1, b2, r):
-        '''slerps batches b1, b2 according to ratio r, batches should be flat e.g. NxC'''
+        """slerps batches b1, b2 according to ratio r, batches should be flat e.g. NxC"""
 
         c = b1.shape[-1]
 
@@ -82,7 +81,7 @@ def bislerp(samples, width, height):
 
 
 def lanczos(samples, width, height):
-    images = [Image.fromarray(np.clip(255. * image.movedim(0, -1).cpu().numpy(), 0, 255).astype(np.uint8)) for image in samples]
+    images = [Image.fromarray(np.clip(255.0 * image.movedim(0, -1).cpu().numpy(), 0, 255).astype(np.uint8)) for image in samples]
     images = [image.resize((width, height), resample=Image.Resampling.LANCZOS) for image in images]
     images = [torch.from_numpy(np.array(image).astype(np.float32) / 255.0).movedim(-1, 0) for image in images]
     result = torch.stack(images)
@@ -101,7 +100,7 @@ def adaptive_resize(samples, width, height, upscale_method, crop):
             x = round((old_width - old_width * (new_aspect / old_aspect)) / 2)
         elif old_aspect < new_aspect:
             y = round((old_height - old_height * (old_aspect / new_aspect)) / 2)
-        s = samples[:, :, y:old_height - y, x:old_width - x]
+        s = samples[:, :, y : old_height - y, x : old_width - x]
     else:
         s = samples
 

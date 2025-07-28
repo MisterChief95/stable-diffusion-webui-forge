@@ -7,9 +7,12 @@ class Empty:
     pass
 
 
-class Unpickler(pickle.Unpickler):
-    def find_class(self, module, name):
-        # TODO: safe unpickle
+class RestrictedUnpickler(pickle.Unpickler):
+    def find_class(self, module: str, name: str):
         if module.startswith("pytorch_lightning"):
             return Empty
-        return super().find_class(module, name)
+
+        if module.startswith(("collections", "torch", "numpy", "__builtin__")):
+            return super().find_class(module, name)
+
+        raise NotImplementedError(f'"{module}.{name}" is forbidden')
