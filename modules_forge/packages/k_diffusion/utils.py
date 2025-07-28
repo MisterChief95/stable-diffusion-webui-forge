@@ -1,23 +1,22 @@
-from contextlib import contextmanager
 import hashlib
 import math
-from pathlib import Path
 import shutil
 import threading
-import time
 import urllib
 import warnings
+from contextlib import contextmanager
+from pathlib import Path
 
-from PIL import Image
 import safetensors
 import torch
+from PIL import Image
 from torch import nn, optim
 from torch.utils import data
 from torchvision.transforms import functional as TF
 
 
 def from_pil_image(x):
-    """Converts from a PIL image to a tensor."""
+    """Converts from a PIL image to a tensor"""
     x = TF.to_tensor(x)
     if x.ndim == 2:
         x = x[..., None]
@@ -25,7 +24,7 @@ def from_pil_image(x):
 
 
 def to_pil_image(x):
-    """Converts from a tensor to a PIL image."""
+    """Converts from a tensor to a PIL image"""
     if x.ndim == 4:
         assert x.shape[0] == 1
         x = x[0]
@@ -34,43 +33,43 @@ def to_pil_image(x):
     return TF.to_pil_image((x.clamp(-1, 1) + 1) / 2)
 
 
-def hf_datasets_augs_helper(examples, transform, image_key, mode='RGB'):
-    """Apply passed in transforms for HuggingFace Datasets."""
+def hf_datasets_augs_helper(examples, transform, image_key, mode="RGB"):
+    """Apply passed in transforms for HuggingFace Datasets"""
     images = [transform(image.convert(mode)) for image in examples[image_key]]
     return {image_key: images}
 
 
 def append_dims(x, target_dims):
-    """Appends dimensions to the end of a tensor until it has target_dims dimensions."""
+    """Appends dimensions to the end of a tensor until it has target_dims dimensions"""
     dims_to_append = target_dims - x.ndim
     if dims_to_append < 0:
-        raise ValueError(f'input has {x.ndim} dims but target_dims is {target_dims}, which is less')
+        raise ValueError(f"input has {x.ndim} dims but target_dims is {target_dims}, which is less")
     return x[(...,) + (None,) * dims_to_append]
 
 
 def n_params(module):
-    """Returns the number of trainable parameters in a module."""
+    """Returns the number of trainable parameters in a module"""
     return sum(p.numel() for p in module.parameters())
 
 
 def download_file(path, url, digest=None):
-    """Downloads a file if it does not exist, optionally checking its SHA-256 hash."""
+    """Downloads a file if it does not exist, optionally checking its SHA-256 hash"""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
-        with urllib.request.urlopen(url) as response, open(path, 'wb') as f:
+        with urllib.request.urlopen(url) as response, open(path, "wb") as f:
             shutil.copyfileobj(response, f)
     if digest is not None:
-        file_digest = hashlib.sha256(open(path, 'rb').read()).hexdigest()
+        file_digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
         if digest != file_digest:
-            raise OSError(f'hash of {path} (url: {url}) failed to validate')
+            raise OSError(f"hash of {path} (url: {url}) failed to validate")
     return path
 
 
 @contextmanager
 def train_mode(model, mode=True):
     """A context manager that places a model into training mode and restores
-    the previous mode on exit."""
+    the previous mode on exit"""
     modes = [module.training for module in model.modules()]
     try:
         yield model.train(mode)
@@ -81,14 +80,14 @@ def train_mode(model, mode=True):
 
 def eval_mode(model):
     """A context manager that places a model into evaluation mode and restores
-    the previous mode on exit."""
+    the previous mode on exit"""
     return train_mode(model, False)
 
 
 @torch.no_grad()
 def ema_update(model, averaged_model, decay):
     """Incorporates updated model parameters into an exponential moving averaged
-    version of a model. It should be called after each optimizer step."""
+    version of a model. It should be called after each optimizer step"""
     model_params = dict(model.named_parameters())
     averaged_params = dict(averaged_model.named_parameters())
     assert model_params.keys() == averaged_params.keys()
@@ -120,8 +119,7 @@ class EMAWarmup:
         last_epoch (int): The index of last epoch. Default: 0.
     """
 
-    def __init__(self, inv_gamma=1., power=1., min_value=0., max_value=1., start_at=0,
-                 last_epoch=0):
+    def __init__(self, inv_gamma=1.0, power=1.0, min_value=0.0, max_value=1.0, start_at=0, last_epoch=0):
         self.inv_gamma = inv_gamma
         self.power = power
         self.min_value = min_value
@@ -130,7 +128,7 @@ class EMAWarmup:
         self.last_epoch = last_epoch
 
     def state_dict(self):
-        """Returns the state of the class as a :class:`dict`."""
+        """Returns the state of the class as a :class:`dict`"""
         return dict(self.__dict__.items())
 
     def load_state_dict(self, state_dict):
@@ -142,13 +140,13 @@ class EMAWarmup:
         self.__dict__.update(state_dict)
 
     def get_value(self):
-        """Gets the current EMA decay rate."""
+        """Gets the current EMA decay rate"""
         epoch = max(0, self.last_epoch - self.start_at)
         value = 1 - (1 + epoch / self.inv_gamma) ** -self.power
-        return 0. if epoch < 0 else min(self.max_value, max(self.min_value, value))
+        return 0.0 if epoch < 0 else min(self.max_value, max(self.min_value, value))
 
     def step(self):
-        """Updates the step count."""
+        """Updates the step count"""
         self.last_epoch += 1
 
 
@@ -169,28 +167,25 @@ class InverseLR(optim.lr_scheduler._LRScheduler):
             each update. Default: ``False``.
     """
 
-    def __init__(self, optimizer, inv_gamma=1., power=1., warmup=0., min_lr=0.,
-                 last_epoch=-1, verbose=False):
+    def __init__(self, optimizer, inv_gamma=1.0, power=1.0, warmup=0.0, min_lr=0.0, last_epoch=-1, verbose=False):
         self.inv_gamma = inv_gamma
         self.power = power
-        if not 0. <= warmup < 1:
-            raise ValueError('Invalid value for warmup')
+        if not 0.0 <= warmup < 1:
+            raise ValueError("Invalid value for warmup")
         self.warmup = warmup
         self.min_lr = min_lr
         super().__init__(optimizer, last_epoch, verbose)
 
     def get_lr(self):
         if not self._get_lr_called_within_step:
-            warnings.warn("To get the last learning rate computed by the scheduler, "
-                          "please use `get_last_lr()`.")
+            warnings.warn("To get the last learning rate computed by the scheduler, " "please use `get_last_lr()`.")
 
         return self._get_closed_form_lr()
 
     def _get_closed_form_lr(self):
         warmup = 1 - self.warmup ** (self.last_epoch + 1)
         lr_mult = (1 + self.last_epoch / self.inv_gamma) ** -self.power
-        return [warmup * max(self.min_lr, base_lr * lr_mult)
-                for base_lr in self.base_lrs]
+        return [warmup * max(self.min_lr, base_lr * lr_mult) for base_lr in self.base_lrs]
 
 
 class ExponentialLR(optim.lr_scheduler._LRScheduler):
@@ -210,28 +205,25 @@ class ExponentialLR(optim.lr_scheduler._LRScheduler):
             each update. Default: ``False``.
     """
 
-    def __init__(self, optimizer, num_steps, decay=0.5, warmup=0., min_lr=0.,
-                 last_epoch=-1, verbose=False):
+    def __init__(self, optimizer, num_steps, decay=0.5, warmup=0.0, min_lr=0.0, last_epoch=-1, verbose=False):
         self.num_steps = num_steps
         self.decay = decay
-        if not 0. <= warmup < 1:
-            raise ValueError('Invalid value for warmup')
+        if not 0.0 <= warmup < 1:
+            raise ValueError("Invalid value for warmup")
         self.warmup = warmup
         self.min_lr = min_lr
         super().__init__(optimizer, last_epoch, verbose)
 
     def get_lr(self):
         if not self._get_lr_called_within_step:
-            warnings.warn("To get the last learning rate computed by the scheduler, "
-                          "please use `get_last_lr()`.")
+            warnings.warn("To get the last learning rate computed by the scheduler, " "please use `get_last_lr()`.")
 
         return self._get_closed_form_lr()
 
     def _get_closed_form_lr(self):
         warmup = 1 - self.warmup ** (self.last_epoch + 1)
         lr_mult = (self.decay ** (1 / self.num_steps)) ** self.last_epoch
-        return [warmup * max(self.min_lr, base_lr * lr_mult)
-                for base_lr in self.base_lrs]
+        return [warmup * max(self.min_lr, base_lr * lr_mult) for base_lr in self.base_lrs]
 
 
 class ConstantLRWithWarmup(optim.lr_scheduler._LRScheduler):
@@ -246,16 +238,15 @@ class ConstantLRWithWarmup(optim.lr_scheduler._LRScheduler):
             each update. Default: ``False``.
     """
 
-    def __init__(self, optimizer, warmup=0., last_epoch=-1, verbose=False):
-        if not 0. <= warmup < 1:
-            raise ValueError('Invalid value for warmup')
+    def __init__(self, optimizer, warmup=0.0, last_epoch=-1, verbose=False):
+        if not 0.0 <= warmup < 1:
+            raise ValueError("Invalid value for warmup")
         self.warmup = warmup
         super().__init__(optimizer, last_epoch, verbose)
 
     def get_lr(self):
         if not self._get_lr_called_within_step:
-            warnings.warn("To get the last learning rate computed by the scheduler, "
-                          "please use `get_last_lr()`.")
+            warnings.warn("To get the last learning rate computed by the scheduler, " "please use `get_last_lr()`.")
 
         return self._get_closed_form_lr()
 
@@ -265,7 +256,7 @@ class ConstantLRWithWarmup(optim.lr_scheduler._LRScheduler):
 
 
 def stratified_uniform(shape, group=0, groups=1, dtype=None, device=None):
-    """Draws stratified samples from a uniform distribution."""
+    """Draws stratified samples from a uniform distribution"""
     if groups <= 0:
         raise ValueError(f"groups must be positive, got {groups}")
     if group < 0 or group >= groups:
@@ -281,7 +272,7 @@ stratified_settings = threading.local()
 
 @contextmanager
 def enable_stratified(group=0, groups=1, disable=False):
-    """A context manager that enables stratified sampling."""
+    """A context manager that enables stratified sampling"""
     try:
         stratified_settings.disable = disable
         stratified_settings.group = group
@@ -296,7 +287,7 @@ def enable_stratified(group=0, groups=1, disable=False):
 @contextmanager
 def enable_stratified_accelerate(accelerator, disable=False):
     """A context manager that enables stratified sampling, distributing the strata across
-    all processes and gradient accumulation steps using settings from Hugging Face Accelerate."""
+    all processes and gradient accumulation steps using settings from Hugging Face Accelerate"""
     try:
         rank = accelerator.process_index
         world_size = accelerator.num_processes
@@ -312,22 +303,20 @@ def enable_stratified_accelerate(accelerator, disable=False):
 
 def stratified_with_settings(shape, dtype=None, device=None):
     """Draws stratified samples from a uniform distribution, using settings from a context
-    manager."""
-    if not hasattr(stratified_settings, 'disable') or stratified_settings.disable:
+    manager"""
+    if not hasattr(stratified_settings, "disable") or stratified_settings.disable:
         return torch.rand(shape, dtype=dtype, device=device)
-    return stratified_uniform(
-        shape, stratified_settings.group, stratified_settings.groups, dtype=dtype, device=device
-    )
+    return stratified_uniform(shape, stratified_settings.group, stratified_settings.groups, dtype=dtype, device=device)
 
 
-def rand_log_normal(shape, loc=0., scale=1., device='cpu', dtype=torch.float32):
-    """Draws samples from an lognormal distribution."""
+def rand_log_normal(shape, loc=0.0, scale=1.0, device="cpu", dtype=torch.float32):
+    """Draws samples from an lognormal distribution"""
     u = stratified_with_settings(shape, device=device, dtype=dtype) * (1 - 2e-7) + 1e-7
     return torch.distributions.Normal(loc, scale).icdf(u).exp()
 
 
-def rand_log_logistic(shape, loc=0., scale=1., min_value=0., max_value=float('inf'), device='cpu', dtype=torch.float32):
-    """Draws samples from an optionally truncated log-logistic distribution."""
+def rand_log_logistic(shape, loc=0.0, scale=1.0, min_value=0.0, max_value=float("inf"), device="cpu", dtype=torch.float32):
+    """Draws samples from an optionally truncated log-logistic distribution"""
     min_value = torch.as_tensor(min_value, device=device, dtype=torch.float64)
     max_value = torch.as_tensor(max_value, device=device, dtype=torch.float64)
     min_cdf = min_value.log().sub(loc).div(scale).sigmoid()
@@ -336,23 +325,23 @@ def rand_log_logistic(shape, loc=0., scale=1., min_value=0., max_value=float('in
     return u.logit().mul(scale).add(loc).exp().to(dtype)
 
 
-def rand_log_uniform(shape, min_value, max_value, device='cpu', dtype=torch.float32):
-    """Draws samples from an log-uniform distribution."""
+def rand_log_uniform(shape, min_value, max_value, device="cpu", dtype=torch.float32):
+    """Draws samples from an log-uniform distribution"""
     min_value = math.log(min_value)
     max_value = math.log(max_value)
     return (stratified_with_settings(shape, device=device, dtype=dtype) * (max_value - min_value) + min_value).exp()
 
 
-def rand_v_diffusion(shape, sigma_data=1., min_value=0., max_value=float('inf'), device='cpu', dtype=torch.float32):
-    """Draws samples from a truncated v-diffusion training timestep distribution."""
+def rand_v_diffusion(shape, sigma_data=1.0, min_value=0.0, max_value=float("inf"), device="cpu", dtype=torch.float32):
+    """Draws samples from a truncated v-diffusion training timestep distribution"""
     min_cdf = math.atan(min_value / sigma_data) * 2 / math.pi
     max_cdf = math.atan(max_value / sigma_data) * 2 / math.pi
     u = stratified_with_settings(shape, device=device, dtype=dtype) * (max_cdf - min_cdf) + min_cdf
     return torch.tan(u * math.pi / 2) * sigma_data
 
 
-def rand_cosine_interpolated(shape, image_d, noise_d_low, noise_d_high, sigma_data=1., min_value=1e-3, max_value=1e3, device='cpu', dtype=torch.float32):
-    """Draws samples from an interpolated cosine timestep distribution (from simple diffusion)."""
+def rand_cosine_interpolated(shape, image_d, noise_d_low, noise_d_high, sigma_data=1.0, min_value=1e-3, max_value=1e3, device="cpu", dtype=torch.float32):
+    """Draws samples from an interpolated cosine timestep distribution (from simple diffusion)"""
 
     def logsnr_schedule_cosine(t, logsnr_min, logsnr_max):
         t_min = math.atan(math.exp(-0.5 * logsnr_max))
@@ -375,8 +364,8 @@ def rand_cosine_interpolated(shape, image_d, noise_d_low, noise_d_high, sigma_da
     return torch.exp(-logsnr / 2) * sigma_data
 
 
-def rand_split_log_normal(shape, loc, scale_1, scale_2, device='cpu', dtype=torch.float32):
-    """Draws samples from a split lognormal distribution."""
+def rand_split_log_normal(shape, loc, scale_1, scale_2, device="cpu", dtype=torch.float32):
+    """Draws samples from a split lognormal distribution"""
     n = torch.randn(shape, device=device, dtype=dtype).abs()
     u = torch.rand(shape, device=device, dtype=dtype)
     n_left = n * -scale_1 + loc
@@ -387,15 +376,15 @@ def rand_split_log_normal(shape, loc, scale_1, scale_2, device='cpu', dtype=torc
 
 class FolderOfImages(data.Dataset):
     """Recursively finds all images in a directory. It does not support
-    classes/targets."""
+    classes/targets"""
 
-    IMG_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif', '.tiff', '.webp'}
+    IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".ppm", ".bmp", ".pgm", ".tif", ".tiff", ".webp"}
 
     def __init__(self, root, transform=None):
         super().__init__()
         self.root = Path(root)
         self.transform = nn.Identity() if transform is None else transform
-        self.paths = sorted(path for path in self.root.rglob('*') if path.suffix.lower() in self.IMG_EXTENSIONS)
+        self.paths = sorted(path for path in self.root.rglob("*") if path.suffix.lower() in self.IMG_EXTENSIONS)
 
     def __repr__(self):
         return f'FolderOfImages(root="{self.root}", len: {len(self)})'
@@ -405,10 +394,10 @@ class FolderOfImages(data.Dataset):
 
     def __getitem__(self, key):
         path = self.paths[key]
-        with open(path, 'rb') as f:
-            image = Image.open(f).convert('RGB')
+        with open(path, "rb") as f:
+            image = Image.open(f).convert("RGB")
         image = self.transform(image)
-        return image,
+        return (image,)
 
 
 class CSVLogger:
@@ -416,18 +405,18 @@ class CSVLogger:
         self.filename = Path(filename)
         self.columns = columns
         if self.filename.exists():
-            self.file = open(self.filename, 'a')
+            self.file = open(self.filename, "a")
         else:
-            self.file = open(self.filename, 'w')
+            self.file = open(self.filename, "w")
             self.write(*self.columns)
 
     def write(self, *args):
-        print(*args, sep=',', file=self.file, flush=True)
+        print(*args, sep=",", file=self.file, flush=True)
 
 
 @contextmanager
 def tf32_mode(cudnn=None, matmul=None):
-    """A context manager that sets whether TF32 is allowed on cuDNN or matmul."""
+    """A context manager that sets whether TF32 is allowed on cuDNN or matmul"""
     cudnn_old = torch.backends.cudnn.allow_tf32
     matmul_old = torch.backends.cuda.matmul.allow_tf32
     try:
@@ -444,7 +433,7 @@ def tf32_mode(cudnn=None, matmul=None):
 
 
 def get_safetensors_metadata(path):
-    """Retrieves the metadata from a safetensors file."""
+    """Retrieves the metadata from a safetensors file"""
     return safetensors.safe_open(path, "pt").metadata()
 
 

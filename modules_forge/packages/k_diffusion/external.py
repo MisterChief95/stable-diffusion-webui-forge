@@ -7,17 +7,19 @@ from . import sampling, utils
 
 
 class VDenoiser(nn.Module):
-    """A v-diffusion-pytorch model wrapper for k-diffusion."""
+    """
+    A v-diffusion-pytorch model wrapper for k-diffusion
+    """
 
     def __init__(self, inner_model):
         super().__init__()
         self.inner_model = inner_model
-        self.sigma_data = 1.
+        self.sigma_data = 1.0
 
     def get_scalings(self, sigma):
-        c_skip = self.sigma_data ** 2 / (sigma ** 2 + self.sigma_data ** 2)
-        c_out = -sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
-        c_in = 1 / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
+        c_skip = self.sigma_data**2 / (sigma**2 + self.sigma_data**2)
+        c_out = -sigma * self.sigma_data / (sigma**2 + self.sigma_data**2) ** 0.5
+        c_in = 1 / (sigma**2 + self.sigma_data**2) ** 0.5
         return c_skip, c_out, c_in
 
     def sigma_to_t(self, sigma):
@@ -74,13 +76,15 @@ class ForgeScheduleLinker(nn.Module):
 
 
 class DiscreteSchedule(nn.Module):
-    """A mapping between continuous noise levels (sigmas) and a list of discrete noise
-    levels."""
+    """
+    A mapping between continuous noise levels (sigmas) and a list of discrete noise
+    levels
+    """
 
     def __init__(self, sigmas, quantize):
         super().__init__()
-        self.register_buffer('sigmas', sigmas)
-        self.register_buffer('log_sigmas', sigmas.log())
+        self.register_buffer("sigmas", sigmas)
+        self.register_buffer("log_sigmas", sigmas.log())
         self.quantize = quantize
 
     @property
@@ -120,17 +124,18 @@ class DiscreteSchedule(nn.Module):
 
 
 class DiscreteEpsDDPMDenoiser(DiscreteSchedule):
-    """A wrapper for discrete schedule DDPM models that output eps (the predicted
-    noise)."""
+    """
+    A wrapper for discrete schedule DDPM models that output eps (the predicted noise)
+    """
 
     def __init__(self, model, alphas_cumprod, quantize):
         super().__init__(((1 - alphas_cumprod) / alphas_cumprod) ** 0.5, quantize)
         self.inner_model = model
-        self.sigma_data = 1.
+        self.sigma_data = 1.0
 
     def get_scalings(self, sigma):
         c_out = -sigma
-        c_in = 1 / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
+        c_in = 1 / (sigma**2 + self.sigma_data**2) ** 0.5
         return c_out, c_in
 
     def get_eps(self, *args, **kwargs):
@@ -149,9 +154,11 @@ class DiscreteEpsDDPMDenoiser(DiscreteSchedule):
 
 
 class OpenAIDenoiser(DiscreteEpsDDPMDenoiser):
-    """A wrapper for OpenAI diffusion models."""
+    """
+    A wrapper for OpenAI diffusion models
+    """
 
-    def __init__(self, model, diffusion, quantize=False, has_learned_sigmas=True, device='cpu'):
+    def __init__(self, model, diffusion, quantize=False, has_learned_sigmas=True, device="cpu"):
         alphas_cumprod = torch.tensor(diffusion.alphas_cumprod, device=device, dtype=torch.float32)
         super().__init__(model, alphas_cumprod, quantize=quantize)
         self.has_learned_sigmas = has_learned_sigmas
@@ -164,9 +171,11 @@ class OpenAIDenoiser(DiscreteEpsDDPMDenoiser):
 
 
 class CompVisDenoiser(DiscreteEpsDDPMDenoiser):
-    """A wrapper for CompVis diffusion models."""
+    """
+    A wrapper for CompVis diffusion models
+    """
 
-    def __init__(self, model, quantize=False, device='cpu'):
+    def __init__(self, model, quantize=False, device="cpu"):
         super().__init__(model, model.alphas_cumprod, quantize=quantize)
 
     def get_eps(self, *args, **kwargs):
@@ -174,17 +183,19 @@ class CompVisDenoiser(DiscreteEpsDDPMDenoiser):
 
 
 class DiscreteVDDPMDenoiser(DiscreteSchedule):
-    """A wrapper for discrete schedule DDPM models that output v."""
+    """
+    A wrapper for discrete schedule DDPM models that output v
+    """
 
     def __init__(self, model, alphas_cumprod, quantize):
         super().__init__(((1 - alphas_cumprod) / alphas_cumprod) ** 0.5, quantize)
         self.inner_model = model
-        self.sigma_data = 1.
+        self.sigma_data = 1.0
 
     def get_scalings(self, sigma):
-        c_skip = self.sigma_data ** 2 / (sigma ** 2 + self.sigma_data ** 2)
-        c_out = -sigma * self.sigma_data / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
-        c_in = 1 / (sigma ** 2 + self.sigma_data ** 2) ** 0.5
+        c_skip = self.sigma_data**2 / (sigma**2 + self.sigma_data**2)
+        c_out = -sigma * self.sigma_data / (sigma**2 + self.sigma_data**2) ** 0.5
+        c_in = 1 / (sigma**2 + self.sigma_data**2) ** 0.5
         return c_skip, c_out, c_in
 
     def get_v(self, *args, **kwargs):
@@ -203,9 +214,11 @@ class DiscreteVDDPMDenoiser(DiscreteSchedule):
 
 
 class CompVisVDenoiser(DiscreteVDDPMDenoiser):
-    """A wrapper for CompVis diffusion models that output v."""
+    """
+    A wrapper for CompVis diffusion models that output v
+    """
 
-    def __init__(self, model, quantize=False, device='cpu'):
+    def __init__(self, model, quantize=False, device="cpu"):
         super().__init__(model, model.alphas_cumprod, quantize=quantize)
 
     def get_v(self, x, t, cond, **kwargs):
