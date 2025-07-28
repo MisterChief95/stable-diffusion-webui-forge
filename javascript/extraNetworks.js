@@ -99,7 +99,7 @@ function setupExtraNetworksForTab(tabname) {
                         else if (UIresult == 3); //  'all'
                         else if (UIresult == 0) {
                             //  'sd'
-                            if (sdversion != "SdVersion.SD1" && sdversion != "SdVersion.SD2")
+                            if (sdversion != "SdVersion.SD1")
                                 visible = false;
                         } else if (UIresult == 1) {
                             //  'xl'

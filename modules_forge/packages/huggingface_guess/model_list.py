@@ -162,101 +162,6 @@ class SD15(BASE):
         return {"clip_l": "text_encoder"}
 
 
-class SD20(BASE):
-    huggingface_repo = "stabilityai/stable-diffusion-2-1"
-
-    unet_config = {
-        "context_dim": 1024,
-        "model_channels": 320,
-        "use_linear_in_transformer": True,
-        "adm_in_channels": None,
-        "use_temporal_attention": False,
-    }
-
-    unet_extra_config = {
-        "num_heads": -1,
-        "num_head_channels": 64,
-        "attn_precision": torch.float32,
-    }
-
-    latent_format = latent.SD15
-    memory_usage_factor = 1.0
-
-    def model_type(self, state_dict, prefix=""):
-        if (
-            self.unet_config["in_channels"] == 4
-        ):  # SD2.0 inpainting models are not v prediction
-            k = "{}output_blocks.11.1.transformer_blocks.0.norm1.bias".format(prefix)
-            out = state_dict.get(k, None)
-            if (
-                out is not None and torch.std(out, unbiased=False) > 0.09
-            ):  # not sure how well this will actually work. I guess we will find out.
-                return ModelType.V_PREDICTION
-        return ModelType.EPS
-
-    def process_clip_state_dict(self, state_dict):
-        replace_prefix = {}
-        replace_prefix["conditioner.embedders.0.model."] = (
-            "clip_h."  # SD2 in sgm format
-        )
-        replace_prefix["cond_stage_model.model."] = "clip_h."
-        state_dict = utils.state_dict_prefix_replace(
-            state_dict, replace_prefix, filter_keys=True
-        )
-        state_dict = utils.clip_text_transformers_convert(
-            state_dict, "clip_h.", "clip_h.transformer."
-        )
-        return state_dict
-
-    def process_clip_state_dict_for_saving(self, state_dict):
-        replace_prefix = {}
-        replace_prefix["clip_h"] = "cond_stage_model.model"
-        state_dict = utils.state_dict_prefix_replace(state_dict, replace_prefix)
-        state_dict = diffusers_convert.convert_text_enc_state_dict_v20(state_dict)
-        return state_dict
-
-    def clip_target(self, state_dict={}):
-        return {"clip_h": "text_encoder"}
-
-
-class SD21UnclipL(SD20):
-    unet_config = {
-        "context_dim": 1024,
-        "model_channels": 320,
-        "use_linear_in_transformer": True,
-        "adm_in_channels": 1536,
-        "use_temporal_attention": False,
-    }
-
-    clip_vision_prefix = "embedder.model.visual."
-    noise_aug_config = {
-        "noise_schedule_config": {
-            "timesteps": 1000,
-            "beta_schedule": "squaredcos_cap_v2",
-        },
-        "timestep_dim": 768,
-    }
-
-
-class SD21UnclipH(SD20):
-    unet_config = {
-        "context_dim": 1024,
-        "model_channels": 320,
-        "use_linear_in_transformer": True,
-        "adm_in_channels": 2048,
-        "use_temporal_attention": False,
-    }
-
-    clip_vision_prefix = "embedder.model.visual."
-    noise_aug_config = {
-        "noise_schedule_config": {
-            "timesteps": 1000,
-            "beta_schedule": "squaredcos_cap_v2",
-        },
-        "timestep_dim": 1024,
-    }
-
-
 class SDXLRefiner(BASE):
     huggingface_repo = "stabilityai/stable-diffusion-xl-refiner-1.0"
 
@@ -503,31 +408,6 @@ class Stable_Zero123(BASE):
     clip_vision_prefix = "cond_stage_model.model.visual."
 
     latent_format = latent.SD15
-
-
-class SD_X4Upscaler(SD20):
-    unet_config = {
-        "context_dim": 1024,
-        "model_channels": 256,
-        "in_channels": 7,
-        "use_linear_in_transformer": True,
-        "adm_in_channels": None,
-        "use_temporal_attention": False,
-    }
-
-    unet_extra_config = {
-        "disable_self_attentions": [True, True, True, False],
-        "num_classes": 1000,
-        "num_heads": 8,
-        "num_head_channels": -1,
-    }
-
-    latent_format = latent.SD_X4
-
-    sampling_settings = {
-        "linear_start": 0.0001,
-        "linear_end": 0.02,
-    }
 
 
 class Stable_Cascade_C(BASE):
@@ -782,9 +662,6 @@ models = [
     Stable_Zero123,
     SD15_instructpix2pix,
     SD15,
-    SD20,
-    SD21UnclipL,
-    SD21UnclipH,
     SDXL_instructpix2pix,
     SDXLRefiner,
     SDXL,
@@ -792,7 +669,6 @@ models = [
     KOALA_700M,
     KOALA_1B,
     Segmind_Vega,
-    SD_X4Upscaler,
     Stable_Cascade_C,
     Stable_Cascade_B,
     SV3D_u,

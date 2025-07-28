@@ -48,7 +48,7 @@ class ForgeDiffusionEngine:
         return 0, 75
 
     def is_webui_legacy_model(self):
-        return self.is_sd1 or self.is_sd2 or self.is_sdxl
+        return self.is_sd1 or self.is_sdxl
 
     def fix_for_webui_backward_compatibility(self):
         self.tiling_enabled = False

@@ -222,8 +222,6 @@ def replace_state_dict(sd, asd, guess):
         match sd[legacy_test_key].shape[1]:
             case 768:
                 model_type = "sd1"
-            case 1024:
-                model_type = "sd2"
             case 1280:
                 model_type = "xlrf"  # sdxl refiner model
             case 2048:
@@ -235,7 +233,6 @@ def replace_state_dict(sd, asd, guess):
     prefix_L = {
         "-": None,
         "sd1": "cond_stage_model.transformer.",
-        "sd2": None,
         "xlrf": None,
         "sdxl": "conditioner.embedders.0.transformer.",
         "flux": "text_encoders.clip_l.transformer.",
@@ -244,7 +241,6 @@ def replace_state_dict(sd, asd, guess):
     prefix_G = {
         "-": None,
         "sd1": None,
-        "sd2": None,
         "xlrf": "conditioner.embedders.0.model.transformer.",
         "sdxl": "conditioner.embedders.1.model.transformer.",
         "flux": None,
@@ -253,16 +249,15 @@ def replace_state_dict(sd, asd, guess):
     prefix_H = {
         "-": None,
         "sd1": None,
-        "sd2": "conditioner.embedders.0.model.",
         "xlrf": None,
         "sdxl": None,
         "flux": None,
     }
 
-    ##  VAE format 0 (extracted from model, could be sd1, sd2, sdxl).
+    ##  VAE format 0 (extracted from model, could be sd1, sdxl).
     if "first_stage_model.decoder.conv_in.weight" in asd:
         channels = asd["first_stage_model.decoder.conv_in.weight"].shape[1]
-        if model_type == "sd1" or model_type == "sd2" or model_type == "xlrf" or model_type == "sdxl":
+        if model_type == "sd1" or model_type == "xlrf" or model_type == "sdxl":
             if channels == 4:
                 for k, v in asd.items():
                     sd[k] = v
