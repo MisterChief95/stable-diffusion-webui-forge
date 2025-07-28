@@ -18,14 +18,12 @@ from backend.nn.clip import IntegratedCLIP
 from backend.nn.unet import IntegratedUNet2DConditionModel
 
 from backend.diffusion_engine.sd15 import StableDiffusion
-from backend.diffusion_engine.sd20 import StableDiffusion2
 from backend.diffusion_engine.sdxl import StableDiffusionXL, StableDiffusionXLRefiner
-from backend.diffusion_engine.sd35 import StableDiffusion3
 from backend.diffusion_engine.flux import Flux
 from backend.diffusion_engine.chroma import Chroma
 
 
-possible_models = [StableDiffusion, StableDiffusion2, StableDiffusionXLRefiner, StableDiffusionXL, StableDiffusion3, Chroma, Flux]
+possible_models = [StableDiffusion, StableDiffusionXLRefiner, StableDiffusionXL, Chroma, Flux]
 
 
 logging.getLogger("diffusers").setLevel(logging.ERROR)
@@ -418,7 +416,7 @@ def replace_state_dict(sd, asd, guess):
                     asd = transformers_convert(asd, old_prefix, new_prefix, 12)
                     for k, v in asd.items():
                         sd[k] = v
-                
+
                 elif old_prefix == "":
                     for k, v in asd.items():
                         new_k = new_prefix + k
@@ -489,7 +487,7 @@ def forge_loader(sd, additional_state_dicts=None):
         state_dicts, estimated_config = split_state_dict(sd, additional_state_dicts=additional_state_dicts)
     except:
         raise ValueError('Failed to recognize model type!')
-    
+
     repo_name = estimated_config.huggingface_repo
 
     local_path = os.path.join(dir_path, 'huggingface', repo_name)
