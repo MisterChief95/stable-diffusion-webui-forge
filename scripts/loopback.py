@@ -2,7 +2,7 @@ import math
 
 import gradio as gr
 import modules.scripts as scripts
-from modules import deepbooru, images, processing, shared
+from modules import images, processing, shared
 from modules.processing import Processed
 from modules.shared import opts, state
 
@@ -18,11 +18,10 @@ class Script(scripts.Script):
         loops = gr.Slider(minimum=1, maximum=32, step=1, label='Loops', value=4, elem_id=self.elem_id("loops"))
         final_denoising_strength = gr.Slider(minimum=0, maximum=1, step=0.01, label='Final denoising strength', value=0.5, elem_id=self.elem_id("final_denoising_strength"))
         denoising_curve = gr.Dropdown(label="Denoising strength curve", choices=["Aggressive", "Linear", "Lazy"], value="Linear")
-        append_interrogation = gr.Dropdown(label="Append interrogated prompt at each iteration", choices=["None", "CLIP", "DeepBooru"], value="None")
 
-        return [loops, final_denoising_strength, denoising_curve, append_interrogation]
+        return [loops, final_denoising_strength, denoising_curve]
 
-    def run(self, p, loops, final_denoising_strength, denoising_curve, append_interrogation):
+    def run(self, p, loops, final_denoising_strength, denoising_curve):
         processing.fix_seed(p)
         batch_count = p.n_iter
         p.extra_generation_params = {
@@ -82,13 +81,6 @@ class Script(scripts.Script):
 
                 if opts.img2img_color_correction:
                     p.color_corrections = initial_color_corrections
-
-                if append_interrogation != "None":
-                    p.prompt = f"{original_prompt}, " if original_prompt else ""
-                    if append_interrogation == "CLIP":
-                        p.prompt += shared.interrogator.interrogate(p.init_images[0])
-                    elif append_interrogation == "DeepBooru":
-                        p.prompt += deepbooru.model.tag(p.init_images[0])
 
                 state.job = f"Iteration {i + 1}/{loops}, batch {n + 1}/{batch_count}"
 

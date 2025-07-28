@@ -50,7 +50,6 @@ def enable_tf32():
 cpu: torch.device = torch.device("cpu")
 fp8: bool = False
 device: torch.device = memory_management.get_torch_device()
-device_interrogate: torch.device = memory_management.text_encoder_device()  # for backward compatibility, not used now
 device_gfpgan: torch.device = memory_management.get_torch_device()  # will be managed by memory management system
 device_esrgan: torch.device = memory_management.get_torch_device()  # will be managed by memory management system
 device_codeformer: torch.device = memory_management.get_torch_device()  # will be managed by memory management system

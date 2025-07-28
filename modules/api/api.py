@@ -17,7 +17,7 @@ from fastapi.encoders import jsonable_encoder
 from secrets import compare_digest
 
 import modules.shared as shared
-from modules import sd_samplers, deepbooru, images, scripts, ui, postprocessing, errors, restart, shared_items, script_callbacks, infotext_utils, sd_models, sd_schedulers
+from modules import sd_samplers, images, scripts, ui, postprocessing, errors, restart, shared_items, script_callbacks, infotext_utils, sd_models, sd_schedulers
 from modules.api import models
 from modules.shared import opts
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images, process_extra_images
@@ -214,7 +214,6 @@ class Api:
         self.add_api_route("/sdapi/v1/extra-batch-images", self.extras_batch_images_api, methods=["POST"], response_model=models.ExtrasBatchImagesResponse)
         self.add_api_route("/sdapi/v1/png-info", self.pnginfoapi, methods=["POST"], response_model=models.PNGInfoResponse)
         self.add_api_route("/sdapi/v1/progress", self.progressapi, methods=["GET"], response_model=models.ProgressResponse)
-        self.add_api_route("/sdapi/v1/interrogate", self.interrogateapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/interrupt", self.interruptapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/skip", self.skip, methods=["POST"])
         self.add_api_route("/sdapi/v1/options", self.get_config, methods=["GET"], response_model=models.OptionsModel)
@@ -379,7 +378,7 @@ class Api:
 
         def get_base_type(annotation):
             origin = get_origin(annotation)
-            
+
             if origin is Union:             # represents Optional
                 args = get_args(annotation) # filter out NoneType
                 non_none_args = [arg for arg in args if arg is not type(None)]
@@ -641,25 +640,6 @@ class Api:
             current_image = encode_pil_to_base64(shared.state.current_image)
 
         return models.ProgressResponse(progress=progress, eta_relative=eta_relative, state=shared.state.dict(), current_image=current_image, textinfo=shared.state.textinfo, current_task=current_task)
-
-    def interrogateapi(self, interrogatereq: models.InterrogateRequest):
-        image_b64 = interrogatereq.image
-        if image_b64 is None:
-            raise HTTPException(status_code=404, detail="Image not found")
-
-        img = decode_base64_to_image(image_b64)
-        img = img.convert('RGB')
-
-        # Override object param
-        with self.queue_lock:
-            if interrogatereq.model == "clip":
-                processed = shared.interrogator.interrogate(img)
-            elif interrogatereq.model == "deepdanbooru":
-                processed = deepbooru.model.tag(img)
-            else:
-                raise HTTPException(status_code=404, detail="Model not found")
-
-        return models.InterrogateResponse(caption=processed)
 
     def interruptapi(self):
         shared.state.interrupt()
