@@ -64,24 +64,8 @@ def commit_hash():
         return "<none>"
 
 
-@lru_cache()
-def git_tag_a1111():
-    try:
-        return subprocess.check_output([git, "-C", script_path, "describe", "--tags"], shell=False, encoding='utf8').strip()
-    except Exception:
-        try:
-
-            changelog_md = os.path.join(script_path, "CHANGELOG.md")
-            with open(changelog_md, "r", encoding="utf-8") as file:
-                line = next((line.strip() for line in file if line.strip()), "<none>")
-                line = line.replace("## ", "")
-                return line
-        except Exception:
-            return "<none>"
-
-
 def git_tag():
-    return 'f' + forge_version.version + '-' + git_tag_a1111()
+    return forge_version.version
 
 
 def run(command, desc=None, errdesc=None, custom_env=None, live: bool = default_command_live) -> str:
@@ -147,23 +131,12 @@ def check_run_python(code: str) -> bool:
     return result.returncode == 0
 
 
-def git_fix_workspace(dir, name):
-    run(f'"{git}" -C "{dir}" fetch --refetch --no-auto-gc', f"Fetching all contents for {name}", f"Couldn't fetch {name}", live=True)
-    run(f'"{git}" -C "{dir}" gc --aggressive --prune=now', f"Pruning {name}", f"Couldn't prune {name}", live=True)
-    return
+def git_fix_workspace(*args, **kwargs):
+    raise NotImplementedError()
 
 
-def run_git(dir, name, command, desc=None, errdesc=None, custom_env=None, live: bool = default_command_live, autofix=True):
-    try:
-        return run(f'"{git}" -C "{dir}" {command}', desc=desc, errdesc=errdesc, custom_env=custom_env, live=live)
-    except RuntimeError:
-        if not autofix:
-            raise
-
-    print(f"{errdesc}, attempting autofix...")
-    git_fix_workspace(dir, name)
-
-    return run(f'"{git}" -C "{dir}" {command}', desc=desc, errdesc=errdesc, custom_env=custom_env, live=live)
+def run_git(*args, **kwargs):
+    raise NotImplementedError()
 
 
 def git_clone(*args, **kwargs):
@@ -178,23 +151,6 @@ def git_pull_recursive(dir):
                 print(f"Pulled changes for repository in '{subdir}':\n{output.decode('utf-8').strip()}\n")
             except subprocess.CalledProcessError as e:
                 print(f"Couldn't perform 'git pull' on repository in '{subdir}':\n{e.output.decode('utf-8').strip()}\n")
-
-
-def version_check(commit):
-    try:
-        import requests
-        commits = requests.get('https://api.github.com/repos/AUTOMATIC1111/stable-diffusion-webui/branches/master').json()
-        if commit != "<none>" and commits['commit']['sha'] != commit:
-            print("--------------------------------------------------------")
-            print("| You are not up to date with the most recent release. |")
-            print("| Consider running `git pull` to update.               |")
-            print("--------------------------------------------------------")
-        elif commits['commit']['sha'] == commit:
-            print("You are up to date with the most recent release.")
-        else:
-            print("Not a git clone, can't perform version check.")
-    except Exception as e:
-        print("version check failed", e)
 
 
 def run_extension_installer(extension_dir):
@@ -326,33 +282,12 @@ def requirements_met(requirements_file):
 def prepare_environment():
     torch_index_url = os.environ.get('TORCH_INDEX_URL', "https://download.pytorch.org/whl/cu128")
     torch_command = os.environ.get('TORCH_COMMAND', f"pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --extra-index-url {torch_index_url}")
-    if args.use_ipex:
-        if platform.system() == "Windows":
-            # The "Nuullll/intel-extension-for-pytorch" wheels were built from IPEX source for Intel Arc GPU: https://github.com/intel/intel-extension-for-pytorch/tree/xpu-main
-            # This is NOT an Intel official release so please use it at your own risk!!
-            # See https://github.com/Nuullll/intel-extension-for-pytorch/releases/tag/v2.0.110%2Bxpu-master%2Bdll-bundle for details.
-            #
-            # Strengths (over official IPEX 2.0.110 windows release):
-            #   - AOT build (for Arc GPU only) to eliminate JIT compilation overhead: https://github.com/intel/intel-extension-for-pytorch/issues/399
-            #   - Bundles minimal oneAPI 2023.2 dependencies into the python wheels, so users don't need to install oneAPI for the whole system.
-            #   - Provides a compatible torchvision wheel: https://github.com/intel/intel-extension-for-pytorch/issues/465
-            # Limitation:
-            #   - Only works for python 3.10
-            url_prefix = "https://github.com/Nuullll/intel-extension-for-pytorch/releases/download/v2.0.110%2Bxpu-master%2Bdll-bundle"
-            torch_command = os.environ.get('TORCH_COMMAND', f"pip install {url_prefix}/torch-2.0.0a0+gite9ebda2-cp310-cp310-win_amd64.whl {url_prefix}/torchvision-0.15.2a0+fa99a53-cp310-cp310-win_amd64.whl {url_prefix}/intel_extension_for_pytorch-2.0.110+gitc6ea20b-cp310-cp310-win_amd64.whl")
-        else:
-            # Using official IPEX release for linux since it's already an AOT build.
-            # However, users still have to install oneAPI toolkit and activate oneAPI environment manually.
-            # See https://intel.github.io/intel-extension-for-pytorch/index.html#installation for details.
-            torch_index_url = os.environ.get('TORCH_INDEX_URL', "https://pytorch-extension.intel.com/release-whl/stable/xpu/us/")
-            torch_command = os.environ.get('TORCH_COMMAND', f"pip install torch==2.0.0a0 intel-extension-for-pytorch==2.0.110+gitba7f6c1 --extra-index-url {torch_index_url}")
+    xformers_package = os.environ.get('XFORMERS_PACKAGE', f"xformers==0.0.31.post1 --extra-index-url {torch_index_url}")
+
+    clip_package = os.environ.get('CLIP_PACKAGE', "https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip")
 
     gradio_package = os.environ.get("GRADIO_PACKAGE", "gradio==4.43.0 gradio_imageslider==0.0.20 gradio_rangeslider==0.0.6")
     requirements_file = os.environ.get('REQS_FILE', "requirements.txt")
-
-    xformers_package = os.environ.get('XFORMERS_PACKAGE', f"xformers==0.0.31.post1 --extra-index-url {torch_index_url}")
-    clip_package = os.environ.get('CLIP_PACKAGE', "https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip")
-    openclip_package = os.environ.get('OPENCLIP_PACKAGE', "https://github.com/mlfoundations/open_clip/archive/bb6e834e9c70d9c27d0dc3ecedeebeaeb1ffad6b.zip")
 
     try:
         # the existence of this file is a signal to webui.sh/bat that webui needs to be restarted when it stops execution
@@ -366,38 +301,25 @@ def prepare_environment():
 
     startup_timer.record("checks")
 
-    commit = commit_hash()
     tag = git_tag()
-    startup_timer.record("git version info")
 
     print(f"Python {sys.version}")
     print(f"Version: {tag}")
-    print(f"Commit hash: {commit}")
 
     if args.reinstall_torch or not is_installed("torch") or not is_installed("torchvision"):
         run(f'"{python}" -m {torch_command}', "Installing torch and torchvision", "Couldn't install torch", live=True)
         startup_timer.record("install torch")
 
-    if args.use_ipex:
-        args.skip_torch_cuda_test = True
-    if not args.skip_torch_cuda_test and not check_run_python("import torch; assert torch.cuda.is_available()"):
-        raise RuntimeError(
-            'Your device does not support the current version of Torch/CUDA! Consider download another version: \n'
-            'https://github.com/lllyasviel/stable-diffusion-webui-forge/releases/tag/latest'
-            # 'Torch is not able to use GPU; '
-            # 'add --skip-torch-cuda-test to COMMANDLINE_ARGS variable to disable this check'
-        )
-    startup_timer.record("torch GPU test")
+    if not args.skip_torch_cuda_test:
+        if not check_run_python("import torch; assert torch.cuda.is_available()"):
+            raise RuntimeError("PyTorch is not able to access CUDA")
+        startup_timer.record("torch GPU test")
 
     if not is_installed("clip"):
         run_pip(f"install {clip_package}", "clip")
         startup_timer.record("install clip")
 
-    if not is_installed("open_clip"):
-        run_pip(f"install {openclip_package}", "open_clip")
-        startup_timer.record("install open_clip")
-
-    if (not is_installed("xformers") or args.reinstall_xformers) and args.xformers:
+    if args.xformers and (not is_installed("xformers") or args.reinstall_xformers):
         run_pip(f"install -U -I --no-deps {xformers_package}", "xformers")
         startup_timer.record("install xformers")
 
@@ -417,10 +339,6 @@ def prepare_environment():
 
     if not args.skip_install:
         run_extensions_installers(settings_file=args.ui_settings_file)
-
-    if args.update_check:
-        version_check(commit)
-        startup_timer.record("check version")
 
     if args.update_all_extensions:
         git_pull_recursive(extensions_dir)
