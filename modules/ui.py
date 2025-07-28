@@ -26,7 +26,7 @@ import modules.shared as shared
 from modules import prompt_parser
 from modules.infotext_utils import image_from_url_text, PasteField
 from modules_forge.forge_canvas.canvas import ForgeCanvas, canvas_head
-from modules_forge import main_entry, forge_space
+from modules_forge import main_entry
 import modules.processing_scripts.comments as comments
 
 
@@ -857,9 +857,6 @@ def create_ui():
 
         extra_tabs.__exit__()
 
-    with gr.Blocks(analytics_enabled=False, head=canvas_head) as space_interface:
-        forge_space.main_entry()
-
     scripts.scripts_current = None
 
     with gr.Blocks(analytics_enabled=False) as extras_interface:
@@ -898,7 +895,6 @@ def create_ui():
     interfaces = [
         (txt2img_interface, "Txt2img", "txt2img"),
         (img2img_interface, "Img2img", "img2img"),
-        (space_interface, "Spaces", "space"),
         (extras_interface, "Extras", "extras"),
         (pnginfo_interface, "PNG Info", "pnginfo"),
         (modelmerger_ui.blocks, "Checkpoint Merger", "modelmerger"),
@@ -935,12 +931,6 @@ def create_ui():
             loadsave.add_component(f"webui/Tabs@{tabs.elem_id}", tabs)
 
             loadsave.setup_ui()
-
-        def tab_changed(evt: gr.SelectData):
-            no_quick_setting = getattr(shared.opts, "tabs_without_quick_settings_bar", [])
-            return gr.update(visible=evt.value not in no_quick_setting)
-
-        tabs.select(tab_changed, outputs=[quicksettings_row], show_progress=False, queue=False)
 
         if os.path.exists(os.path.join(script_path, "notification.mp3")) and shared.opts.notification_audio:
             gr.Audio(interactive=False, value=os.path.join(script_path, "notification.mp3"), elem_id="audio_notification", visible=False)
