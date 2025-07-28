@@ -108,7 +108,7 @@ def check_versions():
 
     expected_torch = "2.7.0"
     expected_xformers = "0.0.30"
-    expected_gradio = "4.43.0"
+    expected_gradio = "4.40.0"
 
     if version.parse(torch.__version__) < version.parse(expected_torch):
         print_error_explanation(
