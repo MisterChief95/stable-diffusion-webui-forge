@@ -1,7 +1,11 @@
 // allows drag-dropping files into gradio image elements, and also pasting images from clipboard
 
 function isValidImageList(files) {
-    return files && files?.length === 1 && ['image/png', 'image/gif', 'image/jpeg'].includes(files[0].type);
+    return (
+        files &&
+        files?.length === 1 &&
+        ["image/png", "image/gif", "image/jpeg"].includes(files[0].type)
+    );
 }
 
 function dropReplaceImage(imgWrap, files) {
@@ -11,7 +15,11 @@ function dropReplaceImage(imgWrap, files) {
 
     const tmpFile = files[0];
 
-    imgWrap.querySelector('.modify-upload button + button, .touch-none + div button + button')?.click();
+    imgWrap
+        .querySelector(
+            ".modify-upload button + button, .touch-none + div button + button",
+        )
+        ?.click();
     const callback = () => {
         const fileInput = imgWrap.querySelector('input[type="file"]');
         if (fileInput) {
@@ -22,7 +30,7 @@ function dropReplaceImage(imgWrap, files) {
             } else {
                 fileInput.files = files;
             }
-            fileInput.dispatchEvent(new Event('change'));
+            fileInput.dispatchEvent(new Event("change"));
         }
     };
 
@@ -32,7 +40,8 @@ function dropReplaceImage(imgWrap, files) {
 function eventHasFiles(e) {
     if (!e.dataTransfer || !e.dataTransfer.files) return false;
     if (e.dataTransfer.files.length > 0) return true;
-    if (e.dataTransfer.items.length > 0 && e.dataTransfer.items[0].kind == "file") return true;
+    if (e.dataTransfer.items.length > 0 && e.dataTransfer.items[0].kind == "file")
+        return true;
 
     return false;
 }
@@ -47,60 +56,66 @@ function isURL(url) {
 }
 
 function dragDropTargetIsPrompt(target) {
-    if (target?.placeholder && target?.placeholder.indexOf("Prompt") >= 0) return true;
-    if (target?.parentNode?.parentNode?.className?.indexOf("prompt") > 0) return true;
+    if (target?.placeholder && target?.placeholder.indexOf("Prompt") >= 0)
+        return true;
+    if (target?.parentNode?.parentNode?.className?.indexOf("prompt") > 0)
+        return true;
     return false;
 }
 
-window.document.addEventListener('dragover', e => {
+window.document.addEventListener("dragover", (e) => {
     const target = e.composedPath()[0];
     if (!eventHasFiles(e)) return;
 
-    var targetImage = target.closest('[data-testid="image"]');
+    let targetImage = target.closest('[data-testid="image"]');
     if (!dragDropTargetIsPrompt(target) && !targetImage) return;
 
     e.stopPropagation();
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
+    e.dataTransfer.dropEffect = "copy";
 });
 
-window.document.addEventListener('drop', async e => {
+window.document.addEventListener("drop", async (e) => {
     const target = e.composedPath()[0];
-    const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    const url =
+        e.dataTransfer.getData("text/uri-list") ||
+        e.dataTransfer.getData("text/plain");
     if (!eventHasFiles(e) && !isURL(url)) return;
 
     if (dragDropTargetIsPrompt(target)) {
         e.stopPropagation();
         e.preventDefault();
 
-        const isImg2img = get_tab_index('tabs') == 1;
-        let prompt_image_target = isImg2img ? "img2img_prompt_image" : "txt2img_prompt_image";
+        const isImg2img = get_tab_index("tabs") == 1;
+        let prompt_image_target = isImg2img
+            ? "img2img_prompt_image"
+            : "txt2img_prompt_image";
 
         const imgParent = gradioApp().getElementById(prompt_image_target);
         const files = e.dataTransfer.files;
         const fileInput = imgParent.querySelector('input[type="file"]');
         if (eventHasFiles(e) && fileInput) {
             fileInput.files = files;
-            fileInput.dispatchEvent(new Event('change'));
+            fileInput.dispatchEvent(new Event("change"));
         } else if (url) {
             try {
                 const request = await fetch(url);
                 if (!request.ok) {
-                    console.error('Error fetching URL:', url, request.status);
+                    console.error("Error fetching URL:", url, request.status);
                     return;
                 }
                 const data = new DataTransfer();
-                data.items.add(new File([await request.blob()], 'image.png'));
+                data.items.add(new File([await request.blob()], "image.png"));
                 fileInput.files = data.files;
-                fileInput.dispatchEvent(new Event('change'));
+                fileInput.dispatchEvent(new Event("change"));
             } catch (error) {
-                console.error('Error fetching URL:', url, error);
+                console.error("Error fetching URL:", url, error);
                 return;
             }
         }
     }
 
-    var targetImage = target.closest('[data-testid="image"]');
+    let targetImage = target.closest('[data-testid="image"]');
     if (targetImage) {
         e.stopPropagation();
         e.preventDefault();
@@ -110,28 +125,30 @@ window.document.addEventListener('drop', async e => {
     }
 });
 
-window.addEventListener('paste', e => {
+window.addEventListener("paste", (e) => {
     const files = e.clipboardData.files;
     if (!isValidImageList(files)) {
         return;
     }
 
-    const visibleImageFields = [...gradioApp().querySelectorAll('[data-testid="image"]')]
-        .filter(el => uiElementIsVisible(el))
+    const visibleImageFields = [
+        ...gradioApp().querySelectorAll('[data-testid="image"]'),
+    ]
+        .filter((el) => uiElementIsVisible(el))
         .sort((a, b) => uiElementInSight(b) - uiElementInSight(a));
-
 
     if (!visibleImageFields.length) {
         return;
     }
 
-    const firstFreeImageField = visibleImageFields
-        .filter(el => !el.querySelector('img'))?.[0];
+    const firstFreeImageField = visibleImageFields.filter(
+        (el) => !el.querySelector("img"),
+    )?.[0];
 
     dropReplaceImage(
-        firstFreeImageField ?
-            firstFreeImageField :
-            visibleImageFields[visibleImageFields.length - 1]
-        , files
+        firstFreeImageField
+            ? firstFreeImageField
+            : visibleImageFields[visibleImageFields.length - 1],
+        files,
     );
 });

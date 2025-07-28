@@ -1,4 +1,3 @@
-
 function localSet(k, v) {
     try {
         localStorage.setItem(k, v);

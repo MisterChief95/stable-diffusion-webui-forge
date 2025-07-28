@@ -1,32 +1,34 @@
-
 // localization = {} -- the dict with translations is created by the backend
 
-var ignore_ids_for_localization = {
-    setting_sd_model_checkpoint: 'OPTION',
-    modelmerger_primary_model_name: 'OPTION',
-    modelmerger_secondary_model_name: 'OPTION',
-    modelmerger_tertiary_model_name: 'OPTION',
-    txt2img_styles: 'OPTION',
-    img2img_styles: 'OPTION',
-    setting_random_artist_categories: 'OPTION',
-    setting_face_restoration_model: 'OPTION',
-    setting_realesrgan_enabled_models: 'OPTION',
-    extras_upscaler_1: 'OPTION',
-    extras_upscaler_2: 'OPTION',
+let ignore_ids_for_localization = {
+    setting_sd_model_checkpoint: "OPTION",
+    modelmerger_primary_model_name: "OPTION",
+    modelmerger_secondary_model_name: "OPTION",
+    modelmerger_tertiary_model_name: "OPTION",
+    txt2img_styles: "OPTION",
+    img2img_styles: "OPTION",
+    setting_random_artist_categories: "OPTION",
+    setting_face_restoration_model: "OPTION",
+    setting_realesrgan_enabled_models: "OPTION",
+    extras_upscaler_1: "OPTION",
+    extras_upscaler_2: "OPTION",
 };
 
-var re_num = /^[.\d]+$/;
-var re_emoji = /[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{1F9B0}-\u{1F9B3}]/u;
+let re_num = /^[.\d]+$/;
+let re_emoji =
+    /[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{1F9B0}-\u{1F9B3}]/u;
 
-var original_lines = {};
-var translated_lines = {};
+let original_lines = {};
+let translated_lines = {};
 
 function hasLocalization() {
     return window.localization && Object.keys(window.localization).length > 0;
 }
 
 function textNodesUnder(el) {
-    var n, a = [], walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    let n,
+        a = [],
+        walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
     while ((n = walk.nextNode())) a.push(n);
     return a;
 }
@@ -35,12 +37,17 @@ function canBeTranslated(node, text) {
     if (!text) return false;
     if (!node.parentElement) return false;
 
-    var parentType = node.parentElement.nodeName;
-    if (parentType == 'SCRIPT' || parentType == 'STYLE' || parentType == 'TEXTAREA') return false;
+    let parentType = node.parentElement.nodeName;
+    if (
+        parentType == "SCRIPT" ||
+        parentType == "STYLE" ||
+        parentType == "TEXTAREA"
+    )
+        return false;
 
-    if (parentType == 'OPTION' || parentType == 'SPAN') {
-        var pnode = node;
-        for (var level = 0; level < 4; level++) {
+    if (parentType == "OPTION" || parentType == "SPAN") {
+        let pnode = node;
+        for (let level = 0; level < 4; level++) {
             pnode = pnode.parentElement;
             if (!pnode) break;
 
@@ -60,7 +67,7 @@ function getTranslation(text) {
         original_lines[text] = 1;
     }
 
-    var tl = localization[text];
+    let tl = localization[text];
     if (tl !== undefined) {
         translated_lines[tl] = 1;
     }
@@ -69,11 +76,11 @@ function getTranslation(text) {
 }
 
 function processTextNode(node) {
-    var text = node.textContent.trim();
+    let text = node.textContent.trim();
 
     if (!canBeTranslated(node, text)) return;
 
-    var tl = getTranslation(text);
+    let tl = getTranslation(text);
     if (tl !== undefined) {
         node.textContent = tl;
     }
@@ -99,7 +106,7 @@ function processNode(node) {
         }
     }
 
-    textNodesUnder(node).forEach(function(node) {
+    textNodesUnder(node).forEach(function (node) {
         processTextNode(node);
     });
 }
@@ -108,11 +115,13 @@ function localizeWholePage() {
     processNode(gradioApp());
 
     function elem(comp) {
-        var elem_id = comp.props.elem_id ? comp.props.elem_id : "component-" + comp.id;
+        let elem_id = comp.props.elem_id
+            ? comp.props.elem_id
+            : "component-" + comp.id;
         return gradioApp().getElementById(elem_id);
     }
 
-    for (var comp of window.gradio_config.components) {
+    for (let comp of window.gradio_config.components) {
         if (comp.props.webui_tooltip) {
             let e = elem(comp);
 
@@ -123,7 +132,7 @@ function localizeWholePage() {
         }
         if (comp.props.placeholder) {
             let e = elem(comp);
-            let textbox = e ? e.querySelector('[placeholder]') : null;
+            let textbox = e ? e.querySelector("[placeholder]") : null;
 
             let tl = textbox ? getTranslation(textbox.placeholder) : undefined;
             if (tl !== undefined) {
@@ -140,7 +149,7 @@ function dumpTranslations() {
         // original_lines, so do that now.
         localizeWholePage();
     }
-    var dumped = {};
+    let dumped = {};
     if (localization.rtl) {
         dumped.rtl = true;
     }
@@ -154,12 +163,15 @@ function dumpTranslations() {
 }
 
 function download_localization() {
-    var text = JSON.stringify(dumpTranslations(), null, 4);
+    let text = JSON.stringify(dumpTranslations(), null, 4);
 
-    var element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
-    element.setAttribute('download', "localization.json");
-    element.style.display = 'none';
+    let element = document.createElement("a");
+    element.setAttribute(
+        "href",
+        "data:text/plain;charset=utf-8," + encodeURIComponent(text),
+    );
+    element.setAttribute("download", "localization.json");
+    element.style.display = "none";
     document.body.appendChild(element);
 
     element.click();
@@ -167,14 +179,14 @@ function download_localization() {
     document.body.removeChild(element);
 }
 
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
     if (!hasLocalization()) {
         return;
     }
 
-    onUiUpdate(function(m) {
-        m.forEach(function(mutation) {
-            mutation.addedNodes.forEach(function(node) {
+    onUiUpdate(function (m) {
+        m.forEach(function (mutation) {
+            mutation.addedNodes.forEach(function (node) {
                 processNode(node);
             });
         });
@@ -182,21 +194,24 @@ document.addEventListener("DOMContentLoaded", function() {
 
     localizeWholePage();
 
-    if (localization.rtl) { // if the language is from right to left,
-        (new MutationObserver((mutations, observer) => { // wait for the style to load
-            mutations.forEach(mutation => {
-                mutation.addedNodes.forEach(node => {
-                    if (node.tagName === 'STYLE') {
+    if (localization.rtl) {
+        // if the language is from right to left,
+        new MutationObserver((mutations, observer) => {
+            // wait for the style to load
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.tagName === "STYLE") {
                         observer.disconnect();
 
-                        for (const x of node.sheet.rules) { // find all rtl media rules
-                            if (Array.from(x.media || []).includes('rtl')) {
-                                x.media.appendMedium('all'); // enable them
+                        for (const x of node.sheet.rules) {
+                            // find all rtl media rules
+                            if (Array.from(x.media || []).includes("rtl")) {
+                                x.media.appendMedium("all"); // enable them
                             }
                         }
                     }
                 });
             });
-        })).observe(gradioApp(), {childList: true});
+        }).observe(gradioApp(), { childList: true });
     }
 });

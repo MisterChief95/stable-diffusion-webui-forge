@@ -47,7 +47,7 @@ function keyupEditAttention(event) {
 
     function selectCurrentWord() {
         if (selectionStart !== selectionEnd) return false;
-        const whitespace_delimiters = {"Tab": "\t", "Carriage Return": "\r", "Line Feed": "\n"};
+        const whitespace_delimiters = { "Tab": "\t", "Carriage Return": "\r", "Line Feed": "\n" };
         let delimiters = opts.keyedit_delimiters;
 
         for (let i of opts.keyedit_delimiters_whitespace) {

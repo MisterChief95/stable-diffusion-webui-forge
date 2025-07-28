@@ -1,9 +1,9 @@
 let gamepads = [];
 
-window.addEventListener('gamepadconnected', (e) => {
+window.addEventListener("gamepadconnected", (e) => {
     const index = e.gamepad.index;
     let isWaiting = false;
-    gamepads[index] = setInterval(async() => {
+    gamepads[index] = setInterval(async () => {
         if (!opts.js_modal_lightbox_gamepad || isWaiting) return;
         const gamepad = navigator.getGamepads()[index];
         const xValue = gamepad.axes[0];
@@ -26,7 +26,7 @@ window.addEventListener('gamepadconnected', (e) => {
     }, 10);
 });
 
-window.addEventListener('gamepaddisconnected', (e) => {
+window.addEventListener("gamepaddisconnected", (e) => {
     clearInterval(gamepads[e.gamepad.index]);
 });
 
@@ -35,7 +35,7 @@ Primarily for vr controller type pointer devices.
 I use the wheel event because there's currently no way to do it properly with web xr.
  */
 let isScrolling = false;
-window.addEventListener('wheel', (e) => {
+window.addEventListener("wheel", (e) => {
     if (!opts.js_modal_lightbox_gamepad || isScrolling) return;
     isScrolling = true;
 
@@ -53,7 +53,7 @@ window.addEventListener('wheel', (e) => {
 function sleepUntil(f, timeout) {
     return new Promise((resolve) => {
         const timeStart = new Date();
-        const wait = setInterval(function() {
+        const wait = setInterval(function () {
             if (f() || new Date() - timeStart > timeout) {
                 clearInterval(wait);
                 resolve();
