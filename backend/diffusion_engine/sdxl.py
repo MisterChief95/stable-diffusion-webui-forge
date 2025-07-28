@@ -1,18 +1,15 @@
-import torch
-
-from huggingface_guess import model_list
-from backend.diffusion_engine.base import ForgeDiffusionEngine, ForgeObjects
-from backend.patcher.clip import CLIP
-from backend.patcher.vae import VAE
-from backend.patcher.unet import UnetPatcher
-from backend.text_processing.classic_engine import ClassicTextProcessingEngine
-from backend.args import dynamic_args
-from backend import memory_management
-from backend.nn.unet import Timestep
-
 import safetensors.torch as sf
-from backend import utils
+import torch
+from huggingface_guess import model_list
 
+from backend import memory_management, utils
+from backend.args import dynamic_args
+from backend.diffusion_engine.base import ForgeDiffusionEngine, ForgeObjects
+from backend.nn.unet import Timestep
+from backend.patcher.clip import CLIP
+from backend.patcher.unet import UnetPatcher
+from backend.patcher.vae import VAE
+from backend.text_processing.classic_engine import ClassicTextProcessingEngine
 from modules.shared import opts
 
 
@@ -22,32 +19,19 @@ class StableDiffusionXL(ForgeDiffusionEngine):
     def __init__(self, estimated_config, huggingface_components):
         super().__init__(estimated_config, huggingface_components)
 
-        clip = CLIP(
-            model_dict={
-                'clip_l': huggingface_components['text_encoder'],
-                'clip_g': huggingface_components['text_encoder_2']
-            },
-            tokenizer_dict={
-                'clip_l': huggingface_components['tokenizer'],
-                'clip_g': huggingface_components['tokenizer_2']
-            }
-        )
+        clip = CLIP(model_dict={"clip_l": huggingface_components["text_encoder"], "clip_g": huggingface_components["text_encoder_2"]}, tokenizer_dict={"clip_l": huggingface_components["tokenizer"], "clip_g": huggingface_components["tokenizer_2"]})
 
-        vae = VAE(model=huggingface_components['vae'])
+        vae = VAE(model=huggingface_components["vae"])
 
-        unet = UnetPatcher.from_model(
-            model=huggingface_components['unet'],
-            diffusers_scheduler=huggingface_components['scheduler'],
-            config=estimated_config
-        )
+        unet = UnetPatcher.from_model(model=huggingface_components["unet"], diffusers_scheduler=huggingface_components["scheduler"], config=estimated_config)
 
         self.text_processing_engine_l = ClassicTextProcessingEngine(
             text_encoder=clip.cond_stage_model.clip_l,
             tokenizer=clip.tokenizer.clip_l,
-            embedding_dir=dynamic_args['embedding_dir'],
-            embedding_key='clip_l',
+            embedding_dir=dynamic_args["embedding_dir"],
+            embedding_key="clip_l",
             embedding_expected_shape=2048,
-            emphasis_name=dynamic_args['emphasis_name'],
+            emphasis_name=dynamic_args["emphasis_name"],
             text_projection=False,
             minimal_clip_skip=2,
             clip_skip=2,
@@ -58,10 +42,10 @@ class StableDiffusionXL(ForgeDiffusionEngine):
         self.text_processing_engine_g = ClassicTextProcessingEngine(
             text_encoder=clip.cond_stage_model.clip_g,
             tokenizer=clip.tokenizer.clip_g,
-            embedding_dir=dynamic_args['embedding_dir'],
-            embedding_key='clip_g',
+            embedding_dir=dynamic_args["embedding_dir"],
+            embedding_key="clip_g",
             embedding_expected_shape=2048,
-            emphasis_name=dynamic_args['emphasis_name'],
+            emphasis_name=dynamic_args["emphasis_name"],
             text_projection=True,
             minimal_clip_skip=2,
             clip_skip=2,
@@ -89,24 +73,20 @@ class StableDiffusionXL(ForgeDiffusionEngine):
         cond_l = self.text_processing_engine_l(prompt)
         cond_g, clip_pooled = self.text_processing_engine_g(prompt)
 
-        width = getattr(prompt, 'width', 1024) or 1024
-        height = getattr(prompt, 'height', 1024) or 1024
-        is_negative_prompt = getattr(prompt, 'is_negative_prompt', False)
+        width = getattr(prompt, "width", 1024) or 1024
+        height = getattr(prompt, "height", 1024) or 1024
+        is_negative_prompt = getattr(prompt, "is_negative_prompt", False)
 
         crop_w = opts.sdxl_crop_left
         crop_h = opts.sdxl_crop_top
         target_width = width
         target_height = height
 
-        out = [
-            self.embedder(torch.Tensor([height])), self.embedder(torch.Tensor([width])),
-            self.embedder(torch.Tensor([crop_h])), self.embedder(torch.Tensor([crop_w])),
-            self.embedder(torch.Tensor([target_height])), self.embedder(torch.Tensor([target_width]))
-        ]
+        out = [self.embedder(torch.Tensor([height])), self.embedder(torch.Tensor([width])), self.embedder(torch.Tensor([crop_h])), self.embedder(torch.Tensor([crop_w])), self.embedder(torch.Tensor([target_height])), self.embedder(torch.Tensor([target_width]))]
 
         flat = torch.flatten(torch.cat(out)).unsqueeze(dim=0).repeat(clip_pooled.shape[0], 1).to(clip_pooled)
 
-        force_zero_negative_prompt = is_negative_prompt and all(x == '' for x in prompt)
+        force_zero_negative_prompt = is_negative_prompt and all(x == "" for x in prompt)
 
         if force_zero_negative_prompt:
             clip_pooled = torch.zeros_like(clip_pooled)
@@ -139,17 +119,9 @@ class StableDiffusionXL(ForgeDiffusionEngine):
 
     def save_checkpoint(self, filename):
         sd = {}
-        sd.update(
-            utils.get_state_dict_after_quant(self.forge_objects.unet.model.diffusion_model, prefix='model.diffusion_model.')
-        )
-        sd.update(
-            model_list.SDXL.process_clip_state_dict_for_saving(self,
-                utils.get_state_dict_after_quant(self.forge_objects.clip.cond_stage_model, prefix='')
-            )
-        )
-        sd.update(
-            utils.get_state_dict_after_quant(self.forge_objects.vae.first_stage_model, prefix='first_stage_model.')
-        )
+        sd.update(utils.get_state_dict_after_quant(self.forge_objects.unet.model.diffusion_model, prefix="model.diffusion_model."))
+        sd.update(model_list.SDXL.process_clip_state_dict_for_saving(self, utils.get_state_dict_after_quant(self.forge_objects.clip.cond_stage_model, prefix="")))
+        sd.update(utils.get_state_dict_after_quant(self.forge_objects.vae.first_stage_model, prefix="first_stage_model."))
         sf.save_file(sd, filename)
         return filename
 
@@ -161,29 +133,23 @@ class StableDiffusionXLRefiner(ForgeDiffusionEngine):
         super().__init__(estimated_config, huggingface_components)
 
         clip = CLIP(
-            model_dict={
-                'clip_g': huggingface_components['text_encoder']
-            },
+            model_dict={"clip_g": huggingface_components["text_encoder"]},
             tokenizer_dict={
-                'clip_g': huggingface_components['tokenizer'],
-            }
+                "clip_g": huggingface_components["tokenizer"],
+            },
         )
 
-        vae = VAE(model=huggingface_components['vae'])
+        vae = VAE(model=huggingface_components["vae"])
 
-        unet = UnetPatcher.from_model(
-            model=huggingface_components['unet'],
-            diffusers_scheduler=huggingface_components['scheduler'],
-            config=estimated_config
-        )
+        unet = UnetPatcher.from_model(model=huggingface_components["unet"], diffusers_scheduler=huggingface_components["scheduler"], config=estimated_config)
 
         self.text_processing_engine_g = ClassicTextProcessingEngine(
             text_encoder=clip.cond_stage_model.clip_g,
             tokenizer=clip.tokenizer.clip_g,
-            embedding_dir=dynamic_args['embedding_dir'],
-            embedding_key='clip_g',
+            embedding_dir=dynamic_args["embedding_dir"],
+            embedding_key="clip_g",
             embedding_expected_shape=2048,
-            emphasis_name=dynamic_args['emphasis_name'],
+            emphasis_name=dynamic_args["emphasis_name"],
             text_projection=True,
             minimal_clip_skip=2,
             clip_skip=2,
@@ -209,23 +175,19 @@ class StableDiffusionXLRefiner(ForgeDiffusionEngine):
 
         cond_g, clip_pooled = self.text_processing_engine_g(prompt)
 
-        width = getattr(prompt, 'width', 1024) or 1024
-        height = getattr(prompt, 'height', 1024) or 1024
-        is_negative_prompt = getattr(prompt, 'is_negative_prompt', False)
+        width = getattr(prompt, "width", 1024) or 1024
+        height = getattr(prompt, "height", 1024) or 1024
+        is_negative_prompt = getattr(prompt, "is_negative_prompt", False)
 
         crop_w = opts.sdxl_crop_left
         crop_h = opts.sdxl_crop_top
         aesthetic = opts.sdxl_refiner_low_aesthetic_score if is_negative_prompt else opts.sdxl_refiner_high_aesthetic_score
 
-        out = [
-            self.embedder(torch.Tensor([height])), self.embedder(torch.Tensor([width])),
-            self.embedder(torch.Tensor([crop_h])), self.embedder(torch.Tensor([crop_w])),
-            self.embedder(torch.Tensor([aesthetic]))
-        ]
+        out = [self.embedder(torch.Tensor([height])), self.embedder(torch.Tensor([width])), self.embedder(torch.Tensor([crop_h])), self.embedder(torch.Tensor([crop_w])), self.embedder(torch.Tensor([aesthetic]))]
 
         flat = torch.flatten(torch.cat(out)).unsqueeze(dim=0).repeat(clip_pooled.shape[0], 1).to(clip_pooled)
 
-        force_zero_negative_prompt = is_negative_prompt and all(x == '' for x in prompt)
+        force_zero_negative_prompt = is_negative_prompt and all(x == "" for x in prompt)
 
         if force_zero_negative_prompt:
             clip_pooled = torch.zeros_like(clip_pooled)
@@ -257,16 +219,8 @@ class StableDiffusionXLRefiner(ForgeDiffusionEngine):
 
     def save_checkpoint(self, filename):
         sd = {}
-        sd.update(
-            utils.get_state_dict_after_quant(self.forge_objects.unet.model.diffusion_model, prefix='model.diffusion_model.')
-        )
-        sd.update(
-            model_list.SDXLRefiner.process_clip_state_dict_for_saving(self,
-                utils.get_state_dict_after_quant(self.forge_objects.clip.cond_stage_model, prefix='')
-            )
-        )
-        sd.update(
-            utils.get_state_dict_after_quant(self.forge_objects.vae.first_stage_model, prefix='first_stage_model.')
-        )
+        sd.update(utils.get_state_dict_after_quant(self.forge_objects.unet.model.diffusion_model, prefix="model.diffusion_model."))
+        sd.update(model_list.SDXLRefiner.process_clip_state_dict_for_saving(self, utils.get_state_dict_after_quant(self.forge_objects.clip.cond_stage_model, prefix="")))
+        sd.update(utils.get_state_dict_after_quant(self.forge_objects.vae.first_stage_model, prefix="first_stage_model."))
         sf.save_file(sd, filename)
         return filename

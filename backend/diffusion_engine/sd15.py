@@ -1,16 +1,14 @@
+import safetensors.torch as sf
 import torch
-
 from huggingface_guess import model_list
+
+from backend import memory_management, utils
+from backend.args import dynamic_args
 from backend.diffusion_engine.base import ForgeDiffusionEngine, ForgeObjects
 from backend.patcher.clip import CLIP
-from backend.patcher.vae import VAE
 from backend.patcher.unet import UnetPatcher
+from backend.patcher.vae import VAE
 from backend.text_processing.classic_engine import ClassicTextProcessingEngine
-from backend.args import dynamic_args
-from backend import memory_management
-
-import safetensors.torch as sf
-from backend import utils
 
 
 class StableDiffusion(ForgeDiffusionEngine):
@@ -19,30 +17,19 @@ class StableDiffusion(ForgeDiffusionEngine):
     def __init__(self, estimated_config, huggingface_components):
         super().__init__(estimated_config, huggingface_components)
 
-        clip = CLIP(
-            model_dict={
-                'clip_l': huggingface_components['text_encoder']
-            },
-            tokenizer_dict={
-                'clip_l': huggingface_components['tokenizer']
-            }
-        )
+        clip = CLIP(model_dict={"clip_l": huggingface_components["text_encoder"]}, tokenizer_dict={"clip_l": huggingface_components["tokenizer"]})
 
-        vae = VAE(model=huggingface_components['vae'])
+        vae = VAE(model=huggingface_components["vae"])
 
-        unet = UnetPatcher.from_model(
-            model=huggingface_components['unet'],
-            diffusers_scheduler=huggingface_components['scheduler'],
-            config=estimated_config
-        )
+        unet = UnetPatcher.from_model(model=huggingface_components["unet"], diffusers_scheduler=huggingface_components["scheduler"], config=estimated_config)
 
         self.text_processing_engine = ClassicTextProcessingEngine(
             text_encoder=clip.cond_stage_model.clip_l,
             tokenizer=clip.tokenizer.clip_l,
-            embedding_dir=dynamic_args['embedding_dir'],
-            embedding_key='clip_l',
+            embedding_dir=dynamic_args["embedding_dir"],
+            embedding_key="clip_l",
             embedding_expected_shape=768,
-            emphasis_name=dynamic_args['emphasis_name'],
+            emphasis_name=dynamic_args["emphasis_name"],
             text_projection=False,
             minimal_clip_skip=1,
             clip_skip=1,
@@ -85,16 +72,8 @@ class StableDiffusion(ForgeDiffusionEngine):
 
     def save_checkpoint(self, filename):
         sd = {}
-        sd.update(
-            utils.get_state_dict_after_quant(self.forge_objects.unet.model.diffusion_model, prefix='model.diffusion_model.')
-        )
-        sd.update(
-            model_list.SD15.process_clip_state_dict_for_saving(self, 
-                utils.get_state_dict_after_quant(self.forge_objects.clip.cond_stage_model, prefix='')
-            )
-        )
-        sd.update(
-            utils.get_state_dict_after_quant(self.forge_objects.vae.first_stage_model, prefix='first_stage_model.')
-        )
+        sd.update(utils.get_state_dict_after_quant(self.forge_objects.unet.model.diffusion_model, prefix="model.diffusion_model."))
+        sd.update(model_list.SD15.process_clip_state_dict_for_saving(self, utils.get_state_dict_after_quant(self.forge_objects.clip.cond_stage_model, prefix="")))
+        sd.update(utils.get_state_dict_after_quant(self.forge_objects.vae.first_stage_model, prefix="first_stage_model."))
         sf.save_file(sd, filename)
         return filename
