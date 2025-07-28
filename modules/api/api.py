@@ -225,7 +225,6 @@ class Api:
         self.add_api_route("/sdapi/v1/latent-upscale-modes", self.get_latent_upscale_modes, methods=["GET"], response_model=list[models.LatentUpscalerModeItem])
         self.add_api_route("/sdapi/v1/sd-models", self.get_sd_models, methods=["GET"], response_model=list[models.SDModelItem])
         self.add_api_route("/sdapi/v1/sd-modules", self.get_sd_vaes_and_text_encoders, methods=["GET"], response_model=list[models.SDModuleItem])
-        self.add_api_route("/sdapi/v1/hypernetworks", self.get_hypernetworks, methods=["GET"], response_model=list[models.HypernetworkItem])
         self.add_api_route("/sdapi/v1/face-restorers", self.get_face_restorers, methods=["GET"], response_model=list[models.FaceRestorerItem])
         self.add_api_route("/sdapi/v1/realesrgan-models", self.get_realesrgan_models, methods=["GET"], response_model=list[models.RealesrganItem])
         self.add_api_route("/sdapi/v1/prompt-styles", self.get_prompt_styles, methods=["GET"], response_model=list[models.PromptStyleItem])
@@ -234,7 +233,6 @@ class Api:
         self.add_api_route("/sdapi/v1/refresh-checkpoints", self.refresh_checkpoints, methods=["POST"])
         self.add_api_route("/sdapi/v1/refresh-vae", self.refresh_vae, methods=["POST"])
         self.add_api_route("/sdapi/v1/create/embedding", self.create_embedding, methods=["POST"], response_model=models.CreateResponse)
-        self.add_api_route("/sdapi/v1/create/hypernetwork", self.create_hypernetwork, methods=["POST"], response_model=models.CreateResponse)
         self.add_api_route("/sdapi/v1/memory", self.get_memory, methods=["GET"], response_model=models.MemoryResponse)
         self.add_api_route("/sdapi/v1/unload-checkpoint", self.unloadapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/reload-checkpoint", self.reloadapi, methods=["POST"])
@@ -712,9 +710,6 @@ class Api:
         from modules_forge.main_entry import module_list
         return [{"model_name": x, "filename": module_list[x]} for x in module_list.keys()]
 
-    def get_hypernetworks(self):
-        return [{"name": name, "path": shared.hypernetworks[name]} for name in shared.hypernetworks]
-
     def get_face_restorers(self):
         return [{"name":x.name(), "cmd_dir": getattr(x, "cmd_dir", None)} for x in shared.face_restorers]
 
@@ -767,16 +762,6 @@ class Api:
             return models.CreateResponse(info=f"create embedding filename: {filename}")
         except AssertionError as e:
             return models.TrainResponse(info=f"create embedding error: {e}")
-        finally:
-            shared.state.end()
-
-    def create_hypernetwork(self, args: dict):
-        try:
-            shared.state.begin(job="create_hypernetwork")
-            filename = create_hypernetwork(**args) # create empty embedding
-            return models.CreateResponse(info=f"create hypernetwork filename: {filename}")
-        except AssertionError as e:
-            return models.TrainResponse(info=f"create hypernetwork error: {e}")
         finally:
             shared.state.end()
 

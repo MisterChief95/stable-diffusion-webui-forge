@@ -65,13 +65,6 @@ def list_samplers():
     return modules.sd_samplers.all_samplers
 
 
-def reload_hypernetworks():
-    from modules.hypernetworks import hypernetwork
-    from modules import shared
-
-    shared.hypernetworks = hypernetwork.list_hypernetworks(cmd_opts.hypernetwork_dir)
-
-
 def get_infotext_names():
     from modules import infotext_utils, shared
     res = {}

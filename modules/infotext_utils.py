@@ -18,7 +18,6 @@ sys.modules['modules.generation_parameters_copypaste'] = sys.modules[__name__]  
 re_param_code = r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)'
 re_param = re.compile(re_param_code)
 re_imagesize = re.compile(r"^(\d+)x(\d+)$")
-re_hypernet_hash = re.compile("\(([0-9a-f]+)\)$")
 type_of_gr_update = type(gr.update())
 
 
@@ -340,10 +339,6 @@ Steps: 20, Sampler: Euler a, CFG scale: 7, Seed: 965400086, Size: 512x512, Model
     # Missing CLIP skip means it was set to 1 (the default)
     if "Clip skip" not in res:
         res["Clip skip"] = "1"
-
-    hypernet = res.get("Hypernet", None)
-    if hypernet is not None:
-        res["Prompt"] += f"""<hypernet:{hypernet}:{res.get("Hypernet strength", "1.0")}>"""
 
     if "Hires resize-1" not in res:
         res["Hires resize-1"] = 0

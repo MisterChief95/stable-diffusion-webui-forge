@@ -191,12 +191,6 @@ class ProgressResponse(BaseModel):
     current_image: str | None = Field(default=None, title="Current image", description="The current image in base64 format. opts.show_progress_every_n_steps is required for this to work.")
     textinfo: str | None = Field(default=None, title="Info text", description="Info text used by WebUI.")
 
-class TrainResponse(BaseModel):
-    info: str = Field(title="Train info", description="Response string from train embedding or hypernetwork task.")
-
-class CreateResponse(BaseModel):
-    info: str = Field(title="Create info", description="Response string from create embedding or hypernetwork task.")
-
 fields = {}
 for key, metadata in opts.data_labels.items():
     value = opts.data.get(key)
@@ -263,10 +257,6 @@ class SDModuleItem(BaseModel):
 
     model_name: str = Field(title="Model Name")
     filename: str = Field(title="Filename")
-
-class HypernetworkItem(BaseModel):
-    name: str = Field(title="Name")
-    path: Optional[str] = Field(title="Path")
 
 class FaceRestorerItem(BaseModel):
     name: str = Field(title="Name")

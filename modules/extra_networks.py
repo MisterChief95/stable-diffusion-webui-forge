@@ -23,11 +23,6 @@ def register_extra_network_alias(extra_network, alias):
     extra_network_aliases[alias] = extra_network
 
 
-def register_default_extra_networks():
-    from modules.extra_networks_hypernet import ExtraNetworkHypernet
-    register_extra_network(ExtraNetworkHypernet())
-
-
 class ExtraNetworkParams:
     def __init__(self, items=None):
         self.items = items or []
@@ -64,18 +59,6 @@ class ExtraNetwork:
         in this case, all effects of this extra networks should be disabled.
 
         Can be called multiple times before deactivate() - each new call should override the previous call completely.
-
-        For example, if this ExtraNetwork's name is 'hypernet' and user's prompt is:
-
-        > "1girl, <hypernet:agm:1.1> <extrasupernet:master:12:13:14> <hypernet:ray>"
-
-        params_list will be:
-
-        [
-            ExtraNetworkParams(items=["agm", "1.1"]),
-            ExtraNetworkParams(items=["ray"])
-        ]
-
         """
         raise NotImplementedError
 
@@ -88,20 +71,19 @@ class ExtraNetwork:
 
 
 def lookup_extra_networks(extra_network_data):
-    """returns a dict mapping ExtraNetwork objects to lists of arguments for those extra networks.
+    """
+    returns a dict mapping ExtraNetwork objects to lists of arguments for those extra networks.
 
     Example input:
     {
         'lora': [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D58310>],
         'lyco': [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D58F70>],
-        'hypernet': [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D5A800>]
     }
 
     Example output:
 
     {
         <extra_networks_lora.ExtraNetworkLora object at 0x0000020581BEECE0>: [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D58310>, <modules.extra_networks.ExtraNetworkParams object at 0x0000020690D58F70>],
-        <modules.extra_networks_hypernet.ExtraNetworkHypernet object at 0x0000020581BEEE60>: [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D5A800>]
     }
     """
 

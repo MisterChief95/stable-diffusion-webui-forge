@@ -7,12 +7,10 @@ from modules.shared import cmd_opts
 
 
 def initialize():
-    """Initializes fields inside the shared module in a controlled manner.
-
+    """
+    Initializes fields inside the shared module in a controlled manner.
     Should be called early because some other modules you can import mingt need these fields to be already set.
     """
-
-    os.makedirs(cmd_opts.hypernetwork_dir, exist_ok=True)
 
     from modules import options, shared_options
     shared.options_templates = shared_options.options_templates
@@ -39,4 +37,3 @@ def initialize():
     from modules import memmon, devices
     shared.mem_mon = memmon.MemUsageMonitor("MemMon", devices.device, shared.opts)
     shared.mem_mon.start()
-
