@@ -14,7 +14,7 @@ from urllib import request
 import gc
 import contextlib
 
-from modules import paths, shared, modelloader, devices, script_callbacks, sd_vae, sd_disable_initialization, errors, hashes, sd_models_config, sd_unet, sd_models_xl, cache, extra_networks, processing, lowvram, sd_hijack, patches
+from modules import paths, shared, modelloader, devices, script_callbacks, sd_vae, errors, hashes, sd_unet, cache, extra_networks, processing, lowvram, sd_hijack, patches
 from modules.shared import opts, cmd_opts
 from modules.timer import Timer
 import numpy as np
@@ -138,15 +138,6 @@ class CheckpointInfo:
 
     def __repr__(self):
         return str(dict(filename=self.filename, hash=self.hash))
-
-
-# try:
-#     # this silences the annoying "Some weights of the model checkpoint were not used when initializing..." message at start.
-#     from transformers import logging, CLIPModel  # noqa: F401
-#
-#     logging.set_verbosity_error()
-# except Exception:
-#     pass
 
 
 def setup_model():
