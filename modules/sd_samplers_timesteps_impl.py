@@ -4,7 +4,7 @@ import k_diffusion.sampling
 import numpy as np
 
 from modules import shared
-from modules.models.diffusion.uni_pc import uni_pc
+from modules.uni_pc import uni_pc
 from modules.torch_utils import float64
 
 
