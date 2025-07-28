@@ -22,7 +22,7 @@
     overflow: hidden;
     background-color: #cccccc;
     background-image: linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee),
-    linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee);
+        linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee);
     background-size: 20px 20px;
     background-position: 0 0, 10px 10px;
 }
@@ -149,10 +149,7 @@
     padding: 0 4px;
     display: flex;
     align-items: center;
-    margin-bottom: 4px; /* Adjust margin as needed */
-}
-
-.forge-toolbar-range {
+    margin-bottom: 4px;
 }
 
 .forge-scribble-indicator {
