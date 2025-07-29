@@ -27,9 +27,10 @@ fpte_group.add_argument("--clip-in-fp8-e5m2", action="store_true")
 fpte_group.add_argument("--clip-in-fp16", action="store_true")
 fpte_group.add_argument("--clip-in-fp32", action="store_true")
 
+parser.add_argument("--clip-in-cpu", action="store_true")
+
 attn_group = parser.add_mutually_exclusive_group()
 attn_group.add_argument("--attention-split", action="store_true")
-attn_group.add_argument("--attention-quad", action="store_true")
 attn_group.add_argument("--attention-pytorch", action="store_true")
 
 upcast = parser.add_mutually_exclusive_group()
@@ -37,6 +38,8 @@ upcast.add_argument("--force-upcast-attention", action="store_true")
 upcast.add_argument("--disable-attention-upcast", action="store_true")
 
 parser.add_argument("--disable-xformers", action="store_true")
+parser.add_argument("--disable-sage", action="store_true")
+parser.add_argument("--disable-flash", action="store_true")
 
 parser.add_argument("--directml", type=int, nargs="?", metavar="DIRECTML_DEVICE", const=-1)
 parser.add_argument("--disable-ipex-hijack", action="store_true")
@@ -57,8 +60,9 @@ parser.add_argument("--cuda-stream", action="store_true")
 parser.add_argument("--pin-shared-memory", action="store_true")
 
 parser.add_argument("--disable-gpu-warning", action="store_true")
+parser.add_argument("--fast-fp16", action="store_true")
 
-args = parser.parse_known_args()[0]
+args, _ = parser.parse_known_args()
 
-# Some dynamic args that may be changed by webui rather than cmd flags.
 dynamic_args = dict(embedding_dir="./embeddings", emphasis_name="original")
+"""Some parameters that are changed by the Webui"""
