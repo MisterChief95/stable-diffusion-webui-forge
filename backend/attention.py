@@ -43,6 +43,18 @@ if memory_management.flash_enabled():
 FORCE_UPCAST_ATTENTION_DTYPE = memory_management.force_upcast_attention_dtype()
 
 
+def get_xformers_flash_attention_op(q, k, v):
+    try:
+        flash_attention_op = xformers.ops.MemoryEfficientAttentionFlashAttentionOp
+        fw, bw = flash_attention_op
+        if fw.supports(xformers.ops.fmha.Inputs(query=q, key=k, value=v, attn_bias=None)):
+            return flash_attention_op
+    except Exception as e:
+        display_once(e, "enabling flash attention")
+
+    return None
+
+
 def get_attn_precision(attn_precision=torch.float32):
     if args.disable_attention_upcast:
         return None
@@ -238,7 +250,7 @@ def attention_xformers(q, k, v, heads, mask=None, attn_precision=None, skip_resh
         mask_out[:, :, : mask.shape[-1]] = mask
         mask = mask_out[:, :, : mask.shape[-1]]
 
-    out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=mask)
+    out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=mask, op=get_xformers_flash_attention_op(q, k, v))
 
     if skip_reshape:
         out = out.unsqueeze(0).reshape(b, heads, -1, dim_head).permute(0, 2, 1, 3).reshape(b, -1, heads * dim_head)
@@ -435,7 +447,7 @@ def xformers_attention_single_head_spatial(q, k, v):
     )
 
     try:
-        out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None)
+        out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None, op=get_xformers_flash_attention_op(q, k, v))
         out = out.transpose(1, 2).reshape(B, C, H, W)
     except NotImplementedError:
         out = slice_attention_single_head_spatial(q.view(B, -1, C), k.view(B, -1, C).transpose(1, 2), v.view(B, -1, C).transpose(1, 2)).reshape(B, C, H, W)
