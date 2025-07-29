@@ -369,20 +369,6 @@ def prepare_environment():
         exit(0)
 
 
-def configure_for_tests():
-    if "--api" not in sys.argv:
-        sys.argv.append("--api")
-    if "--ckpt" not in sys.argv:
-        sys.argv.append("--ckpt")
-        sys.argv.append(os.path.join(script_path, "test/test_files/empty.pt"))
-    if "--skip-torch-cuda-test" not in sys.argv:
-        sys.argv.append("--skip-torch-cuda-test")
-    if "--disable-nan-check" not in sys.argv:
-        sys.argv.append("--disable-nan-check")
-
-    os.environ["COMMANDLINE_ARGS"] = ""
-
-
 def configure_forge_reference_checkout(a1111_home: Path):
     """Set model paths based on an existing A1111 checkout."""
 

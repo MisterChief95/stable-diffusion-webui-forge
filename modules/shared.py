@@ -25,8 +25,6 @@ demo: gr.Blocks = None
 
 device: str = None
 
-weight_load_location: str = None
-
 xformers_available = memory_management.xformers_enabled()
 
 state: 'shared_state.State' = None

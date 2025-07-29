@@ -35,16 +35,6 @@ def initialize_forge():
 
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(__file__)), 'modules_forge', 'packages'))
 
-    bad_list = ['--lowvram', '--medvram', '--medvram-sdxl']
-
-    for bad in bad_list:
-        if bad in sys.argv:
-            print(f'Arg {bad} is removed in Forge.')
-            print(f'Now memory management is fully automatic and you do not need any command flags.')
-            print(f'Please just remove this flag.')
-            print(f'In extreme cases, if you want to force previous lowvram/medvram behaviors, '
-                  f'please use --always-offload-from-vram')
-
     from backend.args import args
 
     if args.gpu_device_id is not None:
@@ -63,7 +53,7 @@ def initialize_forge():
     device = memory_management.get_torch_device()
     torch.zeros((1, 1)).to(device, torch.float32)
     memory_management.soft_empty_cache()
-    
+
     from backend import stream
     print('CUDA Using Stream:', stream.should_use_stream())
 
