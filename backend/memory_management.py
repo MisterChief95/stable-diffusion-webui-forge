@@ -219,12 +219,12 @@ try:
     if is_nvidia():
         torch_version = torch.version.__version__
         if int(torch_version[0]) >= 2:
-            if ENABLE_PYTORCH_ATTENTION == False and args.attention_split == False and args.attention_quad == False:
+            if ENABLE_PYTORCH_ATTENTION is False and args.attention_split is False:
                 ENABLE_PYTORCH_ATTENTION = True
             if torch.cuda.is_bf16_supported() and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
                 VAE_DTYPES = [torch.bfloat16] + VAE_DTYPES
     if is_intel_xpu():
-        if args.attention_split == False and args.attention_quad == False:
+        if args.attention_split is False:
             ENABLE_PYTORCH_ATTENTION = True
 except Exception:
     pass
@@ -416,12 +416,12 @@ def module_size(module, exclude_device=None, include_device=None, return_split=F
     return module_mem
 
 
-def module_move(module, device, recursive=True, excluded_pattens=[]):
+def module_move(module, device, recursive=True, excluded_patterns=[]):
     if recursive:
         return module.to(device=device)
 
     for k, p in module.named_parameters(recurse=False, remove_duplicate=True):
-        if k in excluded_pattens:
+        if k in excluded_patterns:
             continue
         setattr(module, k, utils.tensor2parameter(p.to(device=device)))
 
@@ -521,7 +521,7 @@ class LoadedModel:
             for m in gpu_modules_only_extras:
                 m.prev_parameters_manual_cast = m.parameters_manual_cast
                 m.parameters_manual_cast = True
-                module_move(m, device=self.device, recursive=False, excluded_pattens=["weight"])
+                module_move(m, device=self.device, recursive=False, excluded_patterns=["weight"])
                 if hasattr(m, "weight") and m.weight is not None:
                     if pin_memory:
                         m.weight = utils.tensor2parameter(m.weight.to(self.model.offload_device).pin_memory())
@@ -750,7 +750,7 @@ def unet_offload_device():
         return torch.device("cpu")
 
 
-def unet_inital_load_device(parameters, dtype):
+def unet_initial_load_device(parameters, dtype):
     torch_dev = get_torch_device()
     if vram_state == VRAMState.HIGH_VRAM:
         return torch_dev
@@ -815,6 +815,8 @@ def text_encoder_offload_device():
 def text_encoder_device():
     if args.always_gpu:
         return get_torch_device()
+    elif args.clip_in_cpu:
+        return torch.device("cpu")
     elif vram_state == VRAMState.HIGH_VRAM or vram_state == VRAMState.NORMAL_VRAM:
         if should_use_fp16(prioritize_performance=False):
             return get_torch_device()
@@ -1202,7 +1204,7 @@ def should_use_bf16(device=None, model_params=0, prioritize_performance=True, ma
 
     if torch.cuda.is_bf16_supported():
         # This device is an old enough device but bf16 somewhat reports supported.
-        # So in this case bf16 should only be used as storge dtype
+        # So in this case bf16 should only be used as storage dtype
         if manual_cast:
             # For storage dtype
             free_model_memory = get_free_memory() * 0.9 - minimum_inference_memory()

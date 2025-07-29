@@ -1,23 +1,22 @@
 import os
 import sys
+from typing import TYPE_CHECKING
 
 import gradio as gr
 
-from modules import shared_cmd_options, shared_gradio_themes, options, shared_items
-from modules.paths_internal import models_path, script_path, data_path, sd_configs_path, sd_default_config, sd_model_file, default_sd_model_file, extensions_dir, extensions_builtin_dir  # noqa: F401
-from modules import util
-from typing import TYPE_CHECKING
 from backend import memory_management
+from modules import options, shared_cmd_options, shared_gradio_themes, shared_items, util
+from modules.paths_internal import data_path, default_sd_model_file, extensions_builtin_dir, extensions_dir, models_path, script_path, sd_configs_path, sd_default_config, sd_model_file  # noqa: F401
 
 if TYPE_CHECKING:
-    from modules import shared_state, styles, shared_total_tqdm, memmon
+    from modules import memmon, shared_state, shared_total_tqdm, styles
 
 cmd_opts = shared_cmd_options.cmd_opts
 parser = shared_cmd_options.parser
 
 batch_cond_uncond = True  # old field, unused now in favor of shared.opts.batch_cond_uncond
 parallel_processing_allowed = True
-styles_filename = cmd_opts.styles_file = cmd_opts.styles_file if len(cmd_opts.styles_file) > 0 else [os.path.join(data_path, 'styles.csv'), os.path.join(data_path, 'styles_integrated.csv')]
+styles_filename = cmd_opts.styles_file = cmd_opts.styles_file if len(cmd_opts.styles_file) > 0 else [os.path.join(data_path, "styles.csv"), os.path.join(data_path, "styles_integrated.csv")]
 config_filename = cmd_opts.ui_settings_file
 hide_dirs = {"visible": not cmd_opts.hide_ui_dir_config}
 
@@ -27,9 +26,9 @@ device: str = None
 
 xformers_available = memory_management.xformers_enabled()
 
-state: 'shared_state.State' = None
+state: "shared_state.State" = None
 
-prompt_styles: 'styles.StyleDatabase' = None
+prompt_styles: "styles.StyleDatabase" = None
 
 face_restorers = []
 
@@ -62,9 +61,9 @@ progress_print_out = sys.stdout
 
 gradio_theme = gr.themes.Base()
 
-total_tqdm: 'shared_total_tqdm.TotalTQDM' = None
+total_tqdm: "shared_total_tqdm.TotalTQDM" = None
 
-mem_mon: 'memmon.MemUsageMonitor' = None
+mem_mon: "memmon.MemUsageMonitor" = None
 
 options_section = options.options_section
 OptionInfo = options.OptionInfo
@@ -83,4 +82,4 @@ list_checkpoint_tiles = shared_items.list_checkpoint_tiles
 refresh_checkpoints = shared_items.refresh_checkpoints
 list_samplers = shared_items.list_samplers
 
-hf_endpoint = os.getenv('HF_ENDPOINT', 'https://huggingface.co')
+hf_endpoint = os.getenv("HF_ENDPOINT", "https://huggingface.co")
