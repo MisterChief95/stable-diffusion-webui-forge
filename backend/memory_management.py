@@ -60,14 +60,14 @@ try:
 
     if torch.xpu.is_available():
         xpu_available = True
-except:
+except Exception:
     pass
 
 try:
     if torch.backends.mps.is_available():
         cpu_state = CPUState.MPS
         import torch.mps
-except:
+except Exception:
     pass
 
 if args.always_cpu:
@@ -136,12 +136,12 @@ print("Total VRAM {:0.0f} MB, total RAM {:0.0f} MB".format(total_vram, total_ram
 
 try:
     print("pytorch version: {}".format(torch.version.__version__))
-except:
+except Exception:
     pass
 
 try:
     OOM_EXCEPTION = torch.cuda.OutOfMemoryError
-except:
+except Exception:
     OOM_EXCEPTION = Exception
 
 if directml_enabled:
@@ -154,24 +154,50 @@ if args.disable_xformers:
 else:
     try:
         import xformers
-        import xformers.ops
+        import xformers.ops  # noqa
 
         XFORMERS_IS_AVAILABLE = True
         try:
             XFORMERS_IS_AVAILABLE = xformers._has_cpp_library
-        except:
+        except Exception:
             pass
         try:
             XFORMERS_VERSION = xformers.version.__version__
-            print("xformers version: {}".format(XFORMERS_VERSION))
+            print("xformers version:", XFORMERS_VERSION)
             if XFORMERS_VERSION.startswith("0.0.18"):
-                print("\nWARNING: This version of xformers has a major bug where you will get black images when generating high resolution images.")
-                print("Please downgrade or upgrade xformers to a different version.\n")
+                from modules.errors import print_error_explanation
+
+                print_error_explanation(
+                    """
+                    WARNING: This version of xformers has a major bug where you will get black images when generating high resolution images.
+                    Please downgrade or upgrade xformers to a different version.
+                    """.strip()
+                )
                 XFORMERS_ENABLED_VAE = False
-        except:
+        except Exception:
             pass
-    except:
+    except Exception:
         XFORMERS_IS_AVAILABLE = False
+
+if args.disable_sage:
+    SAGE_IS_AVAILABLE = False
+else:
+    try:
+        from sageattention import sageattn  # noqa
+    except ImportError:
+        SAGE_IS_AVAILABLE = False
+    else:
+        SAGE_IS_AVAILABLE = True
+
+if args.disable_flash:
+    FLASH_IS_AVAILABLE = False
+else:
+    try:
+        from flash_attn import flash_attn_func  # noqa
+    except ImportError:
+        FLASH_IS_AVAILABLE = False
+    else:
+        FLASH_IS_AVAILABLE = True
 
 
 def is_nvidia():
@@ -200,7 +226,7 @@ try:
     if is_intel_xpu():
         if args.attention_split == False and args.attention_quad == False:
             ENABLE_PYTORCH_ATTENTION = True
-except:
+except Exception:
     pass
 
 if is_intel_xpu():
@@ -262,7 +288,7 @@ def get_torch_device_name(device):
         if device.type == "cuda":
             try:
                 allocator_backend = torch.cuda.get_allocator_backend()
-            except:
+            except Exception:
                 allocator_backend = ""
             return "{} {} : {}".format(device, torch.cuda.get_device_name(device), allocator_backend)
         else:
@@ -276,7 +302,7 @@ def get_torch_device_name(device):
 try:
     torch_device_name = get_torch_device_name(get_torch_device())
     print("Device: {}".format(torch_device_name))
-except:
+except Exception:
     torch_device_name = ""
     print("Could not pick default device.")
 
@@ -712,7 +738,7 @@ def dtype_size(dtype):
     else:
         try:
             dtype_size = dtype.itemsize
-        except:  # Old pytorch doesn't have .itemsize
+        except Exception:  # Old pytorch doesn't have .itemsize
             pass
     return dtype_size
 
@@ -965,6 +991,22 @@ def xformers_enabled():
     return XFORMERS_IS_AVAILABLE
 
 
+def sage_enabled():
+    if cpu_state != CPUState.GPU:
+        return False
+    if not is_nvidia():
+        return False
+    return SAGE_IS_AVAILABLE
+
+
+def flash_enabled():
+    if cpu_state != CPUState.GPU:
+        return False
+    if not is_nvidia():
+        return False
+    return FLASH_IS_AVAILABLE
+
+
 def xformers_enabled_vae():
     enabled = xformers_enabled()
     if not enabled:
@@ -994,7 +1036,7 @@ def force_upcast_attention_dtype():
     try:
         if platform.mac_ver()[0] in ["14.5"]:  # black image bug on OSX Sonoma 14.5
             upcast = True
-    except:
+    except Exception:
         pass
     if upcast:
         return torch.float32
@@ -1181,7 +1223,7 @@ def can_install_bnb():
             return True
 
         return False
-    except:
+    except Exception:
         return False
 
 
