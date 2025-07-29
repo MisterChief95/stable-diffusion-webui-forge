@@ -40,6 +40,7 @@ class Upsample(nn.Module):
         if self.with_conv:
             self.conv = nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1)
 
+    @torch.inference_mode()
     def forward(self, x):
         try:
             x = torch.nn.functional.interpolate(x, scale_factor=2.0, mode="nearest")
@@ -65,6 +66,7 @@ class Downsample(nn.Module):
         if self.with_conv:
             self.conv = nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=2, padding=0)
 
+    @torch.inference_mode()
     def forward(self, x):
         if self.with_conv:
             pad = (0, 1, 0, 1)
@@ -97,6 +99,7 @@ class ResnetBlock(nn.Module):
             else:
                 self.nin_shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
 
+    @torch.inference_mode()
     def forward(self, x, temb):
         h = x
         h = self.norm1(h)
@@ -127,6 +130,7 @@ class AttnBlock(nn.Module):
         self.v = nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0)
         self.proj_out = nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0)
 
+    @torch.inference_mode()
     def forward(self, x):
         h_ = x
         h_ = self.norm(h_)
@@ -180,6 +184,7 @@ class Encoder(nn.Module):
         self.norm_out = Normalize(block_in)
         self.conv_out = nn.Conv2d(block_in, 2 * z_channels if double_z else z_channels, kernel_size=3, stride=1, padding=1)
 
+    @torch.inference_mode()
     def forward(self, x):
         temb = None
         h = self.conv_in(x)
@@ -246,6 +251,7 @@ class Decoder(nn.Module):
         self.norm_out = Normalize(block_in)
         self.conv_out = nn.Conv2d(block_in, out_ch, kernel_size=3, stride=1, padding=1)
 
+    @torch.inference_mode()
     def forward(self, z, **kwargs):
         temb = None
         h = self.conv_in(z)
@@ -255,11 +261,13 @@ class Decoder(nn.Module):
 
         for i_level in reversed(range(self.num_resolutions)):
             for i_block in range(self.num_res_blocks + 1):
-                h = self.up[i_level].block[i_block](h, temb, **kwargs)
-                if len(self.up[i_level].attn) > 0:
-                    h = self.up[i_level].attn[i_block](h, **kwargs)
+                _h = self.up[i_level].block[i_block](h, temb, **kwargs)
+                del h
+                h = self.up[i_level].attn[i_block](_h, **kwargs) if len(self.up[i_level].attn) > 0 else _h
             if i_level != 0:
-                h = self.up[i_level].upsample(h)
+                _h = self.up[i_level].upsample(h)
+                del h
+                h = _h
 
         if self.give_pre_end:
             return h
