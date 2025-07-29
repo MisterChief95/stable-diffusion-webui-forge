@@ -957,17 +957,17 @@ def create_ui():
 
 
 def versions_html():
-    from backend.memory_management import xformers_enabled  # sage_enabled, flash_enabled
+    from backend.memory_management import sage_enabled, flash_enabled, xformers_enabled
     import importlib.metadata
     import torch
 
     python_version = ".".join([str(x) for x in sys.version_info[0:3]])
     _versions = [f"torch: {getattr(torch, '__long_version__', torch.__version__)}"]
 
-    # if sage_enabled():
-    #     _versions.append(f"sage: {importlib.metadata.version('sageattention')}")
-    # if flash_enabled():
-    #     _versions.append(f"flash: {importlib.metadata.version('flash_attn')}")
+    if sage_enabled():
+        _versions.append(f"sage: {importlib.metadata.version('sageattention')}")
+    if flash_enabled():
+        _versions.append(f"flash: {importlib.metadata.version('flash_attn')}")
     if xformers_enabled():
         _versions.append(f"xformers: {importlib.metadata.version('xformers')}")
 
