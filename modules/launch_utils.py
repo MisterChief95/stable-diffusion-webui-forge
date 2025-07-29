@@ -11,7 +11,6 @@ import re
 import shlex
 import subprocess
 import sys
-from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 
@@ -274,9 +273,19 @@ def prepare_environment():
     torch_index_url = os.environ.get("TORCH_INDEX_URL", "https://download.pytorch.org/whl/cu128")
     torch_command = os.environ.get("TORCH_COMMAND", f"pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --extra-index-url {torch_index_url}")
     xformers_package = os.environ.get("XFORMERS_PACKAGE", f"xformers==0.0.31.post1 --extra-index-url {torch_index_url}")
+    sage_package = os.environ.get("SAGE_PACKAGE", "sageattention==1.0.6")
+
+    if os.name == "nt":
+        flash_package = os.environ.get("FLASH_PACKAGE", "https://github.com/kingbri1/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu128torch2.7.0cxx11abiFALSE-cp311-cp311-win_amd64.whl")
+    else:
+        flash_package = os.environ.get("FLASH_PACKAGE", "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.2/flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-cp311-cp311-linux_x86_64.whl")
+
+    if os.name == "nt":
+        triton_package = os.environ.get("TRITION_PACKAGE", "triton-windows")
+    else:
+        triton_package = os.environ.get("TRITION_PACKAGE", "triton")
 
     clip_package = os.environ.get("CLIP_PACKAGE", "https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip")
-
     gradio_package = os.environ.get("GRADIO_PACKAGE", "gradio==4.40.0 gradio_imageslider==0.0.20 gradio_rangeslider==0.0.6")
     requirements_file = os.environ.get("REQS_FILE", "requirements.txt")
 
@@ -313,6 +322,22 @@ def prepare_environment():
     if args.xformers and (not is_installed("xformers") or args.reinstall_xformers):
         run_pip(f"install -U -I --no-deps {xformers_package}", "xformers")
         startup_timer.record("install xformers")
+
+    if args.sage and not is_installed("sageattention"):
+        run_pip(f"install -U --no-deps {sage_package}", "sageattention")
+        try:
+            run_pip(f"install -U --no-deps {triton_package}", "triton")
+        except RuntimeError:
+            print("Failed to install triton; Please manually install it")
+        startup_timer.record("install sageattention")
+
+    if args.flash and not is_installed("flash_attn"):
+        try:
+            run_pip(f"install {flash_package}", "flash_attn")
+        except RuntimeError:
+            print("Failed to install flash_attn; Please manually install it")
+        else:
+            startup_timer.record("install flash_attn")
 
     if not is_installed("ngrok") and args.ngrok:
         run_pip("install ngrok", "ngrok")
