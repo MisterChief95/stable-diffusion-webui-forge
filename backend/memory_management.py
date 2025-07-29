@@ -147,6 +147,15 @@ except Exception:
 if directml_enabled:
     OOM_EXCEPTION = Exception
 
+if args.fast_fp16:
+    _ver = str(torch.version.__version__)
+    if int(_ver[0]) >= 2 and int(_ver[2]) >= 7:
+        torch.backends.cuda.allow_fp16_bf16_reduction_math_sdp(True)
+        torch.backends.cuda.matmul.allow_fp16_accumulation = True
+        print("allow_fp16_accumulation:", torch.backends.cuda.matmul.allow_fp16_accumulation)
+    else:
+        print("This version of pytorch does not support fp16_accumulation")
+
 XFORMERS_VERSION = ""
 XFORMERS_ENABLED_VAE = True
 if args.disable_xformers:
