@@ -5,17 +5,39 @@ import torch
 
 from backend import memory_management
 from backend.args import args
+from modules.errors import display_once
 
-BROKEN_XFORMERS = False
 if memory_management.xformers_enabled():
     import xformers
     import xformers.ops
 
     try:
         x_vers = xformers.__version__
+    except Exception:
+        BROKEN_XFORMERS = True
+    else:
         BROKEN_XFORMERS = x_vers.startswith("0.0.2") and not x_vers.startswith("0.0.20")
-    except:
-        pass
+
+IS_SAGE_2 = False
+"""SageAttention 2 has looser restrictions, allowing it to work on more models (e.g. SD1)"""
+
+if memory_management.sage_enabled():
+    import importlib.metadata
+
+    from sageattention import sageattn
+
+    IS_SAGE_2 = importlib.metadata.version("sageattention").startswith("2")
+
+if memory_management.flash_enabled():
+    from flash_attn import flash_attn_func
+
+    @torch.library.custom_op("flash_attention::flash_attn", mutates_args=())
+    def flash_attn_wrapper(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, dropout_p: float = 0.0, causal: bool = False) -> torch.Tensor:
+        return flash_attn_func(q, k, v, dropout_p=dropout_p, causal=causal)
+
+    @flash_attn_wrapper.register_fake
+    def flash_attn_fake(q, k, v, dropout_p=0.0, causal=False):
+        return q.new_empty(q.shape)
 
 
 FORCE_UPCAST_ATTENTION_DTYPE = memory_management.force_upcast_attention_dtype()
@@ -31,6 +53,9 @@ def get_attn_precision(attn_precision=torch.float32):
 
 def exists(val):
     return val is not None
+
+
+# ========== Diffusion ========== #
 
 
 def attention_basic(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False):
@@ -239,13 +264,120 @@ def attention_pytorch(q, k, v, heads, mask=None, attn_precision=None, skip_resha
     return out
 
 
+def attention_sage(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False):
+    if (IS_SAGE_2 and dim_head > 128) or ((not IS_SAGE_2) and (dim_head not in (64, 96, 128))):
+        if memory_management.xformers_enabled():
+            return attention_xformers(q, k, v, heads, mask, attn_precision, skip_reshape)
+        else:
+            return attention_pytorch(q, k, v, heads, mask, attn_precision, skip_reshape)
+
+    if skip_reshape:
+        b, _, _, dim_head = q.shape
+        tensor_layout = "HND"
+    else:
+        b, _, dim_head = q.shape
+        dim_head //= heads
+        q, k, v = map(
+            lambda t: t.view(b, -1, heads, dim_head),
+            (q, k, v),
+        )
+        tensor_layout = "NHD"
+
+    if mask is not None:
+        # add a batch dimension if there isn't already one
+        if mask.ndim == 2:
+            mask = mask.unsqueeze(0)
+        # add a heads dimension if there isn't already one
+        if mask.ndim == 3:
+            mask = mask.unsqueeze(1)
+
+    try:
+        out = sageattn(q, k, v, attn_mask=mask, is_causal=False, tensor_layout=tensor_layout)
+    except Exception as e:
+        display_once(e)
+        if tensor_layout == "NHD":
+            q, k, v = map(
+                lambda t: t.transpose(1, 2),
+                (q, k, v),
+            )
+        if memory_management.xformers_enabled():
+            return attention_xformers(q, k, v, heads, mask=mask, skip_reshape=True)
+        else:
+            return attention_pytorch(q, k, v, heads, mask=mask, skip_reshape=True)
+
+    if tensor_layout == "HND":
+        out = out.transpose(1, 2).reshape(b, -1, heads * dim_head)
+    else:
+        out = out.reshape(b, -1, heads * dim_head)
+
+    return out
+
+
+def attention_flash(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False):
+    if skip_reshape:
+        b, _, _, dim_head = q.shape
+    else:
+        b, _, dim_head = q.shape
+        dim_head //= heads
+        q, k, v = map(
+            lambda t: t.view(b, -1, heads, dim_head).transpose(1, 2),
+            (q, k, v),
+        )
+
+    if mask is not None:
+        # add a batch dimension if there isn't already one
+        if mask.ndim == 2:
+            mask = mask.unsqueeze(0)
+        # add a heads dimension if there isn't already one
+        if mask.ndim == 3:
+            mask = mask.unsqueeze(1)
+
+    try:
+        assert mask is None
+        out = flash_attn_wrapper(
+            q.transpose(1, 2),
+            k.transpose(1, 2),
+            v.transpose(1, 2),
+            dropout_p=0.0,
+            causal=False,
+        ).transpose(1, 2)
+    except Exception as e:
+        display_once(e)
+        out = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=False)
+
+    out = out.transpose(1, 2).reshape(b, -1, heads * dim_head)
+    return out
+
+
+if memory_management.sage_enabled():
+    print(f"Using SageAttention {'2' if IS_SAGE_2 else ''}")
+    attention_function = attention_sage
+elif memory_management.flash_enabled():
+    print("Using FlashAttention")
+    attention_function = attention_flash
+elif memory_management.xformers_enabled():
+    print("Using xformers Cross Attention")
+    attention_function = attention_xformers
+elif memory_management.pytorch_attention_enabled():
+    print("Using PyTorch Cross Attention")
+    attention_function = attention_pytorch
+elif args.attention_split:
+    print("Using Split Optimization for Cross Attention")
+    attention_function = attention_split
+else:
+    print("Using Basic Cross Attention")
+    attention_function = attention_basic
+
+
+# ========== VAE ========== #
+
+
 def slice_attention_single_head_spatial(q, k, v):
     r1 = torch.zeros_like(k, device=q.device)
     scale = int(q.shape[-1]) ** (-0.5)
 
     mem_free_total = memory_management.get_free_memory(q.device)
 
-    gb = 1024**3
     tensor_size = q.shape[0] * q.shape[1] * k.shape[2] * q.element_size()
     modifier = 3 if q.element_size() == 2 else 2.5
     mem_required = tensor_size * modifier
@@ -303,7 +435,7 @@ def xformers_attention_single_head_spatial(q, k, v):
     try:
         out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None)
         out = out.transpose(1, 2).reshape(B, C, H, W)
-    except NotImplementedError as e:
+    except NotImplementedError:
         out = slice_attention_single_head_spatial(q.view(B, -1, C), k.view(B, -1, C).transpose(1, 2), v.view(B, -1, C).transpose(1, 2)).reshape(B, C, H, W)
     return out
 
@@ -320,78 +452,17 @@ def pytorch_attention_single_head_spatial(q, k, v):
         out = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False)
         out = out.transpose(2, 3).reshape(B, C, H, W)
     except memory_management.OOM_EXCEPTION as e:
-        print("scaled_dot_product_attention OOMed: switched to slice attention")
+        display_once(e)
         out = slice_attention_single_head_spatial(q.view(B, -1, C), k.view(B, -1, C).transpose(1, 2), v.view(B, -1, C).transpose(1, 2)).reshape(B, C, H, W)
     return out
 
 
-if memory_management.xformers_enabled():
-    print("Using xformers cross attention")
-    attention_function = attention_xformers
-elif memory_management.pytorch_attention_enabled():
-    print("Using pytorch cross attention")
-    attention_function = attention_pytorch
-elif args.attention_split:
-    print("Using split optimization for cross attention")
-    attention_function = attention_split
-else:
-    print("Using basic cross attention")
-    attention_function = attention_basic
-
 if memory_management.xformers_enabled_vae():
-    print("Using xformers attention for VAE")
+    print("Using xformers Attention for VAE")
     attention_function_single_head_spatial = xformers_attention_single_head_spatial
 elif memory_management.pytorch_attention_enabled():
-    print("Using pytorch attention for VAE")
+    print("Using PyTorch Attention for VAE")
     attention_function_single_head_spatial = pytorch_attention_single_head_spatial
 else:
-    print("Using split attention for VAE")
+    print("Using Split Attention for VAE")
     attention_function_single_head_spatial = normal_attention_single_head_spatial
-
-
-class AttentionProcessorForge:
-    def __call__(self, attn, hidden_states, encoder_hidden_states, attention_mask=None, temb=None, *args, **kwargs):
-        residual = hidden_states
-
-        if attn.spatial_norm is not None:
-            hidden_states = attn.spatial_norm(hidden_states, temb)
-
-        input_ndim = hidden_states.ndim
-
-        if input_ndim == 4:
-            batch_size, channel, height, width = hidden_states.shape
-            hidden_states = hidden_states.view(batch_size, channel, height * width).transpose(1, 2)
-
-        batch_size, sequence_length, _ = hidden_states.shape if encoder_hidden_states is None else encoder_hidden_states.shape
-
-        if attention_mask is not None:
-            attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length, batch_size)
-            attention_mask = attention_mask.view(batch_size, attn.heads, -1, attention_mask.shape[-1])
-
-        if attn.group_norm is not None:
-            hidden_states = attn.group_norm(hidden_states.transpose(1, 2)).transpose(1, 2)
-
-        query = attn.to_q(hidden_states)
-
-        if encoder_hidden_states is None:
-            encoder_hidden_states = hidden_states
-        elif attn.norm_cross:
-            encoder_hidden_states = attn.norm_encoder_hidden_states(encoder_hidden_states)
-
-        key = attn.to_k(encoder_hidden_states)
-        value = attn.to_v(encoder_hidden_states)
-
-        hidden_states = attention_function(query, key, value, heads=attn.heads, mask=attention_mask)
-
-        hidden_states = attn.to_out[0](hidden_states)
-        hidden_states = attn.to_out[1](hidden_states)
-
-        if input_ndim == 4:
-            hidden_states = hidden_states.transpose(-1, -2).reshape(batch_size, channel, height, width)
-
-        if attn.residual_connection:
-            hidden_states = hidden_states + residual
-
-        hidden_states = hidden_states / attn.rescale_output_factor
-
-        return hidden_states
