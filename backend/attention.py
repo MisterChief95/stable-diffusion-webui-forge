@@ -265,23 +265,25 @@ def attention_pytorch(q, k, v, heads, mask=None, attn_precision=None, skip_resha
 
 
 def attention_sage(q, k, v, heads, mask=None, attn_precision=None, skip_reshape=False):
-    if (IS_SAGE_2 and dim_head > 128) or ((not IS_SAGE_2) and (dim_head not in (64, 96, 128))):
-        if memory_management.xformers_enabled():
-            return attention_xformers(q, k, v, heads, mask, attn_precision, skip_reshape)
-        else:
-            return attention_pytorch(q, k, v, heads, mask, attn_precision, skip_reshape)
-
     if skip_reshape:
         b, _, _, dim_head = q.shape
         tensor_layout = "HND"
     else:
         b, _, dim_head = q.shape
         dim_head //= heads
+        tensor_layout = "NHD"
+
+    if (IS_SAGE_2 and dim_head > 128) or ((not IS_SAGE_2) and (dim_head not in (64, 96, 128))):
+        if memory_management.xformers_enabled():
+            return attention_xformers(q, k, v, heads, mask, attn_precision, skip_reshape)
+        else:
+            return attention_pytorch(q, k, v, heads, mask, attn_precision, skip_reshape)
+
+    if not skip_reshape:
         q, k, v = map(
             lambda t: t.view(b, -1, heads, dim_head),
             (q, k, v),
         )
-        tensor_layout = "NHD"
 
     if mask is not None:
         # add a batch dimension if there isn't already one
