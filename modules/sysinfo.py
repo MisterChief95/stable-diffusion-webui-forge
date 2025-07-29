@@ -98,7 +98,6 @@ def get_dict():
         "Platform": platform.platform(),
         "Python": platform.python_version(),
         "Version": launch_utils.git_tag(),
-        "Commit": launch_utils.commit_hash(),
         "Git status": git_status(paths_internal.script_path),
         "Script path": paths_internal.script_path,
         "Data path": paths_internal.data_path,

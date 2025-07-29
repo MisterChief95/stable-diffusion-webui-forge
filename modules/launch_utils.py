@@ -1,39 +1,37 @@
-# this scripts installs necessary requirements and launches main program in webui.py
-import logging
-import re
-import subprocess
-import os
-import shutil
-import sys
-import importlib.util
-import importlib.metadata
-import platform
-import json
-import shlex
-from functools import lru_cache
-from typing import NamedTuple
-from pathlib import Path
+"""
+This script installs necessary requirements and launches main program in webui.py
+"""
 
-from modules import cmd_args, errors
-from modules.paths_internal import script_path, extensions_dir, extensions_builtin_dir
+import importlib.metadata
+import importlib.util
+import json
+import logging
+import os
+import re
+import shlex
+import subprocess
+import sys
+from functools import lru_cache
+from pathlib import Path
+from typing import NamedTuple
+
+from modules import cmd_args, errors, logging_config
+from modules.paths_internal import extensions_builtin_dir, extensions_dir, script_path
 from modules.timer import startup_timer
-from modules import logging_config
 from modules_forge import forge_version
 from modules_forge.config import always_disabled_extensions
-
 
 args, _ = cmd_args.parser.parse_known_args()
 logging_config.setup_logging(args.loglevel)
 
 python = sys.executable
-git = os.environ.get('GIT', "git")
-index_url = os.environ.get('INDEX_URL', "")
+git = os.environ.get("GIT", "git")
+index_url = os.environ.get("INDEX_URL", "")
 dir_repos = "repositories"
 
-# Whether to default to printing command output
-default_command_live = (os.environ.get('WEBUI_LAUNCH_LIVE_OUTPUT') == "1")
+default_command_live = os.environ.get("WEBUI_LAUNCH_LIVE_OUTPUT") == "1"
 
-os.environ.setdefault('GRADIO_ANALYTICS_ENABLED', 'False')
+os.environ.setdefault("GRADIO_ANALYTICS_ENABLED", "False")
 
 
 def check_python_version():
@@ -56,14 +54,6 @@ def check_python_version():
         )
 
 
-@lru_cache()
-def commit_hash():
-    try:
-        return subprocess.check_output([git, "-C", script_path, "rev-parse", "HEAD"], shell=False, encoding='utf8').strip()
-    except Exception:
-        return "<none>"
-
-
 def git_tag():
     return forge_version.version
 
@@ -76,8 +66,8 @@ def run(command, desc=None, errdesc=None, custom_env=None, live: bool = default_
         "args": command,
         "shell": True,
         "env": os.environ if custom_env is None else custom_env,
-        "encoding": 'utf8',
-        "errors": 'ignore',
+        "encoding": "utf8",
+        "errors": "ignore",
     }
 
     if not live:
@@ -97,7 +87,7 @@ def run(command, desc=None, errdesc=None, custom_env=None, live: bool = default_
             error_bits.append(f"stderr: {result.stderr}")
         raise RuntimeError("\n".join(error_bits))
 
-    return (result.stdout or "")
+    return result.stdout or ""
 
 
 def is_installed(package):
@@ -122,7 +112,7 @@ def run_pip(command, desc=None, live=default_command_live):
     if args.skip_install:
         return
 
-    index_url_line = f' --index-url {index_url}' if index_url != '' else ''
+    index_url_line = f" --index-url {index_url}" if index_url != "" else ""
     return run(f'"{python}" -m pip {command} --prefer-binary{index_url_line}', desc=f"Installing {desc}", errdesc=f"Couldn't install {desc}", live=live)
 
 
@@ -145,9 +135,9 @@ def git_clone(*args, **kwargs):
 
 def git_pull_recursive(dir):
     for subdir, _, _ in os.walk(dir):
-        if os.path.exists(os.path.join(subdir, '.git')):
+        if os.path.exists(os.path.join(subdir, ".git")):
             try:
-                output = subprocess.check_output([git, '-C', subdir, 'pull', '--autostash'])
+                output = subprocess.check_output([git, "-C", subdir, "pull", "--autostash"])
                 print(f"Pulled changes for repository in '{subdir}':\n{output.decode('utf-8').strip()}\n")
             except subprocess.CalledProcessError as e:
                 print(f"Couldn't perform 'git pull' on repository in '{subdir}':\n{e.output.decode('utf-8').strip()}\n")
@@ -160,7 +150,7 @@ def run_extension_installer(extension_dir):
 
     try:
         env = os.environ.copy()
-        env['PYTHONPATH'] = f"{script_path}{os.pathsep}{env.get('PYTHONPATH', '')}"
+        env["PYTHONPATH"] = f"{script_path}{os.pathsep}{env.get('PYTHONPATH', '')}"
 
         stdout = run(f'"{python}" "{path_installer}"', errdesc=f"Error running install.py for extension {extension_dir}", custom_env=env).strip()
         if stdout:
@@ -178,13 +168,13 @@ def list_extensions(settings_file):
     except FileNotFoundError:
         pass
     except Exception:
-        errors.report(f'\nCould not load settings\nThe config file "{settings_file}" is likely corrupted\nIt has been moved to the "tmp/config.json"\nReverting config to default\n\n''', exc_info=True)
+        errors.report(f'\nCould not load settings\nThe config file "{settings_file}" is likely corrupted\nIt has been moved to the "tmp/config.json"\nReverting config to default\n\n' "", exc_info=True)
         os.replace(settings_file, os.path.join(script_path, "tmp", "config.json"))
 
-    disabled_extensions = set(settings.get('disabled_extensions', []) + always_disabled_extensions)
-    disable_all_extensions = settings.get('disable_all_extensions', 'none')
+    disabled_extensions = set(settings.get("disabled_extensions", []) + always_disabled_extensions)
+    disable_all_extensions = settings.get("disable_all_extensions", "none")
 
-    if disable_all_extensions != 'none' or args.disable_extra_extensions or args.disable_all_extensions or not os.path.isdir(extensions_dir):
+    if disable_all_extensions != "none" or args.disable_extra_extensions or args.disable_all_extensions or not os.path.isdir(extensions_dir):
         return []
 
     return [x for x in os.listdir(extensions_dir) if x not in disabled_extensions]
@@ -199,13 +189,13 @@ def list_extensions_builtin(settings_file):
     except FileNotFoundError:
         pass
     except Exception:
-        errors.report(f'\nCould not load settings\nThe config file "{settings_file}" is likely corrupted\nIt has been moved to the "tmp/config.json"\nReverting config to default\n\n''', exc_info=True)
+        errors.report(f'\nCould not load settings\nThe config file "{settings_file}" is likely corrupted\nIt has been moved to the "tmp/config.json"\nReverting config to default\n\n' "", exc_info=True)
         os.replace(settings_file, os.path.join(script_path, "tmp", "config.json"))
 
-    disabled_extensions = set(settings.get('disabled_extensions', []))
-    disable_all_extensions = settings.get('disable_all_extensions', 'none')
+    disabled_extensions = set(settings.get("disabled_extensions", []))
+    disable_all_extensions = settings.get("disable_all_extensions", "none")
 
-    if disable_all_extensions != 'none' or args.disable_extra_extensions or args.disable_all_extensions or not os.path.isdir(extensions_builtin_dir):
+    if disable_all_extensions != "none" or args.disable_extra_extensions or args.disable_all_extensions or not os.path.isdir(extensions_builtin_dir):
         return []
 
     return [x for x in os.listdir(extensions_builtin_dir) if x not in disabled_extensions]
@@ -251,6 +241,7 @@ def requirements_met(requirements_file):
     """
 
     import importlib.metadata
+
     import packaging.version
 
     with open(requirements_file, "r", encoding="utf8") as file:
@@ -280,19 +271,19 @@ def requirements_met(requirements_file):
 
 
 def prepare_environment():
-    torch_index_url = os.environ.get('TORCH_INDEX_URL', "https://download.pytorch.org/whl/cu128")
-    torch_command = os.environ.get('TORCH_COMMAND', f"pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --extra-index-url {torch_index_url}")
-    xformers_package = os.environ.get('XFORMERS_PACKAGE', f"xformers==0.0.31.post1 --extra-index-url {torch_index_url}")
+    torch_index_url = os.environ.get("TORCH_INDEX_URL", "https://download.pytorch.org/whl/cu128")
+    torch_command = os.environ.get("TORCH_COMMAND", f"pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --extra-index-url {torch_index_url}")
+    xformers_package = os.environ.get("XFORMERS_PACKAGE", f"xformers==0.0.31.post1 --extra-index-url {torch_index_url}")
 
-    clip_package = os.environ.get('CLIP_PACKAGE', "https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip")
+    clip_package = os.environ.get("CLIP_PACKAGE", "https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip")
 
     gradio_package = os.environ.get("GRADIO_PACKAGE", "gradio==4.40.0 gradio_imageslider==0.0.20 gradio_rangeslider==0.0.6")
-    requirements_file = os.environ.get('REQS_FILE', "requirements.txt")
+    requirements_file = os.environ.get("REQS_FILE", "requirements.txt")
 
     try:
         # the existence of this file is a signal to webui.sh/bat that webui needs to be restarted when it stops execution
         os.remove(os.path.join(script_path, "tmp", "restart"))
-        os.environ.setdefault('SD_WEBUI_RESTARTING', '1')
+        os.environ.setdefault("SD_WEBUI_RESTARTING", "1")
     except OSError:
         pass
 
@@ -334,7 +325,7 @@ def prepare_environment():
         run_pip(f"install {gradio_package}", "gradio")
 
     if not requirements_met(requirements_file):
-        run_pip(f"install -r \"{requirements_file}\"", "requirements")
+        run_pip(f'install -r "{requirements_file}"', "requirements")
         startup_timer.record("install requirements")
 
     if not args.skip_install:
@@ -364,11 +355,12 @@ def configure_for_tests():
     if "--disable-nan-check" not in sys.argv:
         sys.argv.append("--disable-nan-check")
 
-    os.environ['COMMANDLINE_ARGS'] = ""
+    os.environ["COMMANDLINE_ARGS"] = ""
 
 
 def configure_forge_reference_checkout(a1111_home: Path):
     """Set model paths based on an existing A1111 checkout."""
+
     class ModelRef(NamedTuple):
         arg_name: str
         relative_path: str
@@ -401,7 +393,8 @@ def configure_forge_reference_checkout(a1111_home: Path):
 def start():
     print(f"Launching {'API server' if '--nowebui' in sys.argv else 'Web UI'} with arguments: {shlex.join(sys.argv[1:])}")
     import webui
-    if '--nowebui' in sys.argv:
+
+    if "--nowebui" in sys.argv:
         webui.api_only()
     else:
         webui.webui()
@@ -413,8 +406,9 @@ def start():
 
 
 def dump_sysinfo():
-    from modules import sysinfo
     import datetime
+
+    from modules import sysinfo
 
     text = sysinfo.get()
     filename = f"sysinfo-{datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d-%H-%M')}.json"

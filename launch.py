@@ -13,7 +13,6 @@ if args.uv or args.uv_symlink:
     from modules_forge.uv_hook import patch
     patch(args.uv_symlink)
 
-commit_hash = launch_utils.commit_hash
 git_tag = launch_utils.git_tag
 
 run = launch_utils.run
