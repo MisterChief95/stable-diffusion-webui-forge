@@ -6,7 +6,7 @@ import gradio as gr
 
 from backend import memory_management
 from modules import options, shared_cmd_options, shared_gradio_themes, shared_items, util
-from modules.paths_internal import data_path, default_sd_model_file, extensions_builtin_dir, extensions_dir, models_path, script_path, sd_configs_path, sd_default_config, sd_model_file  # noqa: F401
+from modules.paths_internal import data_path, default_sd_model_file, extensions_builtin_dir, extensions_dir, models_path, script_path, sd_model_file  # noqa: F401
 
 if TYPE_CHECKING:
     from modules import memmon, shared_state, shared_total_tqdm, styles

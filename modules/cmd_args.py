@@ -3,8 +3,8 @@ import json
 import os
 from pathlib import Path
 
+from modules.paths_internal import data_path, extensions_builtin_dir, extensions_dir, models_path, normalized_filepath, script_path, sd_model_file  # noqa: F401
 from backend.args import parser
-from modules.paths_internal import data_path, extensions_builtin_dir, extensions_dir, models_path, normalized_filepath, script_path, sd_default_config, sd_model_file  # noqa: F401
 
 parser.add_argument("-f", action="store_true", help=argparse.SUPPRESS)
 
@@ -20,7 +20,6 @@ parser.add_argument("--dump-sysinfo", action="store_true", help="launch.py argum
 parser.add_argument("--loglevel", type=str, help="log level; one of: CRITICAL, ERROR, WARNING, INFO, DEBUG", default=None)
 parser.add_argument("--data-dir", type=normalized_filepath, default=os.path.dirname(os.path.dirname(os.path.realpath(__file__))), help="base path where all user data is stored")
 parser.add_argument("--models-dir", type=normalized_filepath, default=None, help="base path where models are stored; overrides --data-dir")
-parser.add_argument("--config", type=normalized_filepath, default=sd_default_config, help="path to config which constructs model")
 parser.add_argument("--ckpt", type=normalized_filepath, default=sd_model_file, help="path to checkpoint of stable diffusion model; if specified, this checkpoint will be added to the list of checkpoints and loaded")
 parser.add_argument("--ckpt-dir", type=normalized_filepath, default=None, help="Path to directory with stable diffusion checkpoints")
 parser.add_argument("--vae-dir", type=normalized_filepath, default=None, help="Path to directory with VAE files")
