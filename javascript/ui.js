@@ -96,7 +96,7 @@ function switch_to_inpaint_sketch() {
 }
 
 function switch_to_extras() {
-    gradioApp().querySelector("#tabs").querySelectorAll("button")[3].click();
+    gradioApp().querySelector("#tabs").querySelectorAll("button")[2].click();
 
     return Array.from(arguments);
 }
