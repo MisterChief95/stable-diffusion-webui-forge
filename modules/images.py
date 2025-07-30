@@ -167,9 +167,13 @@ def draw_grid_annotations(im, width, height, hor_texts, ver_texts, margin=0):
         for line in lines:
             fnt = initial_fnt
             fontsize = initial_fontsize
-            while drawing.multiline_textsize(line.text, font=fnt)[0] > line.allowed_width and fontsize > 0:
-                fontsize -= 1
-                fnt = get_font(fontsize)
+            while True:
+                bbox = drawing.multiline_textbbox((0, 0), line.text, font=fnt)
+                if (bbox[2] - bbox[0]) > line.allowed_width and fontsize > 0:
+                    fontsize -= 1
+                    fnt = get_font(fontsize)
+                else:
+                    break
             drawing.multiline_text((draw_x, draw_y + line.size[1] / 2), line.text, font=fnt, fill=color_active if line.is_active else color_inactive, anchor="mm", align="center")
 
             if not line.is_active:
@@ -829,7 +833,7 @@ def read_info_from_image(image: Image.Image) -> tuple[str | None, dict]:
                 errors.report("Error parsing NovelAI image generation parameters", exc_info=True)
 
         return geninfo, items
-    
+
     geninfo, items = read_standard()
     if geninfo is None:
         geninfo = stealth_infotext.read_info_from_image_stealth(image)
