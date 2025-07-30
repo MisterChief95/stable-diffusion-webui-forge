@@ -1,32 +1,30 @@
 import inspect
-import types
 import warnings
 from functools import wraps
 
 import gradio as gr
 import gradio.component_meta
 
-
-from modules import scripts, ui_tempdir, patches
+from modules import patches, scripts, ui_tempdir
 
 
 class GradioDeprecationWarning(DeprecationWarning):
     pass
 
 
-def add_classes_to_gradio_component(comp):
+def add_classes_to_gradio_component(comp: gr.components.Component):
     """
     this adds gradio-* to the component for css styling (ie gradio-button to gr.Button), as well as some others
     """
 
-    comp.elem_classes = [f"gradio-{comp.get_block_name()}", *(getattr(comp, 'elem_classes', None) or [])]
+    comp.elem_classes = [f"gradio-{comp.get_block_name()}", *(getattr(comp, "elem_classes", None) or [])]
 
-    if getattr(comp, 'multiselect', False):
-        comp.elem_classes.append('multiselect')
+    if getattr(comp, "multiselect", False):
+        comp.elem_classes.append("multiselect")
 
 
 def IOComponent_init(self, *args, **kwargs):
-    self.webui_tooltip = kwargs.pop('tooltip', None)
+    self.webui_tooltip = kwargs.pop("tooltip", None)
 
     if scripts.scripts_current is not None:
         scripts.scripts_current.before_component(self, **kwargs)
@@ -48,11 +46,11 @@ def IOComponent_init(self, *args, **kwargs):
 def Block_get_config(self):
     config = original_Block_get_config(self)
 
-    webui_tooltip = getattr(self, 'webui_tooltip', None)
+    webui_tooltip = getattr(self, "webui_tooltip", None)
     if webui_tooltip:
         config["webui_tooltip"] = webui_tooltip
 
-    config.pop('example_inputs', None)
+    config.pop("example_inputs", None)
 
     return config
 
@@ -95,14 +93,14 @@ ui_tempdir.install_ui_tempdir_override()
 
 
 def gradio_component_meta_create_or_modify_pyi(component_class, class_name, events):
-    if hasattr(component_class, 'webui_do_not_create_gradio_pyi_thank_you'):
+    if hasattr(component_class, "webui_do_not_create_gradio_pyi_thank_you"):
         return
 
     gradio_component_meta_create_or_modify_pyi_original(component_class, class_name, events)
 
 
 # this prevents creation of .pyi files in webui dir
-gradio_component_meta_create_or_modify_pyi_original = patches.patch(__file__, gradio.component_meta, 'create_or_modify_pyi', gradio_component_meta_create_or_modify_pyi)
+gradio_component_meta_create_or_modify_pyi_original = patches.patch(__file__, gradio.component_meta, "create_or_modify_pyi", gradio_component_meta_create_or_modify_pyi)
 
 # this function is broken and does not seem to do anything useful
 gradio.component_meta.updateable = lambda x: x
@@ -111,15 +109,15 @@ gradio.component_meta.updateable = lambda x: x
 class EventWrapper:
     def __init__(self, replaced_event):
         self.replaced_event = replaced_event
-        self.has_trigger = getattr(replaced_event, 'has_trigger', None)
-        self.event_name = getattr(replaced_event, 'event_name', None)
-        self.callback = getattr(replaced_event, 'callback', None)
-        self.real_self = getattr(replaced_event, '__self__', None)
+        self.has_trigger = getattr(replaced_event, "has_trigger", None)
+        self.event_name = getattr(replaced_event, "event_name", None)
+        self.callback = getattr(replaced_event, "callback", None)
+        self.real_self = getattr(replaced_event, "__self__", None)
 
     def __call__(self, *args, **kwargs):
-        if '_js' in kwargs:
-            kwargs['js'] = kwargs['_js']
-            del kwargs['_js']
+        if "_js" in kwargs:
+            kwargs["js"] = kwargs["_js"]
+            del kwargs["_js"]
         return self.replaced_event(*args, **kwargs)
 
     @property
@@ -128,7 +126,7 @@ class EventWrapper:
 
 
 def repair(grclass):
-    if not getattr(grclass, 'EVENTS', None):
+    if not getattr(grclass, "EVENTS", None):
         return
 
     @wraps(grclass.__init__)
@@ -167,7 +165,7 @@ class Dependency(gr.events.Dependency):
 
         def then(*xargs, _js=None, **xkwargs):
             if _js:
-                xkwargs['js'] = _js
+                xkwargs["js"] = _js
 
             return original_then(*xargs, **xkwargs)
 
@@ -178,4 +176,3 @@ class Dependency(gr.events.Dependency):
 gr.events.Dependency = Dependency
 
 gr.Box = gr.Group
-
