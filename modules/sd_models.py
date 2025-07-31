@@ -14,7 +14,7 @@ from urllib import request
 import gc
 import contextlib
 
-from modules import paths, shared, modelloader, devices, script_callbacks, sd_vae, errors, hashes, sd_unet, cache, extra_networks, processing, lowvram, sd_hijack, patches
+from modules import paths, shared, modelloader, devices, script_callbacks, sd_vae, errors, hashes, sd_unet, cache, extra_networks, processing, sd_hijack, patches
 from modules.shared import opts, cmd_opts
 from modules.timer import Timer
 import numpy as np
