@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image, ImageOps
 import random
 import cv2
-from skimage import exposure
+from skimage.exposure import match_histograms
 from typing import Any
 
 import modules.sd_hijack
@@ -811,7 +811,7 @@ def process_images(p: StableDiffusionProcessing) -> Processed:
     """applies settings overrides (if any) before processing images, then restores settings as applicable."""
     if p.scripts is not None:
         p.scripts.before_process(p)
-        
+
     stored_opts = {k: opts.data[k] if k in opts.data else opts.get_default(k) for k in p.override_settings.keys() if k in opts.data}
 
     try:
