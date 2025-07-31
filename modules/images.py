@@ -22,7 +22,8 @@ from modules import sd_samplers, shared, script_callbacks, errors, stealth_infot
 from modules.paths_internal import roboto_ttf_file
 from modules.shared import opts
 
-LANCZOS = (Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS)
+LANCZOS = getattr(Image, "Resampling", Image).LANCZOS
+NEAREST = getattr(Image, "Resampling", Image).NEAREST
 
 
 def get_font(fontsize: int):

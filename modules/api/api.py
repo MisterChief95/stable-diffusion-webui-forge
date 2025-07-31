@@ -25,7 +25,6 @@ import modules.textual_inversion.textual_inversion
 from modules.shared import cmd_opts
 
 from PIL import PngImagePlugin
-from modules.realesrgan_model import get_realesrgan_models
 from modules import devices
 from typing import Any, Union, get_origin, get_args
 import piexif
@@ -226,7 +225,6 @@ class Api:
         self.add_api_route("/sdapi/v1/sd-models", self.get_sd_models, methods=["GET"], response_model=list[models.SDModelItem])
         self.add_api_route("/sdapi/v1/sd-modules", self.get_sd_vaes_and_text_encoders, methods=["GET"], response_model=list[models.SDModuleItem])
         self.add_api_route("/sdapi/v1/face-restorers", self.get_face_restorers, methods=["GET"], response_model=list[models.FaceRestorerItem])
-        self.add_api_route("/sdapi/v1/realesrgan-models", self.get_realesrgan_models, methods=["GET"], response_model=list[models.RealesrganItem])
         self.add_api_route("/sdapi/v1/prompt-styles", self.get_prompt_styles, methods=["GET"], response_model=list[models.PromptStyleItem])
         self.add_api_route("/sdapi/v1/embeddings", self.get_embeddings, methods=["GET"], response_model=models.EmbeddingsResponse)
         self.add_api_route("/sdapi/v1/refresh-embeddings", self.refresh_embeddings, methods=["POST"])
@@ -712,9 +710,6 @@ class Api:
 
     def get_face_restorers(self):
         return [{"name":x.name(), "cmd_dir": getattr(x, "cmd_dir", None)} for x in shared.face_restorers]
-
-    def get_realesrgan_models(self):
-        return [{"name":x.name,"path":x.data_path, "scale":x.scale} for x in get_realesrgan_models(None)]
 
     def get_prompt_styles(self):
         styleList = []
