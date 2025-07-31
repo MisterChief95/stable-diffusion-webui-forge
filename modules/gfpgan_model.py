@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import logging
-import os
-
 import torch
+import os
 
 from modules import (
     devices,
@@ -14,9 +12,6 @@ from modules import (
     shared,
 )
 
-logger = logging.getLogger(__name__)
-model_url = "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth"
-model_download_name = "GFPGANv1.4.pth"
 gfpgan_face_restorer: face_restoration.FaceRestoration | None = None
 
 
@@ -24,35 +19,21 @@ class FaceRestorerGFPGAN(face_restoration_utils.CommonFaceRestoration):
     def name(self):
         return "GFPGAN"
 
-    def get_device(self):
-        return devices.device_gfpgan
-
-    def load_net(self) -> torch.Module:
+    def load_net(self) -> torch.nn.Module:
+        os.makedirs(self.model_path, exist_ok=True)
         for model_path in modelloader.load_models(
             model_path=self.model_path,
-            model_url=model_url,
+            model_url="https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth",
             command_path=self.model_path,
-            download_name=model_download_name,
-            ext_filter=['.pth'],
+            download_name="GFPGANv1.4.pth",
+            ext_filter=[".pth"],
         ):
-            if 'GFPGAN' in os.path.basename(model_path):
-                return modelloader.load_spandrel_model(
-                    model_path,
-                    device=self.get_device(),
-                    expected_architecture='GFPGAN',
-                ).model
-
-        #   if reach here, model not found. previous code will download it iff there are no models in GFPGAN directory
-        #   this will download it if the supporting models exist
-        try:
-            GFPGANmodel = modelloader.load_file_from_url(model_url, model_dir=self.model_path, file_name=model_download_name)
             return modelloader.load_spandrel_model(
-                GFPGANmodel,
-                device=self.get_device(),
-                expected_architecture='GFPGAN',
+                model_path,
+                device=devices.device_gfpgan,
+                expected_architecture="GFPGAN",
             ).model
-        except:
-            raise ValueError("No GFPGAN model found")
+        raise ValueError("No GFPGAN Model Found")
 
     def restore(self, np_image):
         def restore_face(cropped_face_t):
@@ -65,7 +46,7 @@ class FaceRestorerGFPGAN(face_restoration_utils.CommonFaceRestoration):
 def gfpgan_fix_faces(np_image):
     if gfpgan_face_restorer:
         return gfpgan_face_restorer.restore(np_image)
-    logger.warning("GFPGAN face restorer not set up")
+    print("WARNING: GFPGAN face restorer was not set up")
     return np_image
 
 

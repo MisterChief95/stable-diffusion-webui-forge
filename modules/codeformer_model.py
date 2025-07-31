@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import logging
-
 import torch
+import os
 
 from modules import (
     devices,
@@ -13,12 +12,6 @@ from modules import (
     shared,
 )
 
-logger = logging.getLogger(__name__)
-
-model_url = 'https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth'
-model_download_name = 'codeformer-v0.1.0.pth'
-
-# used by e.g. postprocessing_codeformer.py
 codeformer: face_restoration.FaceRestoration | None = None
 
 
@@ -26,23 +19,21 @@ class FaceRestorerCodeFormer(face_restoration_utils.CommonFaceRestoration):
     def name(self):
         return "CodeFormer"
 
-    def load_net(self) -> torch.Module:
+    def load_net(self) -> torch.nn.Module:
+        os.makedirs(self.model_path, exist_ok=True)
         for model_path in modelloader.load_models(
             model_path=self.model_path,
-            model_url=model_url,
+            model_url="https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth",
             command_path=self.model_path,
-            download_name=model_download_name,
-            ext_filter=['.pth'],
+            download_name="codeformer-v0.1.0.pth",
+            ext_filter=[".pth"],
         ):
             return modelloader.load_spandrel_model(
                 model_path,
                 device=devices.device_codeformer,
-                expected_architecture='CodeFormer',
+                expected_architecture="CodeFormer",
             ).model
-        raise ValueError("No codeformer model found")
-
-    def get_device(self):
-        return devices.device_codeformer
+        raise ValueError("No CodeFormer Model Found")
 
     def restore(self, np_image, w: float | None = None):
         if w is None:
@@ -50,7 +41,7 @@ class FaceRestorerCodeFormer(face_restoration_utils.CommonFaceRestoration):
 
         def restore_face(cropped_face_t):
             assert self.net is not None
-            return self.net(cropped_face_t, weight=w, adain=True)[0]
+            return self.net(cropped_face_t, w=w, adain=True)[0]
 
         return self.restore_with_helper(np_image, restore_face)
 

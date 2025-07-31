@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from functools import cached_property
 from typing import TYPE_CHECKING, Callable
 
@@ -43,14 +42,15 @@ def rgb_tensor_to_bgr_image(tensor: torch.Tensor, *, min_max=(0.0, 1.0)) -> np.n
 def create_face_helper(device) -> FaceRestoreHelper:
     from facexlib.detection import retinaface
     from facexlib.utils.face_restoration_helper import FaceRestoreHelper
-    if hasattr(retinaface, 'device'):
+
+    if hasattr(retinaface, "device"):
         retinaface.device = device
     return FaceRestoreHelper(
         upscale_factor=1,
         face_size=512,
         crop_ratio=(1, 1),
-        det_model='retinaface_resnet50',
-        save_ext='png',
+        det_model="retinaface_resnet50",
+        save_ext="png",
         use_parse=True,
         device=device,
     )
@@ -67,6 +67,7 @@ def restore_with_face_helper(
     `restore_face` should take a cropped face image and return a restored face image.
     """
     from torchvision.transforms.functional import normalize
+
     np_image = np_image[:, :, ::-1]
     original_resolution = np_image.shape[0:2]
 
@@ -87,10 +88,10 @@ def restore_with_face_helper(
                     cropped_face_t = restore_face(cropped_face_t)
                 devices.torch_gc()
             except Exception:
-                errors.report('Failed face-restoration inference', exc_info=True)
+                errors.report("Failed face-restoration inference", exc_info=True)
 
             restored_face = rgb_tensor_to_bgr_image(cropped_face_t, min_max=(-1, 1))
-            restored_face = (restored_face * 255.0).astype('uint8')
+            restored_face = (restored_face * 255.0).astype("uint8")
             face_helper.add_restored_face(restored_face)
 
         logger.debug("Merging restored faces into image")
@@ -112,7 +113,7 @@ def restore_with_face_helper(
 
 
 class CommonFaceRestoration(face_restoration.FaceRestoration):
-    net: torch.Module | None
+    net: torch.nn.Module | None
     model_url: str
     model_download_name: str
 
@@ -120,7 +121,6 @@ class CommonFaceRestoration(face_restoration.FaceRestoration):
         super().__init__()
         self.net = None
         self.model_path = model_path
-        os.makedirs(model_path, exist_ok=True)
 
     @cached_property
     def face_helper(self) -> FaceRestoreHelper:
@@ -136,10 +136,10 @@ class CommonFaceRestoration(face_restoration.FaceRestoration):
             self.face_helper.face_parse.to(device)
 
     def get_device(self):
-        raise NotImplementedError("get_device must be implemented by subclasses")
+        return devices.get_optimal_device()
 
-    def load_net(self) -> torch.Module:
-        raise NotImplementedError("load_net must be implemented by subclasses")
+    def load_net(self) -> torch.nn.Module:
+        raise NotImplementedError
 
     def restore_with_helper(
         self,
