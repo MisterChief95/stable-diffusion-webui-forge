@@ -285,6 +285,11 @@ def prepare_environment():
     else:
         triton_package = os.environ.get("TRITION_PACKAGE", "triton")
 
+    if os.name == "nt":
+        nunchaku_package = os.environ.get("NUNCHAKU_PACKAGE", "https://github.com/nunchaku-tech/nunchaku/releases/download/v0.3.1/nunchaku-0.3.1+torch2.7-cp311-cp311-win_amd64.whl")
+    else:
+        nunchaku_package = os.environ.get("NUNCHAKU_PACKAGE", "https://github.com/nunchaku-tech/nunchaku/releases/download/v0.3.1/nunchaku-0.3.1+torch2.7-cp311-cp311-linux_x86_64.whl")
+
     clip_package = os.environ.get("CLIP_PACKAGE", "https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip")
     gradio_package = os.environ.get("GRADIO_PACKAGE", "gradio==4.40.0 gradio_imageslider==0.0.20 gradio_rangeslider==0.0.6")
     requirements_file = os.environ.get("REQS_FILE", "requirements.txt")
@@ -338,6 +343,10 @@ def prepare_environment():
             print("Failed to install flash_attn; Please manually install it")
         else:
             startup_timer.record("install flash_attn")
+
+    if not is_installed("nunchaku"):
+        run_pip(f"install {nunchaku_package}", "nunchaku")
+        startup_timer.record("install nunchaku")
 
     if not is_installed("ngrok") and args.ngrok:
         run_pip("install ngrok", "ngrok")
