@@ -396,6 +396,9 @@ options_templates.update(options_section((None, "Hidden options"), {
 categories.register_category("svdq", "Nunchaku")
 
 options_templates.update(options_section(('svdq', "Nunchaku", "svdq"), {
+    "svdq_cpu_offload": OptionInfo(True, "CPU Offload").info("recommended if the VRAM is less than 14 GB"),
+    "svdq_cache_threshold": OptionInfo(0.0, "Cache Threshold", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}).info("increasing the value enhances speed at the cost of quality; a typical value is 0.12; setting it to 0 disables the effect"),
+    "svdq_attention": OptionInfo("nunchaku-fp16", "Attention", gr.Radio, {"choices": ["nunchaku-fp16", "flashattn2"]}).info("RTX 20s GPUs can only use nunchaku-fp16"),
     "svdq_explanation": OptionHTML(
         """
 Filenames for the Nunchaku models.<br>

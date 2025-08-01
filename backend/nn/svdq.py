@@ -10,19 +10,23 @@ import torch.nn as nn
 from diffusers import FluxPipeline
 from einops import rearrange
 from nunchaku import NunchakuFluxTransformer2dModel, NunchakuT5EncoderModel
+from nunchaku.caching.diffusers_adapters.flux import apply_cache_on_transformer
 from nunchaku.caching.utils import cache_context, create_cache_context
 from nunchaku.lora.flux.compose import compose_lora
 from nunchaku.utils import load_state_dict_in_safetensors
 
 from backend.utils import pad_to_patch_size
+from modules.shared import opts
 
 
 class SVDQFluxTransformer2DModel(nn.Module):
-    """https://github.com/nunchaku-tech/ComfyUI-nunchaku/blob/v0.2.0/nodes/models/flux.py#L20"""
+    """https://github.com/nunchaku-tech/ComfyUI-nunchaku/blob/v0.3.3/wrappers/flux.py#L14"""
 
     def __init__(self, config: dict, path: str):
         super(SVDQFluxTransformer2DModel, self).__init__()
-        model = NunchakuFluxTransformer2dModel.from_pretrained(path)
+        model = NunchakuFluxTransformer2dModel.from_pretrained(path, offload=opts.svdq_cpu_offload)
+        model = apply_cache_on_transformer(transformer=model, residual_diff_threshold=opts.svdq_cache_threshold)
+        model.set_attention_impl(opts.svdq_attention)
 
         self.model = model
         self.dtype = next(model.parameters()).dtype
