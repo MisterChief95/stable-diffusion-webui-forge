@@ -114,3 +114,6 @@ class SVDQFluxTransformer2DModel(nn.Module):
 
         self._prev_timestep = timestep_float
         return out
+
+    def load_state_dict(self, *args, **kwargs):
+        return [], []
