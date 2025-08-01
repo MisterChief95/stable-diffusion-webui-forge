@@ -1,5 +1,4 @@
 import logging
-import math
 
 from . import model_list
 
@@ -43,103 +42,25 @@ def calculate_transformer_depth(prefix, state_dict_keys, state_dict):
 def detect_unet_config(state_dict, key_prefix):
     state_dict_keys = list(state_dict.keys())
 
-    if "{}joint_blocks.0.context_block.attn.qkv.weight".format(key_prefix) in state_dict_keys:  # mmdit model
-        unet_config = {}
-        unet_config["in_channels"] = state_dict["{}x_embedder.proj.weight".format(key_prefix)].shape[1]
-        patch_size = state_dict["{}x_embedder.proj.weight".format(key_prefix)].shape[2]
-        unet_config["patch_size"] = patch_size
-        final_layer = "{}final_layer.linear.weight".format(key_prefix)
-        if final_layer in state_dict:
-            unet_config["out_channels"] = state_dict[final_layer].shape[0] // (patch_size * patch_size)
-
-        unet_config["depth"] = state_dict["{}x_embedder.proj.weight".format(key_prefix)].shape[0] // 64
-        unet_config["input_size"] = None
-        y_key = "{}y_embedder.mlp.0.weight".format(key_prefix)
-        if y_key in state_dict_keys:
-            unet_config["adm_in_channels"] = state_dict[y_key].shape[1]
-
-        context_key = "{}context_embedder.weight".format(key_prefix)
-        if context_key in state_dict_keys:
-            in_features = state_dict[context_key].shape[1]
-            out_features = state_dict[context_key].shape[0]
-            unet_config["context_embedder_config"] = {
-                "target": "torch.nn.Linear",
-                "params": {"in_features": in_features, "out_features": out_features},
-            }
-        num_patches_key = "{}pos_embed".format(key_prefix)
-        if num_patches_key in state_dict_keys:
-            num_patches = state_dict[num_patches_key].shape[1]
-            unet_config["num_patches"] = num_patches
-            unet_config["pos_embed_max_size"] = round(math.sqrt(num_patches))
-
-        rms_qk = "{}joint_blocks.0.context_block.attn.ln_q.weight".format(key_prefix)
-        if rms_qk in state_dict_keys:
-            unet_config["qk_norm"] = "rms"
-
-        unet_config["pos_embed_scaling_factor"] = None  # unused for inference
-        context_processor = "{}context_processor.layers.0.attn.qkv.weight".format(key_prefix)
-        if context_processor in state_dict_keys:
-            unet_config["context_processor_layers"] = count_blocks(
-                state_dict_keys,
-                "{}context_processor.layers.".format(key_prefix) + "{}.",
-            )
-        return unet_config
-
-    if "{}clf.1.weight".format(key_prefix) in state_dict_keys:  # stable cascade
-        unet_config = {}
-        text_mapper_name = "{}clip_txt_mapper.weight".format(key_prefix)
-        if text_mapper_name in state_dict_keys:
-            unet_config["stable_cascade_stage"] = "c"
-            w = state_dict[text_mapper_name]
-            if w.shape[0] == 1536:  # stage c lite
-                unet_config["c_cond"] = 1536
-                unet_config["c_hidden"] = [1536, 1536]
-                unet_config["nhead"] = [24, 24]
-                unet_config["blocks"] = [[4, 12], [12, 4]]
-            elif w.shape[0] == 2048:  # stage c full
-                unet_config["c_cond"] = 2048
-        elif "{}clip_mapper.weight".format(key_prefix) in state_dict_keys:
-            unet_config["stable_cascade_stage"] = "b"
-            w = state_dict["{}down_blocks.1.0.channelwise.0.weight".format(key_prefix)]
-            if w.shape[-1] == 640:
-                unet_config["c_hidden"] = [320, 640, 1280, 1280]
-                unet_config["nhead"] = [-1, -1, 20, 20]
-                unet_config["blocks"] = [[2, 6, 28, 6], [6, 28, 6, 2]]
-                unet_config["block_repeat"] = [[1, 1, 1, 1], [3, 3, 2, 2]]
-            elif w.shape[-1] == 576:  # stage b lite
-                unet_config["c_hidden"] = [320, 576, 1152, 1152]
-                unet_config["nhead"] = [-1, 9, 18, 18]
-                unet_config["blocks"] = [[2, 4, 14, 4], [4, 14, 4, 2]]
-                unet_config["block_repeat"] = [[1, 1, 1, 1], [2, 2, 2, 2]]
-        return unet_config
-
-    if "{}transformer.rotary_pos_emb.inv_freq".format(key_prefix) in state_dict_keys:  # stable audio dit
-        unet_config = {}
-        unet_config["audio_model"] = "dit1.0"
-        return unet_config
-
-    if "{}double_layers.0.attn.w1q.weight".format(key_prefix) in state_dict_keys:  # aura flow dit
-        unet_config = {}
-        unet_config["max_seq"] = state_dict["{}positional_encoding".format(key_prefix)].shape[1]
-        unet_config["cond_seq_dim"] = state_dict["{}cond_seq_linear.weight".format(key_prefix)].shape[1]
-        double_layers = count_blocks(state_dict_keys, "{}double_layers.".format(key_prefix) + "{}.")
-        single_layers = count_blocks(state_dict_keys, "{}single_layers.".format(key_prefix) + "{}.")
-        unet_config["n_double_layers"] = double_layers
-        unet_config["n_layers"] = double_layers + single_layers
-        return unet_config
-
-    if "{}mlp_t5.0.weight".format(key_prefix) in state_dict_keys:  # Hunyuan DiT
-        unet_config = {}
-        unet_config["image_model"] = "hydit"
-        unet_config["depth"] = count_blocks(state_dict_keys, "{}blocks.".format(key_prefix) + "{}.")
-        unet_config["hidden_size"] = state_dict["{}x_embedder.proj.weight".format(key_prefix)].shape[0]
-        if unet_config["hidden_size"] == 1408 and unet_config["depth"] == 40:  # DiT-g/2
-            unet_config["mlp_ratio"] = 4.3637
-        if state_dict["{}extra_embedder.0.weight".format(key_prefix)].shape[1] == 3968:
-            unet_config["size_cond"] = True
-            unet_config["use_style_cond"] = True
-            unet_config["image_model"] = "hydit1"
-        return unet_config
+    if "{}single_transformer_blocks.0.mlp_fc1.qweight".format(key_prefix) in state_dict_keys:  # SVDQ
+        dit_config = {}
+        dit_config["axes_dim"] = [16, 56, 56]
+        dit_config["context_in_dim"] = 4096
+        dit_config["depth"] = 19
+        dit_config["depth_single_blocks"] = 38
+        dit_config["disable_unet_model_creation"] = True
+        dit_config["guidance_embed"] = True
+        dit_config["hidden_size"] = 3072
+        dit_config["image_model"] = "flux"
+        dit_config["in_channels"] = 16
+        dit_config["mlp_ratio"] = 4.0
+        dit_config["num_heads"] = 24
+        dit_config["out_channels"] = 16
+        dit_config["patch_size"] = 2
+        dit_config["qkv_bias"] = True
+        dit_config["theta"] = 10000
+        dit_config["vec_in_dim"] = 768
+        return dit_config
 
     if "{}double_blocks.0.img_attn.norm.key_norm.scale".format(key_prefix) in state_dict_keys:  # Flux
         dit_config = {}
@@ -192,7 +113,6 @@ def detect_unet_config(state_dict, key_prefix):
 
     num_res_blocks = []
     channel_mult = []
-    # attention_resolutions = []
     transformer_depth = []
     transformer_depth_output = []
     context_dim = None

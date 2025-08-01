@@ -13,6 +13,7 @@ from backend.diffusion_engine.chroma import Chroma
 from backend.diffusion_engine.flux import Flux
 from backend.diffusion_engine.sd15 import StableDiffusion
 from backend.diffusion_engine.sdxl import StableDiffusionXL, StableDiffusionXLRefiner
+from backend.misc.filenames import svdq_flux, svdq_t5
 from backend.nn.clip import IntegratedCLIP
 from backend.nn.unet import IntegratedUNet2DConditionModel
 from backend.nn.vae import IntegratedAutoencoderKL
@@ -88,7 +89,7 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
                 print(f"Using Detected T5 Data Type: {state_dict_dtype}")
                 storage_dtype = state_dict_dtype
                 if state_dict_dtype in ["nf4", "fp4", "gguf"]:
-                    print(f"Using pre-quant state dict!")
+                    print("Using pre-quant state dict!")
                     if state_dict_dtype in ["gguf"]:
                         beautiful_print_gguf_state_dict_statics(state_dict)
             else:
@@ -113,9 +114,16 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
             if cls_name == "UNet2DConditionModel":
                 model_loader = lambda c: IntegratedUNet2DConditionModel.from_config(c)
             elif cls_name == "FluxTransformer2DModel":
-                from backend.nn.flux import IntegratedFluxTransformer2DModel
+                _svdq = svdq_flux(guess.filenames)
 
-                model_loader = lambda c: IntegratedFluxTransformer2DModel(**c)
+                if _svdq:
+                    from backend.nn.svdq import SVDQFluxTransformer2DModel
+
+                    model_loader = lambda c: SVDQFluxTransformer2DModel(c, _svdq)
+                else:
+                    from backend.nn.flux import IntegratedFluxTransformer2DModel
+
+                    model_loader = lambda c: IntegratedFluxTransformer2DModel(**c)
             elif cls_name == "ChromaTransformer2DModel":
                 from backend.nn.chroma import IntegratedChromaTransformer2DModel
 
@@ -135,7 +143,7 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
                 print(f"Using Detected UNet Type: {state_dict_dtype}")
                 storage_dtype = state_dict_dtype
                 if state_dict_dtype in ["nf4", "fp4", "gguf"]:
-                    print(f"Using pre-quant state dict!")
+                    print("Using pre-quant state dict!")
                     if state_dict_dtype in ["gguf"]:
                         beautiful_print_gguf_state_dict_statics(state_dict)
 
@@ -215,6 +223,7 @@ def replace_state_dict(sd, asd, guess):
 
     ##  identify model type
     flux_test_key = "model.diffusion_model.double_blocks.0.img_attn.norm.key_norm.scale"
+    svdq_test_key = "model.diffusion_model.single_transformer_blocks.0.mlp_fc1.qweight"
     legacy_test_key = "model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn2.to_k.weight"
 
     model_type = "-"
@@ -226,7 +235,7 @@ def replace_state_dict(sd, asd, guess):
                 model_type = "xlrf"  # sdxl refiner model
             case 2048:
                 model_type = "sdxl"
-    elif flux_test_key in sd:
+    elif flux_test_key in sd or svdq_test_key in sd:
         model_type = "flux"
 
     ##  prefixes used by various model types for CLIP-L
@@ -450,9 +459,10 @@ def split_state_dict(sd, additional_state_dicts: list = None):
 
 
 @torch.inference_mode()
-def forge_loader(sd, additional_state_dicts=None):
+def forge_loader(sd: os.PathLike, additional_state_dicts: list[os.PathLike] = None):
     try:
         state_dicts, estimated_config = split_state_dict(sd, additional_state_dicts=additional_state_dicts)
+        estimated_config.filenames = [sd, *additional_state_dicts]
     except:
         raise ValueError("Failed to recognize model type!")
 
