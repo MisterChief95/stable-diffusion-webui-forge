@@ -310,6 +310,9 @@ class Flux(BASE):
         if "{}t5xxl.transformer.encoder.final_layer_norm.weight".format(pref) in state_dict:
             result["t5xxl"] = "text_encoder_2"
 
+        if "{}t5xxl.transformer.encoder.final_layer_norm.qweight".format(pref) in state_dict:
+            result["t5xxl"] = "text_encoder_2"
+
         return result
 
 

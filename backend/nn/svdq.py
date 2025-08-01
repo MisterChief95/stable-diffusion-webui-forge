@@ -1,8 +1,15 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from transformers import T5EncoderModel
+
+import types
+
 import torch
 import torch.nn as nn
 from diffusers import FluxPipeline
 from einops import rearrange
-from nunchaku import NunchakuFluxTransformer2dModel
+from nunchaku import NunchakuFluxTransformer2dModel, NunchakuT5EncoderModel
 from nunchaku.caching.utils import cache_context, create_cache_context
 from nunchaku.lora.flux.compose import compose_lora
 from nunchaku.utils import load_state_dict_in_safetensors
@@ -117,3 +124,38 @@ class SVDQFluxTransformer2DModel(nn.Module):
 
     def load_state_dict(self, *args, **kwargs):
         return [], []
+
+
+# ========== T5 ========== #
+
+
+def _forward(self: "T5EncoderModel", input_ids: torch.LongTensor, *args, **kwargs):
+    outputs = self.encoder(input_ids=input_ids, *args, **kwargs)
+    return outputs.last_hidden_state
+
+
+class WrappedEmbedding(nn.Module):
+    def __init__(self, embedding: nn.Embedding):
+        super().__init__()
+        self.embedding = embedding
+
+    def forward(self, input: torch.Tensor, *args, **kwargs):
+        return self.embedding(input)
+
+    @property
+    def weight(self):
+        return self.embedding.weight
+
+
+class SVDQT5(torch.nn.Module):
+    """https://github.com/nunchaku-tech/ComfyUI-nunchaku/blob/v0.2.0/nodes/models/text_encoder.py#L45"""
+
+    def __init__(self, path: str):
+        super().__init__()
+
+        transformer = NunchakuT5EncoderModel.from_pretrained(path)
+        transformer.forward = types.MethodType(_forward, transformer)
+        transformer.shared = WrappedEmbedding(transformer.shared)
+
+        self.transformer = transformer
+        self.logit_scale = torch.nn.Parameter(torch.tensor(4.6055))

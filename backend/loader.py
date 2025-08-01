@@ -76,6 +76,15 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
 
             return model
         if cls_name == "T5EncoderModel":
+            if _svdq := svdq_t5(guess.filenames):
+                if memory_management.is_device_cpu(memory_management.text_encoder_device()):
+                    raise SystemError("nunchaku T5 does not support CPU!")
+
+                from backend.nn.svdq import SVDQT5
+
+                model = SVDQT5(_svdq)
+                return model
+
             assert isinstance(state_dict, dict) and len(state_dict) > 16, "You do not have T5 state dict!"
 
             from backend.nn.t5 import IntegratedT5
@@ -408,6 +417,13 @@ def replace_state_dict(sd, asd, guess):
                         sd[new_k] = v
 
     if "encoder.block.0.layer.0.SelfAttention.k.weight" in asd:
+        keys_to_delete = [k for k in sd if k.startswith(f"{text_encoder_key_prefix}t5xxl.")]
+        for k in keys_to_delete:
+            del sd[k]
+        for k, v in asd.items():
+            sd[f"{text_encoder_key_prefix}t5xxl.transformer.{k}"] = v
+
+    if "encoder.block.0.layer.0.SelfAttention.k.qweight" in asd:
         keys_to_delete = [k for k in sd if k.startswith(f"{text_encoder_key_prefix}t5xxl.")]
         for k in keys_to_delete:
             del sd[k]
