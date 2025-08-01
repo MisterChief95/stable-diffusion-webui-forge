@@ -27,6 +27,10 @@ def monitor_module_moving():
 def fix_logging():
     import logging
 
+    logging.getLogger("nunchaku.caching.teacache").addFilter(lambda record: "deprecated" not in record.getMessage().lower())
+    logging.getLogger("nunchaku.models.pulid.pulid_forward").addFilter(lambda record: "deprecated" not in record.getMessage().lower())
+    logging.getLogger("nunchaku.models.transformers.transformer_flux").addFilter(lambda record: "deprecated" not in record.getMessage().lower())
+
     _original = logging.basicConfig
 
     logging.basicConfig = lambda *args, **kwargs: None
