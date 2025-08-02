@@ -164,19 +164,15 @@ def draw_grid_annotations(im, width, height, hor_texts, ver_texts, margin=0):
                 lines.append(word)
         return lines
 
-    def multiline_textsize(drawing: ImageDraw, text, font=None):
-        # Calculate the width and height of multiline text
-        longest_line: str = max(text.split('\n'), key=len)
-        return (drawing.textlength(longest_line + "  ", font=font),)
-
     def draw_texts(drawing, draw_x, draw_y, lines, initial_fnt, initial_fontsize):
         for line in lines:
             fnt = initial_fnt
             fontsize = initial_fontsize
-            # Use the new multiline_textsize function
-            while multiline_textsize(drawing, line.text, font=fnt)[0] > line.allowed_width and fontsize > 0:
+            text_width, _ = drawing.multiline_textbbox((0, 0), line.text, font=fnt)[2:]
+            while text_width > line.allowed_width and fontsize > 0:
                 fontsize -= 1
                 fnt = get_font(fontsize)
+                text_width, _ = drawing.multiline_textbbox((0, 0), line.text, font=fnt)[2:]
             drawing.multiline_text((draw_x, draw_y + line.size[1] / 2), line.text, font=fnt, fill=color_active if line.is_active else color_inactive, anchor="mm", align="center")
 
             if not line.is_active:
