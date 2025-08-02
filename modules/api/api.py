@@ -1,37 +1,39 @@
 import base64
-import io
-import os
-import time
 import datetime
-import uvicorn
+import io
 import ipaddress
+import os
 import requests
-import gradio as gr
-from threading import Lock
+import time
+from contextlib import closing
 from io import BytesIO
+from secrets import compare_digest
+from threading import Lock
+from typing import Any, Union, get_origin, get_args
+
 from fastapi import APIRouter, Depends, FastAPI, Request, Response
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
-from secrets import compare_digest
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 import modules.shared as shared
+import modules.textual_inversion.textual_inversion
 from modules import sd_samplers, deepbooru, images, scripts, ui, postprocessing, errors, restart, shared_items, script_callbacks, infotext_utils, sd_models, sd_schedulers
 from modules.api import models
-from modules.shared import opts
+from modules.hypernetworks.ui import create_hypernetwork
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images, process_extra_images
-import modules.textual_inversion.textual_inversion
-from modules.shared import cmd_opts
-
-from PIL import PngImagePlugin
+from modules.progress import create_task_id, add_task_to_queue, start_task, finish_task, current_task
 from modules.realesrgan_model import get_realesrgan_models
-from modules import devices
-from typing import Any, Union, get_origin, get_args
+from modules.shared import cmd_opts
+from modules.shared import opts
+
+import gradio as gr
 import piexif
 import piexif.helper
-from contextlib import closing
-from modules.progress import create_task_id, add_task_to_queue, start_task, finish_task, current_task
+import uvicorn
+from PIL import PngImagePlugin
+
 
 def script_name_to_index(name, scripts):
     try:

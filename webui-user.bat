@@ -1,6 +1,6 @@
 @echo off
 
-shift 
+shift
 
 set PYTHON=
 set GIT=

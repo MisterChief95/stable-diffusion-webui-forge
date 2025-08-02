@@ -9,12 +9,14 @@ __pycache__
 *_u.py
 *_m.py
 *_i.py
+*.bak
 .DS_Store
 /output/
 /outputs/
 /ESRGAN/*
 /SwinIR/*
-/repositories
+/repositories/BLIP
+/repositories/stable-diffusion-webui-assets
 /venv
 /tmp
 /output
