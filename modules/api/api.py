@@ -208,6 +208,7 @@ class Api:
         self.app = app
         self.queue_lock = queue_lock
         #api_middleware(self.app)  # FIXME: (legacy) this will have to be fixed
+        self.add_websocket_route("/sdapi/v1/txt2img/ws", self.text2imgapi_websocket)
         self.add_api_route("/sdapi/v1/txt2img", self.text2imgapi, methods=["POST"], response_model=models.TextToImageResponse)
         self.add_api_route("/sdapi/v1/img2img", self.img2imgapi, methods=["POST"], response_model=models.ImageToImageResponse)
         self.add_api_route("/sdapi/v1/extra-single-image", self.extras_single_image_api, methods=["POST"], response_model=models.ExtrasSingleImageResponse)
@@ -271,7 +272,11 @@ class Api:
         self.embedding_db.add_embedding_dir(cmd_opts.embeddings_dir)
         self.embedding_db.load_textual_inversion_embeddings(force_reload=True, sync_with_sd_model=False)
 
-
+    def add_websocket_route(self, path: str, socket, **kwargs):
+        # TODO: Add Auth handling
+        # if shared.cmd_opts.api_auth:
+        #     return self.app.add_websocket_route(path, socket, dependencies=[Depends(self.auth)], **kwargs)
+        return self.app.add_websocket_route(path, socket, **kwargs)
 
     def add_api_route(self, path: str, endpoint, **kwargs):
         if shared.cmd_opts.api_auth:
@@ -330,7 +335,11 @@ class Api:
                 if script.ui(script.is_img2img):
                     ui_default_values = []
                     for elem in script.ui(script.is_img2img):
-                        ui_default_values.append(elem.value)
+                        try:
+                            ui_default_values.append(elem.value)
+                        except:
+                            print("Error for element in script.ui() for script:", script.name)
+                            print("\nElement:", elem)
                     script_args[script.args_from:script.args_to] = ui_default_values
         return script_args
 
@@ -441,6 +450,9 @@ class Api:
                 mentioned_script_args[index] = value
 
         return params
+    
+    def text2imgapi_websocket(self, txt2imgreq: models.StableDiffusionTxt2ImgProcessingAPI):
+        pass
 
     def text2imgapi(self, txt2imgreq: models.StableDiffusionTxt2ImgProcessingAPI):
         task_id = txt2imgreq.force_task_id or create_task_id("txt2img")

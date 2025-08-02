@@ -1,5 +1,7 @@
 import math
 
+from PIL import Image
+
 import gradio as gr
 import modules.scripts as scripts
 from modules import deepbooru, images, processing, shared
@@ -16,13 +18,21 @@ class Script(scripts.Script):
 
     def ui(self, is_img2img):
         loops = gr.Slider(minimum=1, maximum=32, step=1, label='Loops', value=4, elem_id=self.elem_id("loops"))
+        iterative_upscale = gr.Checkbox(label="Iterative upscale", value=False, elem_id=self.elem_id("iterative_upscale"))
+        upscale_amount = gr.Slider(minimum=1, maximum=1.5, step=0.05, label='Upscale amount', value=1.25, elem_id=self.elem_id("upscale_amount"), visible=False)
         final_denoising_strength = gr.Slider(minimum=0, maximum=1, step=0.01, label='Final denoising strength', value=0.5, elem_id=self.elem_id("final_denoising_strength"))
         denoising_curve = gr.Dropdown(label="Denoising strength curve", choices=["Aggressive", "Linear", "Lazy"], value="Linear")
         append_interrogation = gr.Dropdown(label="Append interrogated prompt at each iteration", choices=["None", "CLIP", "DeepBooru"], value="None")
 
-        return [loops, final_denoising_strength, denoising_curve, append_interrogation]
+        iterative_upscale.change(
+            lambda x: gr.Slider(visible=x),
+            inputs=[iterative_upscale],
+            outputs=[upscale_amount],
+        )
 
-    def run(self, p, loops, final_denoising_strength, denoising_curve, append_interrogation):
+        return [loops, iterative_upscale, upscale_amount, final_denoising_strength, denoising_curve, append_interrogation]
+
+    def run(self, p, loops, iterative_upscale, upscale_amount, final_denoising_strength, denoising_curve, append_interrogation):
         processing.fix_seed(p)
         batch_count = p.n_iter
         p.extra_generation_params = {
@@ -30,6 +40,7 @@ class Script(scripts.Script):
             "Denoising curve": denoising_curve
         }
 
+        
         p.batch_size = 1
         p.n_iter = 1
 
@@ -43,6 +54,8 @@ class Script(scripts.Script):
         original_init_image = p.init_images
         original_prompt = p.prompt
         original_inpainting_fill = p.inpainting_fill
+        original_width = p.width
+        original_height = p.height
         state.job_count = loops * batch_count
 
         initial_color_corrections = [processing.setup_color_correction(p.init_images[0])]
@@ -69,6 +82,8 @@ class Script(scripts.Script):
         for n in range(batch_count):
             # Reset to original init image at the start of each batch
             p.init_images = original_init_image
+            p.width = original_width
+            p.height = original_height
 
             # Reset to original denoising strength
             p.denoising_strength = initial_denoising_strength
@@ -91,6 +106,11 @@ class Script(scripts.Script):
                         p.prompt += deepbooru.model.tag(p.init_images[0])
 
                 state.job = f"Iteration {i + 1}/{loops}, batch {n + 1}/{batch_count}"
+
+                if iterative_upscale:
+                    p.width = round(p.width * upscale_amount)
+                    p.height = round(p.height * upscale_amount)
+                    p.init_images = [p.init_images[0].resize((p.width, p.height), Image.LANCZOS)]
 
                 processed = processing.process_images(p)
 
