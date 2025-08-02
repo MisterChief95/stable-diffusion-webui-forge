@@ -1,7 +1,7 @@
 import torch
 from modules import prompt_parser, sd_samplers_common
 
-from modules.shared import opts, state
+from modules.shared import state
 import modules.shared as shared
 from modules.script_callbacks import CFGDenoiserParams, cfg_denoiser_callback
 from modules.script_callbacks import AfterCFGCallbackParams, cfg_after_cfg_callback
