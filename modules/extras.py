@@ -7,7 +7,7 @@ import json
 import torch
 import tqdm
 
-from modules import shared, images, sd_models, sd_vae, sd_models_config, errors
+from modules import shared, images, sd_models, sd_vae, errors
 from modules.ui_common import plaintext_to_html
 import gradio as gr
 import safetensors.torch
@@ -34,32 +34,6 @@ def run_pnginfo(image):
         info = f"<div><p>{message}<p></div>"
 
     return '', geninfo, info
-
-
-def create_config(ckpt_result, config_source, a, b, c):
-    def config(x):
-        res = sd_models_config.find_checkpoint_config_near_filename(x) if x else None
-        return res if res != shared.sd_default_config else None
-
-    if config_source == 0:
-        cfg = config(a) or config(b) or config(c)
-    elif config_source == 1:
-        cfg = config(b)
-    elif config_source == 2:
-        cfg = config(c)
-    else:
-        cfg = None
-
-    if cfg is None:
-        return
-
-    filename, _ = os.path.splitext(ckpt_result)
-    checkpoint_filename = filename + ".yaml"
-
-    print("Copying config:")
-    print("   from:", cfg)
-    print("     to:", checkpoint_filename)
-    shutil.copyfile(cfg, checkpoint_filename)
 
 
 checkpoint_dict_skip_on_merge = ["cond_stage_model.transformer.text_model.embeddings.position_ids"]
@@ -320,9 +294,6 @@ def run_modelmerger(id_task, primary_model_name, secondary_model_name, tertiary_
     created_model = next((ckpt for ckpt in sd_models.checkpoints_list.values() if ckpt.name == filename), None)
     if created_model:
         created_model.calculate_shorthash()
-
-    # TODO inside create_config() sd_models_config.find_checkpoint_config_near_filename() is called which has been commented out
-    #create_config(output_modelname, config_source, primary_model_info, secondary_model_info, tertiary_model_info)
 
     print(f"Checkpoint saved to {output_modelname}.")
     shared.state.textinfo = "Checkpoint saved"
