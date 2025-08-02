@@ -7,6 +7,8 @@ FLUX = {
     "svdq-int4_r32-flux.1-dev.safetensors",
     "svdq-fp4_r32-flux.1-kontext-dev.safetensors",
     "svdq-int4_r32-flux.1-kontext-dev.safetensors",
+    "svdq-fp4_r32-flux.1-krea-dev.safetensors",
+    "svdq-int4_r32-flux.1-krea-dev.safetensors",
 }
 
 if opts.svdq_flux_filename:
