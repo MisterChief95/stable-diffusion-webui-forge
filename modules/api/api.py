@@ -273,8 +273,6 @@ class Api:
         self.embedding_db.add_embedding_dir(cmd_opts.embeddings_dir)
         self.embedding_db.load_textual_inversion_embeddings(force_reload=True, sync_with_sd_model=False)
 
-
-
     def add_api_route(self, path: str, endpoint, **kwargs):
         if shared.cmd_opts.api_auth:
             return self.app.add_api_route(path, endpoint, dependencies=[Depends(self.auth)], **kwargs)
@@ -332,7 +330,11 @@ class Api:
                 if script.ui(script.is_img2img):
                     ui_default_values = []
                     for elem in script.ui(script.is_img2img):
-                        ui_default_values.append(elem.value)
+                        try:
+                            ui_default_values.append(elem.value)
+                        except:
+                            print("Error for element in script.ui() for script:", script.name)
+                            print("\nElement:", elem)
                     script_args[script.args_from:script.args_to] = ui_default_values
         return script_args
 
