@@ -1,15 +1,16 @@
-from modules import extra_networks, shared
 import networks
+
+from modules import extra_networks, shared
 
 
 class ExtraNetworkLora(extra_networks.ExtraNetwork):
     def __init__(self):
-        super().__init__('lora')
+        super().__init__("lora")
 
         self.errors = {}
         """mapping of network names to the number of errors the network had during operation"""
 
-    remove_symbols = str.maketrans('', '', ":,")
+    remove_symbols = str.maketrans("", "", ":,")
 
     def activate(self, p, params_list):
         additional = shared.opts.sd_lora
@@ -53,7 +54,7 @@ class ExtraNetworkLora(extra_networks.ExtraNetwork):
                     p.lora_hashes[item.mentioned_name.translate(self.remove_symbols)] = item.network_on_disk.shorthash
 
             if p.lora_hashes:
-                p.extra_generation_params["Lora hashes"] = ', '.join(f'{k}: {v}' for k, v in p.lora_hashes.items())
+                p.extra_generation_params["Lora hashes"] = ", ".join(f"{k}: {v}" for k, v in p.lora_hashes.items())
 
     def deactivate(self, p):
         if self.errors:

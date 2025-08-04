@@ -2,15 +2,15 @@ import os
 
 import network
 import networks
+from ui_edit_user_metadata import LoraUserMetadataEditor
 
 from modules import shared, ui_extra_networks
 from modules.ui_extra_networks import quote_js
-from ui_edit_user_metadata import LoraUserMetadataEditor
 
 
 class ExtraNetworksPageLora(ui_extra_networks.ExtraNetworksPage):
     def __init__(self):
-        super().__init__('Lora')
+        super().__init__("Lora")
         self.allow_negative_prompt = True
 
     def refresh(self):
@@ -37,7 +37,7 @@ class ExtraNetworksPageLora(ui_extra_networks.ExtraNetworksPage):
             "search_terms": search_terms,
             "local_preview": f"{path}.{shared.opts.samples_format}",
             "metadata": lora_on_disk.metadata,
-            "sort_keys": {'default': index, **self.get_sort_keys(lora_on_disk.filename)},
+            "sort_keys": {"default": index, **self.get_sort_keys(lora_on_disk.filename)},
         }
 
         self.read_user_metadata(item)
@@ -57,8 +57,8 @@ class ExtraNetworksPageLora(ui_extra_networks.ExtraNetworksPage):
             item["sd_version"] = sd_version
             sd_version = network.SdVersion[sd_version]
         else:
-            sd_version = lora_on_disk.sd_version        #   use heuristics
-            #sd_version = network.SdVersion.Unknown     #   avoid heuristics 
+            sd_version = lora_on_disk.sd_version  #   use heuristics
+            # sd_version = network.SdVersion.Unknown     #   avoid heuristics
 
         item["sd_version_str"] = str(sd_version)
 

@@ -1,19 +1,20 @@
 from __future__ import annotations
 
+import functools
 import os
 import re
-import torch
-import network
-import functools
 from typing import TYPE_CHECKING
+
+import network
+import torch
 
 if TYPE_CHECKING:
     from backend.patcher.unet import UnetPatcher
 
 from backend.args import dynamic_args
-from modules import shared, sd_models, errors, scripts
+from backend.patcher.lora import load_lora, model_lora_keys_clip, model_lora_keys_unet
 from backend.utils import load_torch_file
-from backend.patcher.lora import model_lora_keys_clip, model_lora_keys_unet, load_lora
+from modules import errors, scripts, sd_models, shared
 
 
 def load_lora_for_models(model: "UnetPatcher", clip, lora, strength_model, strength_clip, filename="default", online_mode=False):
@@ -40,11 +41,11 @@ def load_lora_for_models(model: "UnetPatcher", clip, lora, strength_model, stren
     lora_clip, lora_unmatch = load_lora(lora_unmatch, clip_keys)
 
     if len(lora_unmatch) > 12:
-        print(f'[LORA] LoRA version mismatch for {model_flag}: {filename}')
+        print(f"[LORA] LoRA version mismatch for {model_flag}: {filename}")
         return model, clip
 
     if len(lora_unmatch) > 0:
-        print(f'[LORA] Loading {filename} for {model_flag} with unmatched keys {list(lora_unmatch.keys())}')
+        print(f"[LORA] Loading {filename} for {model_flag} with unmatched keys {list(lora_unmatch.keys())}")
 
     new_model = model.clone() if model is not None else None
     new_clip = clip.clone() if clip is not None else None
@@ -53,18 +54,18 @@ def load_lora_for_models(model: "UnetPatcher", clip, lora, strength_model, stren
         loaded_keys = new_model.add_patches(filename=filename, patches=lora_unet, strength_patch=strength_model, online_mode=online_mode)
         skipped_keys = [item for item in lora_unet if item not in loaded_keys]
         if len(skipped_keys) > 12:
-            print(f'[LORA] Mismatch {filename} for {model_flag}-UNet with {len(skipped_keys)} keys mismatched in {len(loaded_keys)} keys')
+            print(f"[LORA] Mismatch {filename} for {model_flag}-UNet with {len(skipped_keys)} keys mismatched in {len(loaded_keys)} keys")
         else:
-            print(f'[LORA] Loaded {filename} for {model_flag}-UNet with {len(loaded_keys)} keys at weight {strength_model} (skipped {len(skipped_keys)} keys) with on_the_fly = {online_mode}')
+            print(f"[LORA] Loaded {filename} for {model_flag}-UNet with {len(loaded_keys)} keys at weight {strength_model} (skipped {len(skipped_keys)} keys) with on_the_fly = {online_mode}")
             model = new_model
 
     if new_clip is not None and len(lora_clip) > 0:
         loaded_keys = new_clip.add_patches(filename=filename, patches=lora_clip, strength_patch=strength_clip, online_mode=online_mode)
         skipped_keys = [item for item in lora_clip if item not in loaded_keys]
         if len(skipped_keys) > 12:
-            print(f'[LORA] Mismatch {filename} for {model_flag}-CLIP with {len(skipped_keys)} keys mismatched in {len(loaded_keys)} keys')
+            print(f"[LORA] Mismatch {filename} for {model_flag}-CLIP with {len(skipped_keys)} keys mismatched in {len(loaded_keys)} keys")
         else:
-            print(f'[LORA] Loaded {filename} for {model_flag}-CLIP with {len(loaded_keys)} keys at weight {strength_clip} (skipped {len(skipped_keys)} keys) with on_the_fly = {online_mode}')
+            print(f"[LORA] Loaded {filename} for {model_flag}-CLIP with {len(loaded_keys)} keys at weight {strength_clip} (skipped {len(skipped_keys)} keys) with on_the_fly = {online_mode}")
             clip = new_clip
 
     return model, clip
@@ -116,7 +117,7 @@ def load_networks(names, te_multipliers=None, unet_multipliers=None, dyn_dims=No
         network_on_disk.read_hash()
         loaded_networks.append(net)
 
-    online_mode = dynamic_args.get('online_lora', False)
+    online_mode = dynamic_args.get("online_lora", False)
 
     if current_sd.forge_objects.unet.model.storage_dtype in [torch.float32, torch.float16, torch.bfloat16]:
         online_mode = False
@@ -136,9 +137,7 @@ def load_networks(names, te_multipliers=None, unet_multipliers=None, dyn_dims=No
 
     for filename, strength_model, strength_clip, online_mode in compiled_lora_targets:
         lora_sd = load_lora_state_dict(filename)
-        current_sd.forge_objects.unet, current_sd.forge_objects.clip = load_lora_for_models(
-            current_sd.forge_objects.unet, current_sd.forge_objects.clip, lora_sd, strength_model, strength_clip,
-            filename=filename, online_mode=online_mode)
+        current_sd.forge_objects.unet, current_sd.forge_objects.clip = load_lora_for_models(current_sd.forge_objects.unet, current_sd.forge_objects.clip, lora_sd, strength_model, strength_clip, filename=filename, online_mode=online_mode)
 
     current_sd.forge_objects_after_applying_lora = current_sd.forge_objects.shallow_copy()
     return

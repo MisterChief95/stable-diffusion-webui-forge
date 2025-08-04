@@ -1,10 +1,10 @@
-import os
 import enum
+import os
 
-from modules import sd_models, cache, errors, hashes, shared
-
+from modules import cache, errors, hashes, sd_models, shared
 
 metadata_tags_order = {"ss_sd_model_name": 1, "ss_resolution": 2, "ss_clip_skip": 3, "ss_num_train_images": 10, "ss_tag_frequency": 20}
+
 
 class SdVersion(enum.Enum):
     Unknown = 1
@@ -13,6 +13,7 @@ class SdVersion(enum.Enum):
     SDXL = 4
     # SD3 = 5
     Flux = 6
+
 
 class NetworkOnDisk:
     def __init__(self, name, filename):
@@ -28,7 +29,7 @@ class NetworkOnDisk:
 
         if self.is_safetensors:
             try:
-                self.metadata = cache.cached_data_for_file('safetensors-metadata', "lora/" + self.name, filename, read_metadata)
+                self.metadata = cache.cached_data_for_file("safetensors-metadata", "lora/" + self.name, filename, read_metadata)
             except Exception as e:
                 errors.display(e, f"reading lora {filename}")
 
@@ -39,28 +40,24 @@ class NetworkOnDisk:
 
             self.metadata = m
 
-        self.alias = self.metadata.get('ss_output_name', self.name)
+        self.alias = self.metadata.get("ss_output_name", self.name)
 
         self.hash = None
         self.shorthash = None
-        self.set_hash(
-            self.metadata.get('sshs_model_hash') or
-            hashes.sha256_from_cache(self.filename, "lora/" + self.name, use_addnet_hash=self.is_safetensors) or
-            ''
-        )
+        self.set_hash(self.metadata.get("sshs_model_hash") or hashes.sha256_from_cache(self.filename, "lora/" + self.name, use_addnet_hash=self.is_safetensors) or "")
 
         self.sd_version = self.detect_version()
 
     def detect_version(self):
-        if str(self.metadata.get('modelspec.implementation', '')) == 'https://github.com/black-forest-labs/flux':
+        if str(self.metadata.get("modelspec.implementation", "")) == "https://github.com/black-forest-labs/flux":
             return SdVersion.Flux
-        elif str(self.metadata.get('modelspec.architecture', '')) == 'flux-1-dev/lora':
+        elif str(self.metadata.get("modelspec.architecture", "")) == "flux-1-dev/lora":
             return SdVersion.Flux
-        elif str(self.metadata.get('modelspec.architecture', '')) == 'stable-diffusion-xl-v1-base/lora':
+        elif str(self.metadata.get("modelspec.architecture", "")) == "stable-diffusion-xl-v1-base/lora":
             return SdVersion.SDXL
-        elif str(self.metadata.get('ss_base_model_version', '')).startswith('sdxl_'):
+        elif str(self.metadata.get("ss_base_model_version", "")).startswith("sdxl_"):
             return SdVersion.SDXL
-        elif str(self.metadata.get('modelspec.architecture', '')) == 'stable-diffusion-v1/lora':
+        elif str(self.metadata.get("modelspec.architecture", "")) == "stable-diffusion-v1/lora":
             return SdVersion.SD1
 
         return SdVersion.Unknown
@@ -71,14 +68,16 @@ class NetworkOnDisk:
 
         if self.shorthash:
             import networks
+
             networks.available_network_hash_lookup[self.shorthash] = self
 
     def read_hash(self):
         if not self.hash:
-            self.set_hash(hashes.sha256(self.filename, "lora/" + self.name, use_addnet_hash=self.is_safetensors) or '')
+            self.set_hash(hashes.sha256(self.filename, "lora/" + self.name, use_addnet_hash=self.is_safetensors) or "")
 
     def get_alias(self):
         import networks
+
         if shared.opts.lora_preferred_name == "Filename" or self.alias.lower() in networks.forbidden_network_aliases:
             return self.name
         else:
