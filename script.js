@@ -1,9 +1,9 @@
 function gradioApp() {
-    const elems = document.getElementsByTagName('gradio-app');
+    const elems = document.getElementsByTagName("gradio-app");
     const elem = elems.length == 0 ? document : elems[0];
 
     if (elem !== document) {
-        elem.getElementById = function(id) {
+        elem.getElementById = function (id) {
             return document.getElementById(id);
         };
     }
@@ -14,24 +14,26 @@ function gradioApp() {
  * Get the currently selected top-level UI tab button (e.g. the button that says "Extras").
  */
 function get_uiCurrentTab() {
-    return gradioApp().querySelector('#tabs > .tab-nav > button.selected');
+    return gradioApp().querySelector("#tabs > .tab-nav > button.selected");
 }
 
 /**
  * Get the first currently visible top-level UI tab content (e.g. the div hosting the "txt2img" UI).
  */
 function get_uiCurrentTabContent() {
-    return gradioApp().querySelector('#tabs > .tabitem[id^=tab_]:not([style*="display: none"])');
+    return gradioApp().querySelector(
+        '#tabs > .tabitem[id^=tab_]:not([style*="display: none"])',
+    );
 }
 
-var uiUpdateCallbacks = [];
-var uiAfterUpdateCallbacks = [];
-var uiLoadedCallbacks = [];
-var uiTabChangeCallbacks = [];
-var optionsChangedCallbacks = [];
-var optionsAvailableCallbacks = [];
-var uiAfterUpdateTimeout = null;
-var uiCurrentTab = null;
+const uiUpdateCallbacks = [];
+const uiAfterUpdateCallbacks = [];
+const uiLoadedCallbacks = [];
+const uiTabChangeCallbacks = [];
+const optionsChangedCallbacks = [];
+const optionsAvailableCallbacks = [];
+let uiAfterUpdateTimeout = null;
+let uiCurrentTab = null;
 
 /**
  * Register callback to be called at each UI update.
@@ -110,16 +112,16 @@ function executeCallbacks(queue, arg) {
  */
 function scheduleAfterUiUpdateCallbacks() {
     clearTimeout(uiAfterUpdateTimeout);
-    uiAfterUpdateTimeout = setTimeout(function() {
+    uiAfterUpdateTimeout = setTimeout(function () {
         executeCallbacks(uiAfterUpdateCallbacks);
     }, 200);
 }
 
-var executedOnLoaded = false;
+let executedOnLoaded = false;
 
-document.addEventListener("DOMContentLoaded", function() {
-    var mutationObserver = new MutationObserver(function(m) {
-        if (!executedOnLoaded && gradioApp().querySelector('#txt2img_prompt')) {
+document.addEventListener("DOMContentLoaded", function () {
+    const mutationObserver = new MutationObserver(function (m) {
+        if (!executedOnLoaded && gradioApp().querySelector("#txt2img_prompt")) {
             executedOnLoaded = true;
             executeCallbacks(uiLoadedCallbacks);
         }
@@ -127,12 +129,12 @@ document.addEventListener("DOMContentLoaded", function() {
         executeCallbacks(uiUpdateCallbacks, m);
         scheduleAfterUiUpdateCallbacks();
         const newTab = get_uiCurrentTab();
-        if (newTab && (newTab !== uiCurrentTab)) {
+        if (newTab && newTab !== uiCurrentTab) {
             uiCurrentTab = newTab;
             executeCallbacks(uiTabChangeCallbacks);
         }
     });
-    mutationObserver.observe(gradioApp(), {childList: true, subtree: true});
+    mutationObserver.observe(gradioApp(), { childList: true, subtree: true });
 });
 
 /**
@@ -141,23 +143,31 @@ document.addEventListener("DOMContentLoaded", function() {
  * Alt/Option+Enter to skip a generation
  * Esc to interrupt a generation
  */
-document.addEventListener('keydown', function(e) {
-    const isEnter = e.key === 'Enter' || e.keyCode === 13;
+document.addEventListener("keydown", function (e) {
+    const isEnter = e.key === 'Enter' || e.code === 'Enter';
     const isCtrlKey = e.metaKey || e.ctrlKey;
     const isAltKey = e.altKey;
-    const isEsc = e.key === 'Escape';
+    const isEsc = e.key === "Escape";
 
-    const generateButton = get_uiCurrentTabContent().querySelector('button[id$=_generate]');
-    const interruptButton = get_uiCurrentTabContent().querySelector('button[id$=_interrupt]');
-    const skipButton = get_uiCurrentTabContent().querySelector('button[id$=_skip]');
+    const generateButton = get_uiCurrentTabContent().querySelector(
+        "button[id$=_generate]",
+    );
+    const interruptButton = get_uiCurrentTabContent().querySelector(
+        "button[id$=_interrupt]",
+    );
+    const skipButton =
+        get_uiCurrentTabContent().querySelector("button[id$=_skip]");
 
     if (isCtrlKey && isEnter) {
-        if (interruptButton.style.display === 'block') {
+        if (interruptButton.style.display === "block") {
             interruptButton.click();
             const callback = (mutationList) => {
                 for (const mutation of mutationList) {
-                    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                        if (interruptButton.style.display === 'none') {
+                    if (
+                        mutation.type === "attributes" &&
+                        mutation.attributeName === "style"
+                    ) {
+                        if (interruptButton.style.display === "none") {
                             generateButton.click();
                             observer.disconnect();
                         }
@@ -165,7 +175,7 @@ document.addEventListener('keydown', function(e) {
                 }
             };
             const observer = new MutationObserver(callback);
-            observer.observe(interruptButton, {attributes: true});
+            observer.observe(interruptButton, { attributes: true });
         } else {
             generateButton.click();
         }
@@ -178,11 +188,11 @@ document.addEventListener('keydown', function(e) {
     }
 
     if (isEsc) {
-        const globalPopup = document.querySelector('.global-popup');
-        const lightboxModal = document.querySelector('#lightboxModal');
-        if (!globalPopup || globalPopup.style.display === 'none') {
+        const globalPopup = document.querySelector(".global-popup");
+        const lightboxModal = document.querySelector("#lightboxModal");
+        if (!globalPopup || globalPopup.style.display === "none") {
             if (document.activeElement === lightboxModal) return;
-            if (interruptButton.style.display === 'block') {
+            if (interruptButton.style.display === "block") {
                 interruptButton.click();
                 e.preventDefault();
             }
@@ -199,7 +209,7 @@ function uiElementIsVisible(el) {
     }
 
     const computedStyle = getComputedStyle(el);
-    const isVisible = computedStyle.display !== 'none';
+    const isVisible = computedStyle.display !== "none";
 
     if (!isVisible) return false;
     return uiElementIsVisible(el.parentNode);
