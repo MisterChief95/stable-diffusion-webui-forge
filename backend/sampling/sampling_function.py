@@ -367,8 +367,12 @@ def sampling_function(self, denoiser_params, cond_scale, cond_composition):
     return denoised, cond_pred, uncond_pred
 
 
-def sampling_prepare(unet: "UnetPatcher", x: torch.Tensor):
-    unet.set_transformer_option("ref_latents", [x.detach().clone()])
+def sampling_prepare(unet: "UnetPatcher", x: torch.Tensor, *, is_img2img: bool = False):
+    if is_img2img and dynamic_args.get("kontext", False):
+        unet.set_transformer_option("ref_latents", [x.detach().clone()])
+    else:
+        unet.set_transformer_option("ref_latents", None)
+
     B, C, H, W = x.shape
 
     memory_estimation_function = unet.model_options.get("memory_peak_estimation_modifier", unet.memory_required)
