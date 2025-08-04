@@ -15,7 +15,7 @@ from nunchaku.lora.flux.compose import compose_lora
 from nunchaku.utils import load_state_dict_in_safetensors
 
 from backend.utils import process_img
-from modules.shared import opts
+from modules import shared
 
 
 class SVDQFluxTransformer2DModel(nn.Module):
@@ -23,9 +23,9 @@ class SVDQFluxTransformer2DModel(nn.Module):
 
     def __init__(self, config: dict, path: str):
         super(SVDQFluxTransformer2DModel, self).__init__()
-        model = NunchakuFluxTransformer2dModel.from_pretrained(path, offload=opts.svdq_cpu_offload)
-        model = apply_cache_on_transformer(transformer=model, residual_diff_threshold=opts.svdq_cache_threshold)
-        model.set_attention_impl(opts.svdq_attention)
+        model = NunchakuFluxTransformer2dModel.from_pretrained(path, offload=shared.opts.svdq_cpu_offload)
+        model = apply_cache_on_transformer(transformer=model, residual_diff_threshold=shared.opts.svdq_cache_threshold)
+        model.set_attention_impl(shared.opts.svdq_attention)
 
         self.model = model
         self.dtype = next(model.parameters()).dtype
@@ -76,6 +76,9 @@ class SVDQFluxTransformer2DModel(nn.Module):
                 w = max(w, ref.shape[-1] + w_offset)
 
         txt_ids = torch.zeros((bs, context.shape[1], 3), device=x.device, dtype=x.dtype)
+
+        if shared.sd_model.current_lora_hash == str([]):
+            self.loras.clear()
 
         # load and compose LoRA
         if self.loras != model.comfy_lora_meta_list:

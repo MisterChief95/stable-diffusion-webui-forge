@@ -5,6 +5,10 @@ import re
 import torch
 import network
 import functools
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.patcher.unet import UnetPatcher
 
 from backend.args import dynamic_args
 from modules import shared, sd_models, errors, scripts
@@ -12,8 +16,21 @@ from backend.utils import load_torch_file
 from backend.patcher.lora import model_lora_keys_clip, model_lora_keys_unet, load_lora
 
 
-def load_lora_for_models(model, clip, lora, strength_model, strength_clip, filename='default', online_mode=False):
-    model_flag = type(model.model).__name__ if model is not None else 'default'
+def load_lora_for_models(model: "UnetPatcher", clip, lora, strength_model, strength_clip, filename="default", online_mode=False):
+    model_flag: str = type(model.model).__name__ if model is not None else "default"
+    nunchaku_flag: bool = dynamic_args.get("nunchaku", False)
+
+    if nunchaku_flag:
+        _del = None
+        for i, (name, _) in enumerate(model.model.diffusion_model.loras):
+            if name == filename:
+                _del = i
+                break
+        if _del is not None:
+            model.model.diffusion_model.loras.pop(_del)
+        model.model.diffusion_model.loras.append((filename, strength_model))
+
+        return model, clip
 
     unet_keys = model_lora_keys_unet(model.model) if model is not None else {}
     clip_keys = model_lora_keys_clip(clip.cond_stage_model) if clip is not None else {}

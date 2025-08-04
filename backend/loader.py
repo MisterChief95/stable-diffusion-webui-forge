@@ -9,7 +9,6 @@ from transformers import modeling_utils
 
 import backend.args
 from backend import memory_management
-from backend.args import dynamic_args
 from backend.diffusion_engine.chroma import Chroma
 from backend.diffusion_engine.flux import Flux
 from backend.diffusion_engine.sd15 import StableDiffusion
@@ -130,6 +129,7 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
                     from backend.nn.svdq import SVDQFluxTransformer2DModel
 
                     model_loader = lambda c: SVDQFluxTransformer2DModel(c, _svdq)
+                    backend.args.dynamic_args["nunchaku"] = True
                 else:
                     from backend.nn.flux import IntegratedFluxTransformer2DModel
 
@@ -484,6 +484,8 @@ def forge_loader(sd: os.PathLike, additional_state_dicts: list[os.PathLike] = No
         raise ValueError("Failed to recognize model type!")
 
     repo_name = estimated_config.huggingface_repo
+    backend.args.dynamic_args["kontext"] = "kontext" in str(sd).lower()
+    backend.args.dynamic_args["nunchaku"] = False
 
     local_path = os.path.join(dir_path, "huggingface", repo_name)
     config: dict = DiffusionPipeline.load_config(local_path)
@@ -535,8 +537,6 @@ def forge_loader(sd: os.PathLike, additional_state_dicts: list[os.PathLike] = No
             huggingface_components["scheduler"].config.prediction_type = yaml_config_prediction_type
         else:
             huggingface_components["scheduler"].config.prediction_type = prediction_types.get(estimated_config.model_type.name, huggingface_components["scheduler"].config.prediction_type)
-
-    dynamic_args["kontext"] = "kontext" in str(sd).lower()
 
     for M in possible_models:
         if any(isinstance(estimated_config, x) for x in M.matched_guesses):
