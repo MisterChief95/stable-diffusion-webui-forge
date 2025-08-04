@@ -6,11 +6,11 @@
 import math
 
 import torch
-from einops import rearrange, repeat
+from einops import rearrange
 from torch import nn
 
 from backend.attention import attention_function
-from backend.utils import fp16_fix, tensor2parameter
+from backend.utils import fp16_fix, process_img, tensor2parameter
 
 
 def attention(q, k, v, pe):
@@ -394,26 +394,39 @@ class IntegratedFluxTransformer2DModel(nn.Module):
         del vec
         return img
 
-    def forward(self, x, timestep, context, y, guidance=None, **kwargs):
-        bs, c, h, w = x.shape
-        input_device = x.device
-        input_dtype = x.dtype
-        patch_size = 2
-        pad_h = (patch_size - x.shape[-2] % patch_size) % patch_size
-        pad_w = (patch_size - x.shape[-1] % patch_size) % patch_size
-        x = torch.nn.functional.pad(x, (0, pad_w, 0, pad_h), mode="circular")
-        img = rearrange(x, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=patch_size, pw=patch_size)
-        del x, pad_h, pad_w
-        h_len = (h + (patch_size // 2)) // patch_size
-        w_len = (w + (patch_size // 2)) // patch_size
-        img_ids = torch.zeros((h_len, w_len, 3), device=input_device, dtype=input_dtype)
-        img_ids[..., 1] = img_ids[..., 1] + torch.linspace(0, h_len - 1, steps=h_len, device=input_device, dtype=input_dtype)[:, None]
-        img_ids[..., 2] = img_ids[..., 2] + torch.linspace(0, w_len - 1, steps=w_len, device=input_device, dtype=input_dtype)[None, :]
-        img_ids = repeat(img_ids, "h w c -> b (h w) c", b=bs)
-        txt_ids = torch.zeros((bs, context.shape[1], 3), device=input_device, dtype=input_dtype)
-        del input_device, input_dtype
+    def forward(self, x, timestep, context, y, guidance=None, control=None, transformer_options={}, **kwargs):
+        bs, c, h_orig, w_orig = x.shape
+        patch_size = self.config.get("patch_size", 2)
+        h_len = (h_orig + (patch_size // 2)) // patch_size
+        w_len = (w_orig + (patch_size // 2)) // patch_size
+
+        img, img_ids = process_img(x)
+        img_tokens = img.shape[1]
+
+        ref_latents = transformer_options.get("ref_latents", None)
+        if ref_latents is not None:
+            h = 0
+            w = 0
+            for ref in ref_latents:
+                h_offset = 0
+                w_offset = 0
+                if ref.shape[-2] + h > ref.shape[-1] + w:
+                    w_offset = w
+                else:
+                    h_offset = h
+
+                kontext, kontext_ids = process_img(ref, index=1, h_offset=h_offset, w_offset=w_offset)
+                img = torch.cat([img, kontext], dim=1)
+                img_ids = torch.cat([img_ids, kontext_ids], dim=1)
+                h = max(h, ref.shape[-2] + h_offset)
+                w = max(w, ref.shape[-1] + w_offset)
+
+        txt_ids = torch.zeros((bs, context.shape[1], 3), device=x.device, dtype=x.dtype)
+
         out = self.inner_forward(img, img_ids, context, txt_ids, timestep, y, guidance)
         del img, img_ids, txt_ids, timestep, context
-        out = rearrange(out, "b (h w) (c ph pw) -> b c (h ph) (w pw)", h=h_len, w=w_len, ph=2, pw=2)[:, :, :h, :w]
+        out = out[:, :img_tokens]
+        out = rearrange(out, "b (h w) (c ph pw) -> b c (h ph) (w pw)", h=h_len, w=w_len, ph=patch_size, pw=patch_size)
+        out = out[:, :, :h_orig, :w_orig]
         del h_len, w_len, bs
         return out

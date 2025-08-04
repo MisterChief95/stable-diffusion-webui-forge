@@ -4,6 +4,7 @@ import os
 import gguf
 import safetensors.torch
 import torch
+from einops import rearrange, repeat
 
 import backend.misc.checkpoint_pickle
 from backend.operations_gguf import ParameterGGUF
@@ -186,3 +187,23 @@ def pad_to_patch_size(img, patch_size=(2, 2), padding_mode="circular"):
         pad = (0, (patch_size[i] - img.shape[i + 2] % patch_size[i]) % patch_size[i]) + pad
 
     return torch.nn.functional.pad(img, pad, mode=padding_mode)
+
+
+def process_img(x, index=0, h_offset=0, w_offset=0):
+    """https://github.com/comfyanonymous/ComfyUI/blob/v0.3.45/comfy/ldm/flux/model.py#L198"""
+    bs, c, h, w = x.shape
+    patch_size = 2  # TODO
+    x = pad_to_patch_size(x, (patch_size, patch_size))
+
+    img = rearrange(x, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=patch_size, pw=patch_size)
+    h_len = (h + (patch_size // 2)) // patch_size
+    w_len = (w + (patch_size // 2)) // patch_size
+
+    h_offset = (h_offset + (patch_size // 2)) // patch_size
+    w_offset = (w_offset + (patch_size // 2)) // patch_size
+
+    img_ids = torch.zeros((h_len, w_len, 3), device=x.device, dtype=x.dtype)
+    img_ids[:, :, 0] = img_ids[:, :, 1] + index
+    img_ids[:, :, 1] = img_ids[:, :, 1] + torch.linspace(h_offset, h_len - 1 + h_offset, steps=h_len, device=x.device, dtype=x.dtype).unsqueeze(1)
+    img_ids[:, :, 2] = img_ids[:, :, 2] + torch.linspace(w_offset, w_len - 1 + w_offset, steps=w_len, device=x.device, dtype=x.dtype).unsqueeze(0)
+    return img, repeat(img_ids, "h w c -> b (h w) c", b=bs)

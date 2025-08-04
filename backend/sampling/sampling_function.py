@@ -5,6 +5,10 @@
 
 import collections
 import math
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.patcher.unet import UnetPatcher
 
 import torch
 
@@ -363,7 +367,8 @@ def sampling_function(self, denoiser_params, cond_scale, cond_composition):
     return denoised, cond_pred, uncond_pred
 
 
-def sampling_prepare(unet, x):
+def sampling_prepare(unet: "UnetPatcher", x: torch.Tensor):
+    unet.set_transformer_option("ref_latents", [x.detach().clone()])
     B, C, H, W = x.shape
 
     memory_estimation_function = unet.model_options.get("memory_peak_estimation_modifier", unet.memory_required)

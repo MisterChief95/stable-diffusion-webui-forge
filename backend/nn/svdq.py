@@ -7,14 +7,14 @@ import types
 
 import torch
 import torch.nn as nn
-from einops import rearrange, repeat
+from einops import rearrange
 from nunchaku import NunchakuFluxTransformer2dModel, NunchakuT5EncoderModel
 from nunchaku.caching.diffusers_adapters.flux import apply_cache_on_transformer
 from nunchaku.caching.utils import cache_context, create_cache_context
 from nunchaku.lora.flux.compose import compose_lora
 from nunchaku.utils import load_state_dict_in_safetensors
 
-from backend.utils import pad_to_patch_size
+from backend.utils import process_img
 from modules.shared import opts
 
 
@@ -36,24 +36,6 @@ class SVDQFluxTransformer2DModel(nn.Module):
         self._prev_timestep = None
         self._cache_context = None
 
-    def process_img(self, x, index=0, h_offset=0, w_offset=0):
-        bs, c, h, w = x.shape
-        patch_size = self.config.get("patch_size", 2)
-        x = pad_to_patch_size(x, (patch_size, patch_size))
-
-        img = rearrange(x, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=patch_size, pw=patch_size)
-        h_len = (h + (patch_size // 2)) // patch_size
-        w_len = (w + (patch_size // 2)) // patch_size
-
-        h_offset = (h_offset + (patch_size // 2)) // patch_size
-        w_offset = (w_offset + (patch_size // 2)) // patch_size
-
-        img_ids = torch.zeros((h_len, w_len, 3), device=x.device, dtype=x.dtype)
-        img_ids[:, :, 0] = img_ids[:, :, 1] + index
-        img_ids[:, :, 1] = img_ids[:, :, 1] + torch.linspace(h_offset, h_len - 1 + h_offset, steps=h_len, device=x.device, dtype=x.dtype).unsqueeze(1)
-        img_ids[:, :, 2] = img_ids[:, :, 2] + torch.linspace(w_offset, w_len - 1 + w_offset, steps=w_len, device=x.device, dtype=x.dtype).unsqueeze(0)
-        return img, repeat(img_ids, "h w c -> b (h w) c", b=bs)
-
     def forward(self, x, timestep, context, y, guidance, control=None, transformer_options={}, **kwargs):
         if isinstance(timestep, torch.Tensor):
             if timestep.numel() == 1:
@@ -72,10 +54,10 @@ class SVDQFluxTransformer2DModel(nn.Module):
         h_len = (h_orig + (patch_size // 2)) // patch_size
         w_len = (w_orig + (patch_size // 2)) // patch_size
 
-        img, img_ids = self.process_img(x)
+        img, img_ids = process_img(x)
         img_tokens = img.shape[1]
 
-        ref_latents = kwargs.get("ref_latents")
+        ref_latents = transformer_options.get("ref_latents", None)
         if ref_latents is not None:
             h = 0
             w = 0
@@ -87,7 +69,7 @@ class SVDQFluxTransformer2DModel(nn.Module):
                 else:
                     h_offset = h
 
-                kontext, kontext_ids = self.process_img(ref, index=1, h_offset=h_offset, w_offset=w_offset)
+                kontext, kontext_ids = process_img(ref, index=1, h_offset=h_offset, w_offset=w_offset)
                 img = torch.cat([img, kontext], dim=1)
                 img_ids = torch.cat([img_ids, kontext_ids], dim=1)
                 h = max(h, ref.shape[-2] + h_offset)
