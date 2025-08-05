@@ -90,7 +90,7 @@ def apply_checkpoint(p, x, xs):
 
 def refresh_loading_params_for_xyz_grid():
     """
-    Refreshes the loading parameters for the model, 
+    Refreshes the loading parameters for the model,
     prompts a reload in sd_models.forge_model_reload()
     """
     checkpoint_info = select_checkpoint()
@@ -303,7 +303,6 @@ axis_options = [
     AxisOption("Refiner checkpoint", str, apply_field('refiner_checkpoint'), format_value=format_remove_path, confirm=confirm_checkpoints_or_none, cost=1.0, choices=lambda: ['None'] + sorted(sd_models.checkpoints_list, key=str.casefold)),
     AxisOption("Refiner switch at", float, apply_field('refiner_switch_at')),
     AxisOption("RNG source", str, apply_override("randn_source"), choices=lambda: ["GPU", "CPU", "NV"]),
-    AxisOption("FP8 mode", str, apply_override("fp8_storage"), cost=0.9, choices=lambda: ["Disable", "Enable for SDXL", "Enable"]),
     AxisOption("Size", str, apply_size),
 ]
 
@@ -806,7 +805,7 @@ class Script(scripts.Script):
                 second_axes_processed=second_axes_processed,
                 margin_size=margin_size
             )
-        
+
         # reset loading params to previous state
         refresh_loading_params_for_xyz_grid()
 

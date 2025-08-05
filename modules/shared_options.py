@@ -263,18 +263,25 @@ options_templates.update(
     options_section(
         ("optimizations", "Optimizations", "sd"),
         {
-            "cross_attention_optimization": OptionInfo("Automatic", "Cross attention optimization", gr.Dropdown, lambda: {"choices": shared_items.cross_attention_optimizations()}),
-            "s_min_uncond": OptionInfo(0.0, "Negative Guidance minimum sigma", gr.Slider, {"minimum": 0.0, "maximum": 15.0, "step": 0.01}, infotext="NGMS").link("PR", "https://github.com/AUTOMATIC1111/stablediffusion-webui/pull/9177").info("skip negative prompt for some steps when the image is almost ready; 0=disable, higher=faster"),
-            "s_min_uncond_all": OptionInfo(False, "Negative Guidance minimum sigma all steps", infotext="NGMS all steps").info("By default, NGMS above skips every other step; this makes it skip all steps"),
-            "token_merging_ratio": OptionInfo(0.0, "Token merging ratio", gr.Slider, {"minimum": 0.0, "maximum": 0.9, "step": 0.1}, infotext="Token merging ratio").link("PR", "https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/9256").info("0=disable, higher=faster"),
-            "token_merging_ratio_img2img": OptionInfo(0.0, "Token merging ratio for img2img", gr.Slider, {"minimum": 0.0, "maximum": 0.9, "step": 0.1}).info("only applies if non-zero and overrides above"),
-            "token_merging_ratio_hr": OptionInfo(0.0, "Token merging ratio for high-res pass", gr.Slider, {"minimum": 0.0, "maximum": 0.9, "step": 0.1}, infotext="Token merging ratio hr").info("only applies if non-zero and overrides above"),
-            "pad_cond_uncond": OptionInfo(False, "Pad prompt/negative prompt", infotext="Pad conds").info("improves performance when prompt and negative prompt have different lengths; changes seeds"),
-            "pad_cond_uncond_v0": OptionInfo(False, "Pad prompt/negative prompt (v0)", infotext="Pad conds v0").info("alternative implementation for the above; used prior to 1.6.0 for DDIM sampler; overrides the above if set; WARNING: truncates negative prompt if it's too long; changes seeds"),
-            "persistent_cond_cache": OptionInfo(True, "Persistent cond cache").info("do not recalculate conds from prompts if prompts have not changed since previous calculation"),
-            "batch_cond_uncond": OptionInfo(True, "Batch cond/uncond").info("do both conditional and unconditional denoising in one batch; uses a bit more VRAM during sampling, but improves speed; previously this was controlled by --always-batch-cond-uncond commandline argument"),
-            "fp8_storage": OptionInfo("Disable", "FP8 weight", gr.Radio, {"choices": ["Disable", "Enable for SDXL", "Enable"]}).info("Use FP8 to store Linear/Conv layers' weight. Require pytorch>=2.1.0."),
-            "cache_fp16_weight": OptionInfo(False, "Cache FP16 weight for LoRA").info("Cache fp16 weight when enabling FP8, will increase the quality of LoRA. Use more system ram."),
+            "cross_attention_optimization": OptionInfo("Automatic", "Cross Attention Optimization", gr.Dropdown, {"choices": ("Automatic",), "interactive": False}),
+            "persistent_cond_cache": OptionInfo(True, "Persistent Cond Cache").info("do not recalculate conds if the prompts and parameters have not changed since previous generation"),
+            "skip_early_cond": OptionInfo(0.0, "Ignore Negative Prompt during Early Steps", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.05}, infotext="Skip Early CFG").info("in percentage of total steps; 0 = disable; higher = faster"),
+            "s_min_uncond": OptionInfo(0.0, "Skip Negative Prompt during Later Steps", gr.Slider, {"minimum": 0.0, "maximum": 8.0, "step": 0.05}).info('in "sigma"; 0 = disable; higher = faster'),
+            "s_min_uncond_all": OptionInfo(False, "For the above option, skip every step", infotext="NGMS all steps").info("otherwise, only skip every other step"),
+            "div_tome": OptionDiv(),
+            "token_merging_explanation": OptionHTML(
+                """
+<b>Token Merging</b> speeds up the diffusion process by fusing "redundant" tokens together, but also reduces quality as a result.
+[<a href="https://github.com/dbolya/tomesd">GitHub</a>] <br>
+<b>Note:</b> Has no effect on SDXL when Max Downsample is set to 1
+                """
+            ),
+            "token_merging_ratio": OptionInfo(0.0, "Token Merging Ratio", gr.Slider, {"minimum": 0.0, "maximum": 0.9, "step": 0.05}, infotext="Token merging ratio").info("0 = disable; higher = faster"),
+            "token_merging_ratio_img2img": OptionInfo(0.0, "Token Merging Ratio for img2img", gr.Slider, {"minimum": 0.0, "maximum": 0.9, "step": 0.05}).info("overrides base ratio if non-zero"),
+            "token_merging_ratio_hr": OptionInfo(0.0, "Token Merging Ratio for Hires. fix", gr.Slider, {"minimum": 0.0, "maximum": 0.9, "step": 0.05}, infotext="Token merging ratio hr").info("overrides base ratio if non-zero"),
+            "token_merging_stride": OptionInfo(2, "Token Merging - Stride", gr.Slider, {"minimum": 1, "maximum": 8, "step": 1}).info("higher = faster"),
+            "token_merging_downsample": OptionInfo(1, "Token Merging - Max Downsample", gr.Slider, {"minimum": 1, "maximum": 4, "step": 1}).info("higher = faster"),
+            "token_merging_no_rand": OptionInfo(False, "Token Merging - No Random").info("reduce randomness by always fusing the same regions"),
         },
     )
 )
@@ -470,7 +477,6 @@ options_templates.update(
             "uni_pc_order": OptionInfo(3, "UniPC order", gr.Slider, {"minimum": 1, "maximum": 50, "step": 1}, infotext="UniPC order").info("must be < sampling steps"),
             "uni_pc_lower_order_final": OptionInfo(True, "UniPC lower order final", infotext="UniPC lower order final"),
             "sd_noise_schedule": OptionInfo("Default", "Noise schedule for sampling", gr.Radio, {"choices": ["Default", "Zero Terminal SNR"]}, infotext="Noise Schedule").info("for use with zero terminal SNR trained models"),
-            "skip_early_cond": OptionInfo(0.0, "Ignore negative prompt during early sampling", gr.Slider, {"minimum": 0.0, "maximum": 1.0, "step": 0.01}, infotext="Skip Early CFG").info("disables CFG on a proportion of steps at the beginning of generation; 0=skip none; 1=skip all; can both improve sample diversity/quality and speed up sampling"),
             "beta_dist_alpha": OptionInfo(0.6, "Beta scheduler - alpha", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext="Beta scheduler alpha").info("Default = 0.6; the alpha parameter of the beta distribution used in Beta sampling"),
             "beta_dist_beta": OptionInfo(0.6, "Beta scheduler - beta", gr.Slider, {"minimum": 0.01, "maximum": 1.0, "step": 0.01}, infotext="Beta scheduler beta").info("Default = 0.6; the beta parameter of the beta distribution used in Beta sampling"),
         },
