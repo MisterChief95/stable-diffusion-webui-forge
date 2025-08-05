@@ -54,6 +54,16 @@ def register(options_templates: dict, options_section: Callable, OptionInfo: "Op
     for arch in PresetArch:
         name = arch.name
 
+        options_templates.update(
+            options_section(
+                (None, "Forge Hidden Options"),
+                {
+                    f"forge_checkpoint_{name}": OptionInfo(None),
+                    f"forge_additional_modules_{name}": OptionInfo([]),
+                },
+            )
+        )
+
         sampler, scheduler = SAMPLERS[arch], SCHEDULERS[arch]
 
         options_templates.update(
@@ -91,6 +101,7 @@ def register(options_templates: dict, options_section: Callable, OptionInfo: "Op
             ("ui_flux", "FLUX", "presets"),
             {
                 "flux_t2i_d_cfg": OptionInfo(3.0, "txt2img Distilled CFG", gr.Slider, {"minimum": 1, "maximum": 10, "step": 0.1}),
+                "flux_t2i_hr_d_cfg": OptionInfo(3.0, "txt2img Distilled Hires. CFG", gr.Slider, {"minimum": 1, "maximum": 10, "step": 0.1}),
                 "flux_i2i_d_cfg": OptionInfo(3.0, "img2img Distilled CFG", gr.Slider, {"minimum": 1, "maximum": 10, "step": 0.1}),
             },
         )
