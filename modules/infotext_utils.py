@@ -176,7 +176,13 @@ def connect_paste_params_buttons():
             connect_paste(binding.paste_button, fields, binding.source_text_component, override_settings_component, binding.tabname)
 
         if binding.source_tabname is not None and fields is not None:
-            paste_field_names = ['Prompt', 'Negative prompt', 'Steps', 'Face restoration'] + (["Seed"] if shared.opts.send_seed else []) + binding.paste_field_names
+            paste_field_names = [
+                *["Prompt", "Negative prompt", "Steps", "Face restoration"],
+                *(["Seed"] if shared.opts.send_seed else []),
+                *(["CFG scale"] if shared.opts.send_cfg else []),
+                *binding.paste_field_names,
+            ]
+
             binding.paste_button.click(
                 fn=lambda *x: x,
                 inputs=[field for field, name in paste_fields[binding.source_tabname]["fields"] if name in paste_field_names],
