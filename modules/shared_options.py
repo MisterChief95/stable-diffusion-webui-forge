@@ -187,9 +187,9 @@ options_templates.update(
     options_section(
         ("API", "API", "system"),
         {
-            "api_enable_requests": OptionInfo(True, "Allow http:// and https:// URLs for input images in API", restrict_api=True),
+            "api_enable_requests": OptionInfo(True, 'Allow "http://" and "https://" URLs as input images', restrict_api=True),
             "api_forbid_local_requests": OptionInfo(True, "Forbid URLs to local resources", restrict_api=True),
-            "api_useragent": OptionInfo("", "User agent for requests", restrict_api=True),
+            "api_useragent": OptionInfo("", "User Agent for Requests", restrict_api=True),
         },
     )
 )
