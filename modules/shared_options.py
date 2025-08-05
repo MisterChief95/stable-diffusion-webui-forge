@@ -15,6 +15,7 @@ from modules.options import OptionDiv, OptionHTML, OptionInfo, categories, optio
 from modules.paths_internal import data_path, default_output_dir
 from modules.shared_cmd_options import cmd_opts
 from modules_forge import shared_options as forge_shared_options
+from modules_forge import presets as forge_presets
 
 options_templates = {}
 hide_dirs = shared.hide_dirs
@@ -37,6 +38,7 @@ restricted_opts = {
 categories.register_category("saving", "Saving Images")
 categories.register_category("sd", "Stable Diffusion")
 categories.register_category("ui", "User Interface")
+categories.register_category("presets", "Presets")
 categories.register_category("system", "System")
 categories.register_category("postprocessing", "Postprocessing")
 categories.register_category("svdq", "Nunchaku")
@@ -542,3 +544,4 @@ Filenames for the Nunchaku models.<br>
 )
 
 forge_shared_options.register(options_templates, options_section, OptionInfo)
+forge_presets.register(options_templates, options_section, OptionInfo)
