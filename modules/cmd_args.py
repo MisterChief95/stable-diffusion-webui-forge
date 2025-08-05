@@ -108,6 +108,8 @@ parser.add_argument(
     default=None,
 )
 
+parser.add_argument("--adv-samplers", action="store_true", help='show the "sampler parameters" advanced settings')
+
 pkm = parser.add_mutually_exclusive_group()
 pkm.add_argument("--uv", action="store_true", help="Use the uv package manager")
 pkm.add_argument("--uv-symlink", action="store_true", help="Use the uv package manager with symlink")
