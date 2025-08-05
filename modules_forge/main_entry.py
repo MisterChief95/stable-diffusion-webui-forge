@@ -1,12 +1,12 @@
 import os
-import torch
-import gradio as gr
 
+import gradio as gr
+import torch
 from gradio.context import Context
-from modules import shared_items, shared, ui_common, sd_models, processing, infotext_utils, paths, ui_loadsave
+
 from backend import memory_management, stream
 from backend.args import dynamic_args
-
+from modules import infotext_utils, paths, processing, sd_models, shared, shared_items, ui_common
 
 total_vram = int(memory_management.total_vram)
 
@@ -45,10 +45,8 @@ def bind_to_opts(comp, k, save=False, callback=None):
             shared.opts.save(shared.config_filename)
         if callback is not None:
             callback()
-        return
 
     comp.change(on_change, inputs=[comp], queue=False, show_progress=False)
-    return
 
 
 def make_checkpoint_manager_ui():
@@ -70,7 +68,7 @@ def make_checkpoint_manager_ui():
         ckpt_list, vae_list = refresh_models()
         return gr.update(choices=ckpt_list), gr.update(choices=vae_list)
 
-    refresh_button = ui_common.ToolButton(value=ui_common.refresh_symbol, elem_id=f"forge_refresh_checkpoint", tooltip="Refresh")
+    refresh_button = ui_common.ToolButton(value=ui_common.refresh_symbol, elem_id="forge_refresh_checkpoint", tooltip="Refresh")
     refresh_button.click(fn=gr_refresh_models, outputs=[ui_checkpoint, ui_vae], queue=False)
 
     def gr_refresh_on_load():
@@ -179,11 +177,10 @@ def refresh_memory_management_settings(async_loading=None, inference_memory=None
         print(f"[GPU Setting] You will use {(100 - compute_percentage):.2f}% GPU memory ({model_memory:.2f} MB) to load weights, and use {compute_percentage:.2f}% GPU memory ({inference_memory:.2f} MB) to do matrix computation.")
 
     processing.need_global_unload = True
-    return
 
 
 def refresh_model_loading_parameters():
-    from modules.sd_models import select_checkpoint, model_data
+    from modules.sd_models import model_data, select_checkpoint
 
     checkpoint_info = select_checkpoint()
 
@@ -196,8 +193,6 @@ def refresh_model_loading_parameters():
     print(f"Model selected: {model_data.forge_loading_parameters}")
     print(f"Using online LoRAs in FP16: {lora_fp16}")
     processing.need_global_unload = True
-
-    return
 
 
 def checkpoint_change(ckpt_name: str, preset: str, save=True, refresh=True) -> bool:
