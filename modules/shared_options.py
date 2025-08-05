@@ -105,13 +105,13 @@ options_templates.update(
 
 options_templates.update(
     options_section(
-        ("saving-to-dirs", "Saving to a directory", "saving"),
+        ("saving-to-dirs", "Saving to Subdirectory", "saving"),
         {
-            "save_to_dirs": OptionInfo(True, "Save images to a subdirectory"),
-            "grid_save_to_dirs": OptionInfo(True, "Save grids to a subdirectory"),
-            "use_save_to_dirs_for_ui": OptionInfo(False, 'When using "Save" button, save images to a subdirectory'),
-            "directories_filename_pattern": OptionInfo("[date]", "Directory name pattern", component_args=hide_dirs).link("wiki", "https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Custom-Images-Filename-Name-and-Subdirectory"),
-            "directories_max_prompt_words": OptionInfo(8, "Max prompt words for [prompt_words] pattern", gr.Slider, {"minimum": 1, "maximum": 20, "step": 1, **hide_dirs}),
+            "save_to_dirs": OptionInfo(True, "Save Images to Subdirectory"),
+            "grid_save_to_dirs": OptionInfo(True, "Save Grids to Subdirectory"),
+            "use_save_to_dirs_for_ui": OptionInfo(False, 'Save to subdirectory when manually saving images via the "Save" button'),
+            "directories_filename_pattern": OptionInfo("[date]", "Folder name pattern for subdirectories", component_args=hide_dirs).link("wiki", "https://github.com/AUTOMATIC1111/stable-diffusion-webui/wiki/Custom-Images-Filename-Name-and-Subdirectory"),
+            "directories_max_prompt_words": OptionInfo(8, "Max length of prompts for the [prompt_words] pattern", gr.Slider, {"minimum": 1, "maximum": 32, "step": 1, **hide_dirs}),
         },
     )
 )
