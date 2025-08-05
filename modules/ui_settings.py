@@ -133,7 +133,7 @@ class UiSettings:
 
             self.result = gr.HTML(elem_id="settings_result")
 
-            self.quicksettings_names = opts.quick_setting_list
+            self.quicksettings_names = opts.quicksettings_list
             self.quicksettings_names = {x: i for i, x in enumerate(self.quicksettings_names) if x != 'quicksettings'}
 
             self.quicksettings_list = []

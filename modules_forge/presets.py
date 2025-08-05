@@ -37,8 +37,8 @@ WIDTH = {
 
 HEIGHT = {
     PresetArch.sd: 512,
-    PresetArch.xl: 896,
-    PresetArch.flux: 896,
+    PresetArch.xl: 1152,
+    PresetArch.flux: 1152,
 }
 
 CFG = {
