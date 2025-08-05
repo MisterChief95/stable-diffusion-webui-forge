@@ -251,7 +251,7 @@ class Options:
                 continue
 
             category = categories.mapping.get(item.category_id)
-            category = "Uncategorized" if category is None else category.label
+            category = "Extensions" if category is None else category.label
             if category not in item_categories:
                 item_categories[category] = item.section[1]
 

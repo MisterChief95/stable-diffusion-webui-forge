@@ -13,7 +13,6 @@ from modules import (
 )
 from modules.options import OptionDiv, OptionHTML, OptionInfo, categories, options_section
 from modules.paths_internal import data_path, default_output_dir
-
 from modules.shared_cmd_options import cmd_opts
 from modules_forge import shared_options as forge_shared_options
 
@@ -40,6 +39,7 @@ categories.register_category("sd", "Stable Diffusion")
 categories.register_category("ui", "User Interface")
 categories.register_category("system", "System")
 categories.register_category("postprocessing", "Postprocessing")
+categories.register_category("svdq", "Nunchaku")
 
 options_templates.update(
     options_section(
@@ -512,17 +512,15 @@ options_templates.update(
 
 options_templates.update(
     options_section(
-        (None, "Hidden options"),
+        (None, "Hidden Options"),
         {
             "disabled_extensions": OptionInfo([], "Disable these extensions"),
-            "disable_all_extensions": OptionInfo("none", "Disable all extensions (preserves the list of disabled extensions)", gr.Radio, {"choices": ["none", "extra", "all"]}),
-            "restore_config_state_file": OptionInfo("", "Config state file to restore from, under 'config-states/' folder"),
+            "disable_all_extensions": OptionInfo("none", "Disable all extensions", gr.Radio, {"choices": ("none", "extra", "all")}),
+            "restore_config_state_file": OptionInfo("", 'Config state file to restore from, under "config-states/" folder'),
             "sd_checkpoint_hash": OptionInfo("", "SHA256 hash of the current checkpoint"),
         },
     )
 )
-
-categories.register_category("svdq", "Nunchaku")
 
 options_templates.update(
     options_section(
@@ -535,7 +533,7 @@ options_templates.update(
                 """
 Filenames for the Nunchaku models.<br>
 <b>Note:</b> These fields are only needed if you have renamed the files.
-        """
+                """
             ),
             "svdq_flux_filename": OptionInfo("", "Alternative filenames for the quantized Flux checkpoints").info("separate multiple files with comma"),
             "svdq_t5_filename": OptionInfo("", "Alternative filename for the quantized T5 model"),
