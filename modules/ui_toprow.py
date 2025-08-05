@@ -1,8 +1,7 @@
 import gradio as gr
 
-from modules import shared, ui_prompt_styles
 import modules.images
-
+from modules import shared, ui_prompt_styles
 from modules.ui_components import ToolButton
 
 
@@ -77,11 +76,11 @@ class Toprow:
     def create_prompts(self):
         with gr.Column(elem_id=f"{self.id_part}_prompt_container", elem_classes=["prompt-container-compact"] if self.is_compact else [], scale=6):
             with gr.Row(elem_id=f"{self.id_part}_prompt_row", elem_classes=["prompt-row"]):
-                self.prompt = gr.Textbox(label="Prompt", elem_id=f"{self.id_part}_prompt", show_label=False, lines=3, placeholder="Prompt\n(Press Ctrl+Enter to generate, Alt+Enter to skip, Esc to interrupt)", elem_classes=["prompt"], value='')
+                self.prompt = gr.Textbox(label="Prompt", elem_id=f"{self.id_part}_prompt", show_label=False, lines=3, placeholder="Prompt\n(Press Ctrl+Enter to generate, Alt+Enter to skip, Esc to interrupt)", elem_classes=["prompt"], value="")
                 self.prompt_img = gr.File(label="", elem_id=f"{self.id_part}_prompt_image", file_count="single", type="binary", visible=False)
 
             with gr.Row(elem_id=f"{self.id_part}_neg_prompt_row", elem_classes=["prompt-row"]):
-                self.negative_prompt = gr.Textbox(label="Negative prompt", elem_id=f"{self.id_part}_neg_prompt", show_label=False, lines=3, placeholder="Negative prompt\n(Press Ctrl+Enter to generate, Alt+Enter to skip, Esc to interrupt)", elem_classes=["prompt"], value='')
+                self.negative_prompt = gr.Textbox(label="Negative prompt", elem_id=f"{self.id_part}_neg_prompt", show_label=False, lines=3, placeholder="Negative prompt\n(Press Ctrl+Enter to generate, Alt+Enter to skip, Esc to interrupt)", elem_classes=["prompt"], value="")
 
         self.prompt_img.change(
             fn=modules.images.image_data,
@@ -94,10 +93,10 @@ class Toprow:
         with gr.Row(elem_id=f"{self.id_part}_generate_box", elem_classes=["generate-box"] + (["generate-box-compact"] if self.is_compact else []), render=not self.is_compact) as submit_box:
             self.submit_box = submit_box
 
-            self.interrupt = gr.Button('Interrupt', elem_id=f"{self.id_part}_interrupt", elem_classes="generate-box-interrupt", tooltip="End generation immediately or after completing current batch")
-            self.skip = gr.Button('Skip', elem_id=f"{self.id_part}_skip", elem_classes="generate-box-skip", tooltip="Stop generation of current batch and continues onto next batch")
-            self.interrupting = gr.Button('Interrupting...', elem_id=f"{self.id_part}_interrupting", elem_classes="generate-box-interrupting", tooltip="Interrupting generation...")
-            self.submit = gr.Button('Generate', elem_id=f"{self.id_part}_generate", variant='primary', tooltip="Right click generate forever menu")
+            self.interrupt = gr.Button("Interrupt", elem_id=f"{self.id_part}_interrupt", elem_classes="generate-box-interrupt", tooltip="End generation immediately or after completing current batch")
+            self.skip = gr.Button("Skip", elem_id=f"{self.id_part}_skip", elem_classes="generate-box-skip", tooltip="Stop generation of current batch and continues onto next batch")
+            self.interrupting = gr.Button("Interrupting...", elem_id=f"{self.id_part}_interrupting", elem_classes="generate-box-interrupting", tooltip="Interrupting generation...")
+            self.submit = gr.Button("Generate", elem_id=f"{self.id_part}_generate", variant="primary", tooltip="Right click generate forever menu")
 
             def interrupt_function():
                 if not shared.state.stopping_generation and shared.state.job_count > 1 and shared.opts.interrupt_after_current:
@@ -112,7 +111,7 @@ class Toprow:
 
     def create_tools_row(self):
         with gr.Row(elem_id=f"{self.id_part}_tools"):
-            from modules.ui import paste_symbol, clear_prompt_symbol, restore_progress_symbol
+            from modules.ui import clear_prompt_symbol, paste_symbol, restore_progress_symbol
 
             self.paste = ToolButton(value=paste_symbol, elem_id="paste", tooltip="Read generation parameters from prompt or last generation if prompt is empty into user interface.")
             self.clear_prompt_button = ToolButton(value=clear_prompt_symbol, elem_id=f"{self.id_part}_clear_prompt", tooltip="Clear prompt")
@@ -135,3 +134,17 @@ class Toprow:
     def create_styles_ui(self):
         self.ui_styles = ui_prompt_styles.UiPromptStyles(self.id_part, self.prompt, self.negative_prompt)
         self.ui_styles.setup_apply_button(self.apply_styles)
+
+    def hook_paste_guard(self):
+        assert self.negative_prompt is not None and self.paste is not None
+
+        def guard(prompt: str) -> bool:
+            return gr.update(interactive=(not bool(prompt.strip())))
+
+        self.negative_prompt.change(
+            fn=guard,
+            inputs=[self.negative_prompt],
+            outputs=[self.paste],
+            show_progress="hidden",
+            queue=False,
+        )

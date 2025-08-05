@@ -511,6 +511,9 @@ def create_ui():
 
         extra_tabs.__exit__()
 
+        if shared.opts.paste_safe_guard:
+            toprow.hook_paste_guard()
+
     scripts.scripts_current = scripts.scripts_img2img
     scripts.scripts_img2img.initialize_scripts(is_img2img=True)
 
@@ -856,6 +859,9 @@ def create_ui():
         ui_extra_networks.setup_ui(extra_networks_ui_img2img, output_panel.gallery)
 
         extra_tabs.__exit__()
+
+        if shared.opts.paste_safe_guard:
+            toprow.hook_paste_guard()
 
     scripts.scripts_current = None
 
