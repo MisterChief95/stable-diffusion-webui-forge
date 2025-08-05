@@ -1696,5 +1696,27 @@ body.resizing .resize-handle {
 }
 
 #quicksettings .gradio-slider span {
-    padding-right: 5px;
+    padding-right: 8px;
+}
+
+#quicksettings .gradio-slider>div.wrap {
+    width: 200px;
+}
+
+#quicksettings .gradio-slider input[type="range"] {
+    width: 200px;
+}
+
+#quicksettings div.gradio-dropdown.multiselect div.wrap div.token span {
+    text-overflow: ellipsis;
+    width: 2em;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#quicksettings div.gradio-dropdown.multiselect:hover div.wrap div.token span {
+    text-overflow: unset;
+    width: auto;
+    white-space: unset;
+    overflow: unset;
 }
