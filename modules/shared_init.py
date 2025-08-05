@@ -1,9 +1,4 @@
-import os
-
-import torch
-
 from modules import shared
-from modules.shared import cmd_opts
 
 
 def initialize():
@@ -13,6 +8,7 @@ def initialize():
     """
 
     from modules import options, shared_options
+
     shared.options_templates = shared_options.options_templates
     shared.opts = options.Options(shared_options.options_templates, shared_options.restricted_opts)
     shared.restricted_opts = shared_options.restricted_opts

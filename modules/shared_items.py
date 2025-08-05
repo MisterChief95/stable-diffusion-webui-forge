@@ -3,17 +3,6 @@ import sys
 
 from modules import script_callbacks, scripts, ui_components
 from modules.options import OptionHTML, OptionInfo
-from modules.shared_cmd_options import cmd_opts
-
-
-def realesrgan_models_names():
-    import modules.realesrgan_model
-    return [x.name for x in modules.realesrgan_model.get_realesrgan_models(None)]
-
-
-def dat_models_names():
-    import modules.dat_model
-    return [x.name for x in modules.dat_model.get_dat_models(None)]
 
 
 def postprocessing_scripts():
@@ -25,7 +14,7 @@ def postprocessing_scripts():
 def sd_vae_items():
     import modules.sd_vae
 
-    return ["Automatic", "None"] + list(modules.sd_vae.vae_dict)
+    return ["Automatic", "None", *list(modules.sd_vae.vae_dict)]
 
 
 def refresh_vae_list():
@@ -41,7 +30,7 @@ def cross_attention_optimizations():
 def sd_unet_items():
     import modules.sd_unet
 
-    return ["Automatic"] + [x.label for x in modules.sd_unet.unet_options] + ["None"]
+    return ["Automatic", *(x.label for x in modules.sd_unet.unet_options), "None"]
 
 
 def refresh_unet_list():
@@ -52,21 +41,31 @@ def refresh_unet_list():
 
 def list_checkpoint_tiles(use_short=False):
     import modules.sd_models
+
     return modules.sd_models.checkpoint_tiles(use_short)
 
 
 def refresh_checkpoints():
     import modules.sd_models
+
     return modules.sd_models.list_models()
 
 
 def list_samplers():
     import modules.sd_samplers
+
     return modules.sd_samplers.all_samplers
+
+
+def list_schedulers():
+    import modules.sd_schedulers
+
+    return [x.label for x in modules.sd_schedulers.schedulers]
 
 
 def get_infotext_names():
     from modules import infotext_utils, shared
+
     res = {}
 
     for info in shared.opts.data_labels.values():
@@ -78,7 +77,7 @@ def get_infotext_names():
             if isinstance(name, str):
                 res[name] = 1
 
-    res['Lora hashes'] = 1
+    res["Lora hashes"] = 1
 
     return list(res)
 
@@ -116,10 +115,11 @@ def ui_reorder_categories():
 
 def callbacks_order_settings():
     options = {
-        "sd_vae_explanation": OptionHTML("""
+        "sd_vae_explanation": OptionHTML(
+            """
     For categories below, callbacks added to dropdowns happen before others, in order listed.
-    """),
-
+    """
+        ),
     }
 
     callback_options = {}
@@ -148,7 +148,7 @@ def callbacks_order_settings():
         option_info = OptionInfo([], f"{category} callback priority", ui_components.DropdownMulti, {"choices": [x.name for x in callbacks]})
         option_info.needs_restart()
         option_info.html("<div class='info'>Default order: <ol>" + "".join(f"<li>{html.escape(x.name)}</li>\n" for x in callbacks) + "</ol></div>")
-        options['prioritized_callbacks_' + category] = option_info
+        options["prioritized_callbacks_" + category] = option_info
 
     return options
 
@@ -174,4 +174,4 @@ class Shared(sys.modules[__name__].__class__):
         modules.sd_models.model_data.set_sd_model(value)
 
 
-sys.modules['modules.shared'].__class__ = Shared
+sys.modules["modules.shared"].__class__ = Shared
