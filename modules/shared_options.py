@@ -408,32 +408,27 @@ options_templates.update(
     options_section(
         ("infotext", "Infotext", "ui"),
         {
-            "infotext_explanation": OptionHTML(
-                """
-Infotext is what this software calls the text that contains generation parameters and can be used to generate the same picture again.
-It is displayed in UI below the image. To use infotext, paste it into the prompt and click the ↙️ paste button.
-"""
-            ),
-            "enable_pnginfo": OptionInfo(True, "Write infotext to metadata of the generated image"),
-            "stealth_pnginfo_option": OptionInfo("Alpha", "Stealth infotext mode", gr.Radio, {"choices": ["Alpha", "RGB", "None"]}).info("Ignored if infotext is disabled"),
-            "save_txt": OptionInfo(False, "Create a text file with infotext next to every generated image"),
+            "infotext_explanation": OptionHTML("Infotext is what the webui calls the text that contains generation parameters, and can be used to generate the same image again."),
+            "enable_pnginfo": OptionInfo(True, "Write infotext to metadata of generated images"),
+            "stealth_pnginfo_option": OptionInfo("None", "Stealth Infotext Mode", gr.Radio, {"choices": ("Alpha", "RGB", "None")}),
+            "save_txt": OptionInfo(False, "Write infotext to a text file next to every generated image"),
             "add_model_name_to_info": OptionInfo(True, "Add model name to infotext"),
             "add_model_hash_to_info": OptionInfo(True, "Add model hash to infotext"),
             "add_vae_name_to_info": OptionInfo(True, "Add VAE name to infotext"),
             "add_vae_hash_to_info": OptionInfo(True, "Add VAE hash to infotext"),
             "add_user_name_to_info": OptionInfo(False, "Add user name to infotext when authenticated"),
-            "add_version_to_infotext": OptionInfo(True, "Add program version to infotext"),
-            "disable_weights_auto_swap": OptionInfo(True, "Disregard checkpoint information from pasted infotext").info("when reading generation parameters from text into UI"),
-            "infotext_skip_pasting": OptionInfo([], "Disregard fields from pasted infotext", ui_components.DropdownMulti, lambda: {"choices": shared_items.get_infotext_names()}),
-            "infotext_styles": OptionInfo("Apply if any", "Infer styles from prompts of pasted infotext", gr.Radio, {"choices": ["Ignore", "Apply", "Discard", "Apply if any"]})
-            .info("when reading generation parameters from text into UI)")
-            .html(
-                """<ul style='margin-left: 1.5em'>
-<li>Ignore: keep prompt and styles dropdown as it is.</li>
-<li>Apply: remove style text from prompt, always replace styles dropdown value with found styles (even if none are found).</li>
-<li>Discard: remove style text from prompt, keep styles dropdown as it is.</li>
-<li>Apply if any: remove style text from prompt; if any styles are found in prompt, put them into styles dropdown, otherwise keep it as it is.</li>
-</ul>"""
+            "add_version_to_infotext": OptionInfo(True, "Add webui version to infotext"),
+            "disable_weights_auto_swap": OptionInfo(True, "Ignore checkpoint information when reading infotext"),
+            "infotext_skip_pasting": OptionInfo([], "Ignore fields when reading infotext", ui_components.DropdownMulti, lambda: {"choices": shared_items.get_infotext_names()}),
+            "infotext_styles": OptionInfo("Apply if any", "Infer Styles when reading infotext", gr.Radio, {"choices": ("Ignore", "Apply", "Apply if any", "Discard")}).html(
+                """
+<ul style='margin-left: 1.5em'>
+<li><b>Ignore:</b> keep prompt and styles dropdown as it is</li>
+<li><b>Apply:</b> remove style text from prompt; always replace styles dropdown value with found styles (even if none was found)</li>
+<li><b>Apply if any:</b> remove style text from prompt; if any styles are found in prompt, put them into styles dropdown, otherwise keep it as it is</li>
+<li><b>Discard:</b> remove style text from prompt, keep styles dropdown as it is</li>
+</ul>
+                """
             ),
         },
     )
