@@ -1720,3 +1720,8 @@ body.resizing .resize-handle {
     white-space: unset;
     overflow: unset;
 }
+
+#txt2img_enable_mahiro, #img2img_enable_mahiro {
+    min-width: 0 !important;
+    margin: auto 2em;
+}
