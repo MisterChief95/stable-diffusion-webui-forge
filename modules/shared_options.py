@@ -166,19 +166,19 @@ options_templates.update(
         {
             "profiling_explanation": OptionHTML(
                 """
-Those settings allow you to enable torch profiler when generating pictures.
-Profiling allows you to see which code uses how much of computer's resources during generation.
-Each generation writes its own profile to one file, overwriting previous.
-The file can be viewed in <a href="chrome:tracing">Chrome</a>, or on a <a href="https://ui.perfetto.dev/">Perfetto</a> web site.
-Warning: writing profile can take a lot of time, up to 30 seconds, and the file itself can be around 500MB in size.
-"""
+These settings allow you to enable PyTorch profiler during generation.<br>
+Profiling allows you to see which code uses how much of the computer's resources.
+Each generation writes its own profile to one file, overwriting previous ones.
+The file can be viewed in <a href="chrome:tracing">Chrome</a> or on the <a href="https://ui.perfetto.dev/">Perfetto</a> website.
+<br><b>Warning:</b> Writing profile can take up to 30 seconds, and the file itself can be around 500MB in size.
+                """
             ),
-            "profiling_enable": OptionInfo(False, "Enable profiling"),
+            "profiling_enable": OptionInfo(False, "Enable Profiling"),
             "profiling_activities": OptionInfo(["CPU"], "Activities", gr.CheckboxGroup, {"choices": ["CPU", "CUDA"]}),
-            "profiling_record_shapes": OptionInfo(True, "Record shapes"),
-            "profiling_profile_memory": OptionInfo(True, "Profile memory"),
-            "profiling_with_stack": OptionInfo(True, "Include python stack"),
-            "profiling_filename": OptionInfo("trace.json", "Profile filename"),
+            "profiling_record_shapes": OptionInfo(True, "Record Shapes"),
+            "profiling_profile_memory": OptionInfo(True, "Profile Memory"),
+            "profiling_with_stack": OptionInfo(True, "Include Python Stack"),
+            "profiling_filename": OptionInfo("trace.json", "Profile Filename"),
         },
     )
 )
