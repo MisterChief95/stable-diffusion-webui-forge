@@ -27,10 +27,7 @@ NEAREST = getattr(Image, "Resampling", Image).NEAREST
 
 
 def get_font(fontsize: int):
-    try:
-        return ImageFont.truetype(opts.font or roboto_ttf_file, fontsize)
-    except Exception:
-        return ImageFont.truetype(roboto_ttf_file, fontsize)
+    return ImageFont.truetype(roboto_ttf_file, fontsize)
 
 
 def image_grid(imgs, batch_size=1, rows=None):
