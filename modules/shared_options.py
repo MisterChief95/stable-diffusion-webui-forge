@@ -331,15 +331,15 @@ options_templates.update(
 
 options_templates.update(
     options_section(
-        ("ui_prompt_editing", "Prompt editing", "ui"),
+        ("ui_prompt_editing", "Prompt Editing", "ui"),
         {
-            "keyedit_precision_attention": OptionInfo(0.1, "Precision for (attention:1.1) when editing the prompt with Ctrl+up/down", gr.Slider, {"minimum": 0.01, "maximum": 0.2, "step": 0.001}),
-            "keyedit_precision_extra": OptionInfo(0.05, "Precision for <extra networks:0.9> when editing the prompt with Ctrl+up/down", gr.Slider, {"minimum": 0.01, "maximum": 0.2, "step": 0.001}),
-            "keyedit_delimiters": OptionInfo(r".,\/!?%^*;:{}=`~() ", "Word delimiters when editing the prompt with Ctrl+up/down"),
-            "keyedit_delimiters_whitespace": OptionInfo(["Tab", "Carriage Return", "Line Feed"], "Ctrl+up/down whitespace delimiters", gr.CheckboxGroup, lambda: {"choices": ["Tab", "Carriage Return", "Line Feed"]}),
-            "keyedit_move": OptionInfo(True, "Alt+left/right moves prompt elements"),
-            "disable_token_counters": OptionInfo(False, "Disable prompt token counters"),
-            "include_styles_into_token_counters": OptionInfo(True, "Count tokens of enabled styles").info("When calculating how many tokens the prompt has, also consider tokens added by enabled styles."),
+            "keyedit_precision_attention": OptionInfo(0.1, "Precision for (attention:1.1) when editing the prompt with Ctrl + Up/Down", gr.Slider, {"minimum": 0.05, "maximum": 0.25, "step": 0.05}),
+            "keyedit_precision_extra": OptionInfo(0.05, "Precision for <lora:0.9> when editing the prompt with Ctrl + Up/Down", gr.Slider, {"minimum": 0.05, "maximum": 0.25, "step": 0.05}),
+            "keyedit_delimiters": OptionInfo(r".,\/!?%^*;:{}=`~() ", "RegEx Delimiters when editing the prompt with Ctrl + Up/Down"),
+            "keyedit_delimiters_whitespace": OptionInfo(["Tab", "Carriage Return", "Line Feed"], "Whitespace Delimiters when editing the prompt with Ctrl + Up/Down", gr.CheckboxGroup, {"choices": ("Tab", "Carriage Return", "Line Feed")}),
+            "keyedit_move": OptionInfo(True, "Alt + Left/Right moves prompt chunks"),
+            "disable_token_counters": OptionInfo(False, "Disable Token Counter"),
+            "include_styles_into_token_counters": OptionInfo(True, "Include enabled Styles in Token Count"),
         },
     )
 )
