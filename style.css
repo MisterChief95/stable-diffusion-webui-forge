@@ -575,6 +575,9 @@ table.popup-table .link {
     padding: 1em;
 }
 
+#settings .settings-div {
+    padding: 1em;
+}
 
 /* live preview */
 .progressDiv {

@@ -11,7 +11,7 @@ from modules import (
     ui_components,
     util,
 )
-from modules.options import OptionHTML, OptionInfo, categories, options_section
+from modules.options import OptionDiv, OptionHTML, OptionInfo, categories, options_section
 from modules.paths_internal import data_path, default_output_dir
 
 from modules.shared_cmd_options import cmd_opts

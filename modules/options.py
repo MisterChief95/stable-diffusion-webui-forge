@@ -65,6 +65,13 @@ class OptionHTML(OptionInfo):
         self.do_not_save = True
 
 
+class OptionDiv(OptionInfo):
+    def __init__(self):
+        super().__init__("", label="", component=lambda **kwargs: gr.HTML(elem_classes="settings-div", **kwargs))
+
+        self.do_not_save = True
+
+
 def options_section(section_identifier, options_dict):
     for v in options_dict.values():
         if len(section_identifier) == 2:
