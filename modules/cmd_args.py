@@ -71,15 +71,15 @@ parser.add_argument("--filenames-max-length", type=int, default=128, help="maxim
 parser.add_argument("--no-prompt-history", action="store_true", help="disable read prompt from last generation feature; settings this argument will not create '--data_path/params.txt' file")
 
 # Paths  # TODO
-parser.add_argument("--ckpt-dir", type=normalized_filepath, default=None, help="Path to directory with stable diffusion checkpoints")
-parser.add_argument("--vae-dir", type=normalized_filepath, default=None, help="Path to directory with VAE files")
-parser.add_argument("--text-encoder-dir", type=normalized_filepath, default=None, help="Path to directory with text encoder models")
-parser.add_argument("--embeddings-dir", type=normalized_filepath, default=os.path.join(models_path, "embeddings"), help="embeddings directory for textual inversion")
-parser.add_argument("--localizations-dir", type=normalized_filepath, default=os.path.join(script_path, "localizations"), help="localizations directory")
+parser.add_argument("--ckpt-dirs", type=normalized_filepath, action="append", help="Directories for Checkpoint model(s)", default=[])
+parser.add_argument("--vae-dirs", type=normalized_filepath, action="append", help="Directories for VAE model(s)", default=[])
+parser.add_argument("--text-encoder-dirs", type=normalized_filepath, action="append", help="Directories for Text Encoder model(s)", default=[])
+parser.add_argument("--embeddings-dir", type=normalized_filepath, help="Directory for Textual Inversion model(s)", default=os.path.join(models_path, "embeddings"))
+parser.add_argument("--localizations-dir", type=normalized_filepath, help="Directory for localization file(s)", default=os.path.join(script_path, "localizations"))
 
-parser.add_argument("--codeformer-models-path", type=normalized_filepath, help="Path to directory with codeformer model file(s).", default=os.path.join(models_path, "Codeformer"))
-parser.add_argument("--gfpgan-models-path", type=normalized_filepath, help="Path to directory with GFPGAN model file(s).", default=os.path.join(models_path, "GFPGAN"))
-parser.add_argument("--esrgan-models-path", type=normalized_filepath, help="Path to directory with ESRGAN model file(s).", default=os.path.join(models_path, "ESRGAN"))
+parser.add_argument("--codeformer-models-path", type=normalized_filepath, help="Directory for CodeFormer model file(s)", default=os.path.join(models_path, "Codeformer"))
+parser.add_argument("--gfpgan-models-path", type=normalized_filepath, help="Directory for GFPGAN model file(s)", default=os.path.join(models_path, "GFPGAN"))
+parser.add_argument("--esrgan-models-path", type=normalized_filepath, help="Directory for ESRGAN model file(s)", default=os.path.join(models_path, "ESRGAN"))
 
 # args added by. Forge
 parser.add_argument("--forge-ref-a1111-home", type=Path, help="Look for models in an existing installation of Automatic1111 Webui", default=None)
