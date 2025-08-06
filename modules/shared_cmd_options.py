@@ -2,7 +2,7 @@ import os
 
 import launch
 from modules import cmd_args, script_loading
-from modules.paths_internal import data_path, default_sd_model_file, extensions_builtin_dir, extensions_dir, models_path, script_path, sd_model_file  # noqa: F401
+from modules.paths_internal import data_path, extensions_builtin_dir, extensions_dir, models_path, script_path  # noqa: F401
 
 parser = cmd_args.parser
 
