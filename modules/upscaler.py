@@ -28,7 +28,6 @@ class Upscaler:
         self.tile_size: int = opts.ESRGAN_tile
         self.tile_pad: int = opts.ESRGAN_tile_overlap
         self.device = devices.device_esrgan
-        self.half: bool = not cmd_opts.no_half
         self.model_download_path: str = None
         self.img = None
         self.output = None
