@@ -1,41 +1,33 @@
-import os
 import argparse
+import os
 
 from backend import utils
-from modules.paths_internal import models_path
-from pathlib import Path
-
+from modules.paths_internal import models_path, normalized_filepath
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument(
     "--controlnet-dir",
-    type=Path,
+    type=normalized_filepath,
     help="Path to directory with ControlNet models",
-    default=None,
+    default=os.path.join(models_path, "ControlNet"),
 )
 parser.add_argument(
     "--controlnet-preprocessor-models-dir",
-    type=Path,
+    type=normalized_filepath,
     help="Path to directory with annotator model directories",
-    default=None,
+    default=os.path.join(models_path, "ControlNetPreprocessor"),
 )
 
-cmd_opts = parser.parse_known_args()[0]
+cmd_opts, _ = parser.parse_known_args()
 
-if cmd_opts.controlnet_dir:
-    controlnet_dir = str(cmd_opts.controlnet_dir)
-else:
-    controlnet_dir = os.path.join(models_path, 'ControlNet')
+controlnet_dir: str = cmd_opts.controlnet_dir
 os.makedirs(controlnet_dir, exist_ok=True)
 
-if cmd_opts.controlnet_preprocessor_models_dir:
-    preprocessor_dir = str(cmd_opts.controlnet_preprocessor_models_dir)
-else:
-    preprocessor_dir = os.path.join(models_path, 'ControlNetPreprocessor')
+preprocessor_dir: str = cmd_opts.controlnet_preprocessor_models_dir
 os.makedirs(preprocessor_dir, exist_ok=True)
 
-diffusers_dir = os.path.join(models_path, 'diffusers')
+diffusers_dir: str = os.path.join(models_path, "diffusers")
 os.makedirs(diffusers_dir, exist_ok=True)
 
 supported_preprocessors = {}

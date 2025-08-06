@@ -89,18 +89,6 @@ parser.add_argument(
     help="Look for models in an existing A1111 checkout's path",
     default=None,
 )
-parser.add_argument(
-    "--controlnet-dir",
-    type=Path,
-    help="Path to directory with ControlNet models",
-    default=None,
-)
-parser.add_argument(
-    "--controlnet-preprocessor-models-dir",
-    type=Path,
-    help="Path to directory with annotator model directories",
-    default=None,
-)
 
 parser.add_argument("--adv-samplers", action="store_true", help='show the "sampler parameters" advanced settings')
 
