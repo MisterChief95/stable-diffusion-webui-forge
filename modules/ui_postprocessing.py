@@ -1,8 +1,8 @@
 import gradio as gr
-from modules import scripts, shared, ui_common, postprocessing, call_queue, ui_toprow
+
 import modules.infotext_utils as parameters_copypaste
+from modules import call_queue, postprocessing, scripts, shared, ui_common, ui_toprow
 from modules.ui_components import ResizeHandleRow
-from modules_forge.forge_canvas.canvas import ForgeCanvas
 
 
 def create_ui():
@@ -40,7 +40,7 @@ def create_ui():
 
     submit.click(
         fn=call_queue.wrap_gradio_gpu_call(postprocessing.run_postprocessing_webui, extra_outputs=[None, ""]),
-        _js=f"submit_extras",
+        _js="submit_extras",
         inputs=submit_click_inputs,
         outputs=[
             output_panel.gallery,
