@@ -45,7 +45,7 @@ class ExtraNetworksPageCheckpoints(ui_extra_networks.ExtraNetworksPage):
                 yield item
 
     def allowed_directories_for_previews(self):
-        return [v for v in [shared.cmd_opts.ckpt_dir, sd_models.model_path] if v is not None]
+        return [v for v in (*shared.cmd_opts.ckpt_dirs, sd_models.model_path) if os.path.isdir(str(v))]
 
     def create_user_metadata_editor(self, ui, tabname):
         return CheckpointUserMetadataEditor(ui, tabname, self)

@@ -82,13 +82,6 @@ def refresh_vae_list():
         os.path.join(vae_path, '**/*.safetensors'),
     ]
 
-    if shared.cmd_opts.ckpt_dir is not None and os.path.isdir(shared.cmd_opts.ckpt_dir):
-        paths += [
-            os.path.join(shared.cmd_opts.ckpt_dir, '**/*.vae.ckpt'),
-            os.path.join(shared.cmd_opts.ckpt_dir, '**/*.vae.pt'),
-            os.path.join(shared.cmd_opts.ckpt_dir, '**/*.vae.safetensors'),
-        ]
-
     if shared.cmd_opts.vae_dir is not None and os.path.isdir(shared.cmd_opts.vae_dir):
         paths += [
             os.path.join(shared.cmd_opts.vae_dir, '**/*.ckpt'),

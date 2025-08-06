@@ -63,16 +63,14 @@ class CheckpointInfo:
     def __init__(self, filename):
         self.filename = filename
         abspath = os.path.abspath(filename)
-        abs_ckpt_dir = os.path.abspath(shared.cmd_opts.ckpt_dir) if shared.cmd_opts.ckpt_dir is not None else None
+        abs_ckpt_dirs = (*cmd_opts.ckpt_dirs, model_path)
 
         self.is_safetensors = os.path.splitext(filename)[1].lower() == ".safetensors"
 
-        if abs_ckpt_dir and abspath.startswith(abs_ckpt_dir):
-            name = abspath.replace(abs_ckpt_dir, "")
-        elif abspath.startswith(model_path):
-            name = abspath.replace(model_path, "")
-        else:
-            name = os.path.basename(filename)
+        for _dir in abs_ckpt_dirs:
+            if abspath.startswith(str(_dir)):
+                name = abspath.replace(str(_dir), "")
+                break
 
         if name.startswith("\\") or name.startswith("/"):
             name = name[1:]
@@ -156,10 +154,12 @@ def checkpoint_tiles(use_short=False):
 def list_models():
     checkpoints_list.clear()
     checkpoint_aliases.clear()
+    model_list = []
 
-    model_list = modelloader.load_models(model_path=model_path, model_url=None, command_path=shared.cmd_opts.ckpt_dir, ext_filter=[".ckpt", ".safetensors", ".gguf"], download_name=None, ext_blacklist=[".vae.ckpt", ".vae.safetensors"])
+    for _dir in (*cmd_opts.ckpt_dirs, model_path):
+        model_list.extend(modelloader.load_models(model_path=_dir, ext_filter=[".ckpt", ".safetensors", ".gguf"], ext_blacklist=[".vae.ckpt", ".vae.safetensors"]))
 
-    for filename in model_list:
+    for filename in set(model_list):
         checkpoint_info = CheckpointInfo(filename)
         checkpoint_info.register()
 
