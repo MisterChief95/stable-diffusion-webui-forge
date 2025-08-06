@@ -68,9 +68,9 @@ class CheckpointInfo:
         self.is_safetensors = os.path.splitext(filename)[1].lower() == ".safetensors"
 
         if abs_ckpt_dir and abspath.startswith(abs_ckpt_dir):
-            name = abspath.replace(abs_ckpt_dir, '')
+            name = abspath.replace(abs_ckpt_dir, "")
         elif abspath.startswith(model_path):
-            name = abspath.replace(model_path, '')
+            name = abspath.replace(model_path, "")
         else:
             name = os.path.basename(filename)
 
@@ -79,14 +79,14 @@ class CheckpointInfo:
 
         def read_metadata():
             metadata = read_metadata_from_safetensors(filename)
-            self.modelspec_thumbnail = metadata.pop('modelspec.thumbnail', None)
+            self.modelspec_thumbnail = metadata.pop("modelspec.thumbnail", None)
 
             return metadata
 
         self.metadata = {}
         if self.is_safetensors:
             try:
-                self.metadata = cache.cached_data_for_file('safetensors-metadata', "checkpoint/" + name, filename, read_metadata)
+                self.metadata = cache.cached_data_for_file("safetensors-metadata", "checkpoint/" + name, filename, read_metadata)
             except Exception as e:
                 errors.display(e, f"reading metadata for {filename}")
 
@@ -98,12 +98,12 @@ class CheckpointInfo:
         self.sha256 = hashes.sha256_from_cache(self.filename, f"checkpoint/{name}")
         self.shorthash = self.sha256[0:10] if self.sha256 else None
 
-        self.title = name if self.shorthash is None else f'{name} [{self.shorthash}]'
-        self.short_title = self.name_for_extra if self.shorthash is None else f'{self.name_for_extra} [{self.shorthash}]'
+        self.title = name if self.shorthash is None else f"{name} [{self.shorthash}]"
+        self.short_title = self.name_for_extra if self.shorthash is None else f"{self.name_for_extra} [{self.shorthash}]"
 
-        self.ids = [self.hash, self.model_name, self.title, name, self.name_for_extra, f'{name} [{self.hash}]']
+        self.ids = [self.hash, self.model_name, self.title, name, self.name_for_extra, f"{name} [{self.hash}]"]
         if self.shorthash:
-            self.ids += [self.shorthash, self.sha256, f'{self.name} [{self.shorthash}]', f'{self.name_for_extra} [{self.shorthash}]']
+            self.ids += [self.shorthash, self.sha256, f"{self.name} [{self.shorthash}]", f"{self.name_for_extra} [{self.shorthash}]"]
 
     def register(self):
         checkpoints_list[self.title] = self
@@ -122,11 +122,11 @@ class CheckpointInfo:
         self.shorthash = shorthash
 
         if self.shorthash not in self.ids:
-            self.ids += [self.shorthash, self.sha256, f'{self.name} [{self.shorthash}]', f'{self.name_for_extra} [{self.shorthash}]']
+            self.ids += [self.shorthash, self.sha256, f"{self.name} [{self.shorthash}]", f"{self.name_for_extra} [{self.shorthash}]"]
 
         old_title = self.title
-        self.title = f'{self.name} [{self.shorthash}]'
-        self.short_title = f'{self.name_for_extra} [{self.shorthash}]'
+        self.title = f"{self.name} [{self.shorthash}]"
+        self.short_title = f"{self.name_for_extra} [{self.shorthash}]"
 
         replace_key(checkpoints_list, old_title, self.title, self)
         self.register()
@@ -166,15 +166,17 @@ def list_models():
 
 re_strip_checksum = re.compile(r"\s*\[[^]]+]\s*$")
 
+
 def match_checkpoint_to_name(name):
-    name = name.split(' [')[0]
+    name = name.split(" [")[0]
 
     for ckptname in checkpoints_list.values():
-        title = ckptname.title.split(' [')[0]
+        title = ckptname.title.split(" [")[0]
         if (name in title) or (title in name):
-            return ckptname.short_title if shared.opts.sd_checkpoint_dropdown_use_short else ckptname.name.split(' [')[0]
+            return ckptname.short_title if shared.opts.sd_checkpoint_dropdown_use_short else ckptname.name.split(" [")[0]
 
     return name
+
 
 def get_closet_checkpoint_match(search_string):
     if not search_string:
@@ -188,7 +190,7 @@ def get_closet_checkpoint_match(search_string):
     if found:
         return found[0]
 
-    search_string_without_checksum = re.sub(re_strip_checksum, '', search_string)
+    search_string_without_checksum = re.sub(re_strip_checksum, "", search_string)
     found = sorted([info for info in checkpoints_list.values() if search_string_without_checksum in info.title], key=lambda x: len(x.title))
     if found:
         return found[0]
@@ -202,13 +204,14 @@ def model_hash(filename):
     try:
         with open(filename, "rb") as file:
             import hashlib
+
             m = hashlib.sha256()
 
             file.seek(0x100000)
             m.update(file.read(0x10000))
             return m.hexdigest()[0:8]
     except FileNotFoundError:
-        return 'NOFILE'
+        return "NOFILE"
 
 
 def select_checkpoint():
@@ -220,7 +223,7 @@ def select_checkpoint():
         return checkpoint_info
 
     if len(checkpoints_list) == 0:
-        print('You do not have any model!')
+        print("You do not have any model!")
         return None
 
     checkpoint_info = next(iter(checkpoints_list.values()))
@@ -251,17 +254,17 @@ def read_metadata_from_safetensors(filename):
         res = {}
 
         try:
-            json_data = json_start + file.read(metadata_len-2)
+            json_data = json_start + file.read(metadata_len - 2)
             json_obj = json.loads(json_data)
             for k, v in json_obj.get("__metadata__", {}).items():
                 res[k] = v
-                if isinstance(v, str) and v[0:1] == '{':
+                if isinstance(v, str) and v[0:1] == "{":
                     try:
                         res[k] = json.loads(v)
                     except Exception:
                         pass
         except Exception:
-             errors.report(f"Error reading metadata from file: {filename}", exc_info=True)
+            errors.report(f"Error reading metadata from file: {filename}", exc_info=True)
 
         return res
 
@@ -328,13 +331,13 @@ def rescale_zero_terminal_snr_abar(alphas_cumprod):
     alphas_bar_sqrt_T = alphas_bar_sqrt[-1].clone()
 
     # Shift so the last timestep is zero.
-    alphas_bar_sqrt -= (alphas_bar_sqrt_T)
+    alphas_bar_sqrt -= alphas_bar_sqrt_T
 
     # Scale so the first timestep is back to the old value.
     alphas_bar_sqrt *= alphas_bar_sqrt_0 / (alphas_bar_sqrt_0 - alphas_bar_sqrt_T)
 
     # Convert alphas_bar_sqrt to betas
-    alphas_bar = alphas_bar_sqrt ** 2  # Revert sqrt
+    alphas_bar = alphas_bar_sqrt**2  # Revert sqrt
     alphas_bar[-1] = 4.8973451890853435e-08
     return alphas_bar
 
@@ -346,19 +349,19 @@ def apply_alpha_schedule_override(sd_model, p=None):
     - rescales the alpha schedule to have zero terminal SNR
     """
 
-    if not hasattr(sd_model, 'alphas_cumprod') or not hasattr(sd_model, 'alphas_cumprod_original'):
+    if not hasattr(sd_model, "alphas_cumprod") or not hasattr(sd_model, "alphas_cumprod_original"):
         return
 
     sd_model.alphas_cumprod = sd_model.alphas_cumprod_original.to(shared.device)
 
     if opts.use_downcasted_alpha_bar:
         if p is not None:
-            p.extra_generation_params['Downcast alphas_cumprod'] = opts.use_downcasted_alpha_bar
+            p.extra_generation_params["Downcast alphas_cumprod"] = opts.use_downcasted_alpha_bar
         sd_model.alphas_cumprod = sd_model.alphas_cumprod.half().to(shared.device)
 
     if opts.sd_noise_schedule == "Zero Terminal SNR":
         if p is not None:
-            p.extra_generation_params['Noise Schedule'] = opts.sd_noise_schedule
+            p.extra_generation_params["Noise Schedule"] = opts.sd_noise_schedule
         sd_model.alphas_cumprod = rescale_zero_terminal_snr_abar(sd_model.alphas_cumprod).to(shared.device)
 
 
@@ -369,7 +372,7 @@ class FakeInitialModel:
         self.chunk_length = 75
 
     def get_prompt_lengths_on_ui(self, prompt):
-        r = len(prompt.strip('!,. ').replace(' ', ',').replace('.', ',').replace('!', ',').replace(',,', ',').replace(',,', ',').replace(',,', ',').replace(',,', ',').split(','))
+        r = len(prompt.strip("!,. ").replace(" ", ",").replace(".", ",").replace("!", ",").replace(",,", ",").replace(",,", ",").replace(",,", ",").replace(",,", ",").split(","))
         return r, math.ceil(max(r, 1) / self.chunk_length) * self.chunk_length
 
 
@@ -377,7 +380,7 @@ class SdModelData:
     def __init__(self):
         self.sd_model = FakeInitialModel()
         self.forge_loading_parameters = {}
-        self.forge_hash = ''
+        self.forge_hash = ""
 
     def get_sd_model(self):
         return self.sd_model
@@ -438,14 +441,11 @@ def apply_token_merging(sd_model, token_merging_ratio):
     if token_merging_ratio <= 0:
         return
 
-    print(f'token_merging_ratio = {token_merging_ratio}')
+    print(f"token_merging_ratio = {token_merging_ratio}")
 
     from backend.misc.tomesd import TomePatcher
 
-    sd_model.forge_objects.unet = TomePatcher.patch(
-        model=sd_model.forge_objects.unet,
-        ratio=token_merging_ratio
-    )
+    sd_model.forge_objects.unet = TomePatcher.patch(model=sd_model.forge_objects.unet, ratio=token_merging_ratio)
 
     return
 
@@ -457,7 +457,7 @@ def forge_model_reload():
     if model_data.forge_hash == current_hash:
         return model_data.sd_model, False
 
-    print('Loading Model: ' + str(model_data.forge_loading_parameters))
+    print("Loading Model: " + str(model_data.forge_loading_parameters))
 
     timer = Timer()
 
@@ -469,19 +469,19 @@ def forge_model_reload():
 
     timer.record("unload existing model")
 
-    checkpoint_info = model_data.forge_loading_parameters['checkpoint_info']
+    checkpoint_info = model_data.forge_loading_parameters["checkpoint_info"]
 
     if checkpoint_info is None:
-        raise ValueError('You do not have any model! Please download at least one model in [models/Stable-diffusion].')
+        raise ValueError("You do not have any model! Please download at least one model in [models/Stable-diffusion].")
 
     state_dict = checkpoint_info.filename
-    additional_state_dicts = model_data.forge_loading_parameters.get('additional_modules', [])
+    additional_state_dicts = model_data.forge_loading_parameters.get("additional_modules", [])
 
     timer.record("cache state dict")
 
-    dynamic_args['forge_unet_storage_dtype'] = model_data.forge_loading_parameters.get('unet_storage_dtype', None)
-    dynamic_args['embedding_dir'] = cmd_opts.embeddings_dir
-    dynamic_args['emphasis_name'] = opts.emphasis
+    dynamic_args["forge_unet_storage_dtype"] = model_data.forge_loading_parameters.get("unet_storage_dtype", None)
+    dynamic_args["embedding_dir"] = cmd_opts.embeddings_dir
+    dynamic_args["emphasis_name"] = opts.emphasis
     sd_model = forge_loader(state_dict, additional_state_dicts=additional_state_dicts)
     timer.record("forge model load")
 
