@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-from modules.paths_internal import data_path, extensions_builtin_dir, extensions_dir, parser, models_path, normalized_filepath, script_path  # noqa: F401
+from modules.paths_internal import data_path, extensions_builtin_dir, extensions_dir, models_path, normalized_filepath, parser, script_path  # noqa: F401
 
 parser.add_argument("-f", action="store_true", help=argparse.SUPPRESS)
 
@@ -17,19 +17,11 @@ parser.add_argument("--skip-prepare-environment", action="store_true", help="lau
 parser.add_argument("--skip-install", action="store_true", help="launch.py argument: skip installation of packages")
 parser.add_argument("--dump-sysinfo", action="store_true", help="launch.py argument: dump limited sysinfo file (without information about extensions, options) to disk and quit")
 parser.add_argument("--loglevel", type=str, help="log level; one of: CRITICAL, ERROR, WARNING, INFO, DEBUG", default=None)
-parser.add_argument("--ckpt-dir", type=normalized_filepath, default=None, help="Path to directory with stable diffusion checkpoints")
-parser.add_argument("--vae-dir", type=normalized_filepath, default=None, help="Path to directory with VAE files")
-parser.add_argument("--text-encoder-dir", type=normalized_filepath, default=None, help="Path to directory with text encoder models")
-parser.add_argument("--embeddings-dir", type=normalized_filepath, default=os.path.join(models_path, "embeddings"), help="embeddings directory for textual inversion")
-parser.add_argument("--localizations-dir", type=normalized_filepath, default=os.path.join(script_path, "localizations"), help="localizations directory")
 parser.add_argument("--share", action="store_true", help="use share=True for gradio and make the UI accessible through their site")
 parser.add_argument("--ngrok", type=str, help="ngrok authtoken, alternative to gradio --share", default=None)
 parser.add_argument("--ngrok-region", type=str, help="does not do anything.", default="")
 parser.add_argument("--ngrok-options", type=json.loads, help='The options to pass to ngrok in JSON format, e.g.: \'{"authtoken_from_env":true, "basic_auth":"user:password", "oauth_provider":"google", "oauth_allow_emails":"user@asdf.com"}\'', default=dict())
 parser.add_argument("--enable-insecure-extension-access", action="store_true", help="enable extensions tab regardless of other options")
-parser.add_argument("--codeformer-models-path", type=normalized_filepath, help="Path to directory with codeformer model file(s).", default=os.path.join(models_path, "Codeformer"))
-parser.add_argument("--gfpgan-models-path", type=normalized_filepath, help="Path to directory with GFPGAN model file(s).", default=os.path.join(models_path, "GFPGAN"))
-parser.add_argument("--esrgan-models-path", type=normalized_filepath, help="Path to directory with ESRGAN model file(s).", default=os.path.join(models_path, "ESRGAN"))
 parser.add_argument("--xformers", action="store_true", help="install xformers for cross attention")
 parser.add_argument("--sage", action="store_true", help="install sageattention")
 parser.add_argument("--flash", action="store_true", help="install flash_attn")
@@ -78,14 +70,22 @@ parser.add_argument("--unix-filenames-sanitization", action="store_true", help="
 parser.add_argument("--filenames-max-length", type=int, default=128, help="maximal length of filenames of saved images. If you override it, it can conflict with your file system")
 parser.add_argument("--no-prompt-history", action="store_true", help="disable read prompt from last generation feature; settings this argument will not create '--data_path/params.txt' file")
 
-# args added by. Forge
-parser.add_argument(
-    "--forge-ref-a1111-home",
-    type=Path,
-    help="Look for models in an existing A1111 checkout's path",
-    default=None,
-)
+# Paths  # TODO
+parser.add_argument("--ckpt-dir", type=normalized_filepath, default=None, help="Path to directory with stable diffusion checkpoints")
+parser.add_argument("--vae-dir", type=normalized_filepath, default=None, help="Path to directory with VAE files")
+parser.add_argument("--text-encoder-dir", type=normalized_filepath, default=None, help="Path to directory with text encoder models")
+parser.add_argument("--embeddings-dir", type=normalized_filepath, default=os.path.join(models_path, "embeddings"), help="embeddings directory for textual inversion")
+parser.add_argument("--localizations-dir", type=normalized_filepath, default=os.path.join(script_path, "localizations"), help="localizations directory")
 
+parser.add_argument("--codeformer-models-path", type=normalized_filepath, help="Path to directory with codeformer model file(s).", default=os.path.join(models_path, "Codeformer"))
+parser.add_argument("--gfpgan-models-path", type=normalized_filepath, help="Path to directory with GFPGAN model file(s).", default=os.path.join(models_path, "GFPGAN"))
+parser.add_argument("--esrgan-models-path", type=normalized_filepath, help="Path to directory with ESRGAN model file(s).", default=os.path.join(models_path, "ESRGAN"))
+
+# args added by. Forge
+parser.add_argument("--forge-ref-a1111-home", type=Path, help="Look for models in an existing installation of Automatic1111 Webui", default=None)
+
+# args added by. Neo
+parser.add_argument("--forge-ref-comfy-home", type=Path, help="Look for models in an existing installation of ComfyUI", default=None)
 parser.add_argument("--adv-samplers", action="store_true", help='show the "sampler parameters" advanced settings')
 
 pkm = parser.add_mutually_exclusive_group()
