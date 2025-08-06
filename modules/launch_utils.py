@@ -378,36 +378,52 @@ def prepare_environment():
         exit(0)
 
 
-def configure_forge_reference_checkout(a1111_home: Path):
-    """Set model paths based on an existing A1111 checkout."""
+class ModelRef(NamedTuple):
+    arg_name: str
+    relative_path: str
 
-    class ModelRef(NamedTuple):
-        arg_name: str
-        relative_path: str
 
-    refs = [
+def configure_a1111_reference(a1111_home: Path):
+    """Append model paths based on an existing A1111 installation"""
+
+    refs = (
         ModelRef(arg_name="--embeddings-dir", relative_path="embeddings"),
-        ModelRef(arg_name="--esrgan-models-path", relative_path="models/ESRGAN"),
-        ModelRef(arg_name="--lora-dir", relative_path="models/Lora"),
-        ModelRef(arg_name="--ckpt-dir", relative_path="models/Stable-diffusion"),
-        ModelRef(arg_name="--text-encoder-dir", relative_path="models/text_encoder"),
-        ModelRef(arg_name="--vae-dir", relative_path="models/VAE"),
-        ModelRef(arg_name="--controlnet-dir", relative_path="models/ControlNet"),
-        ModelRef(arg_name="--controlnet-preprocessor-models-dir", relative_path="models/ControlNetPreprocessor"),
-    ]
+        ModelRef(arg_name="--esrgan-models-path", relative_path="ESRGAN"),
+        ModelRef(arg_name="--lora-dir", relative_path="Lora"),
+        ModelRef(arg_name="--ckpt-dirs", relative_path="Stable-diffusion"),
+        ModelRef(arg_name="--text-encoder-dirs", relative_path="text_encoder"),
+        ModelRef(arg_name="--vae-dirs", relative_path="VAE"),
+    )
 
     for ref in refs:
         target_path = a1111_home / ref.relative_path
         if not target_path.exists():
-            print(f"Path {target_path} does not exist. Skip setting {ref.arg_name}")
+            target_path = a1111_home / "models" / ref.relative_path
+        if not target_path.exists():
             continue
 
-        if ref.arg_name in sys.argv:
-            # Do not override existing dir setting.
+        sys.argv.extend([ref.arg_name, str(target_path.absolute())])
+
+
+def configure_comfy_reference(comfy_home: Path):
+    """Append model paths based on an existing Comfy installation"""
+
+    refs = (
+        ModelRef(arg_name="--ckpt-dirs", relative_path="checkpoints"),
+        ModelRef(arg_name="--ckpt-dirs", relative_path="diffusion_models"),
+        ModelRef(arg_name="--text-encoder-dirs", relative_path="clip"),
+        ModelRef(arg_name="--text-encoder-dirs", relative_path="text_encoders"),
+        ModelRef(arg_name="--vae-dirs", relative_path="VAE"),
+    )
+
+    for ref in refs:
+        target_path = comfy_home / ref.relative_path
+        if not target_path.exists():
+            target_path = comfy_home / "models" / ref.relative_path
+        if not target_path.exists():
             continue
 
-        sys.argv.append(ref.arg_name)
-        sys.argv.append(str(target_path))
+        sys.argv.extend([ref.arg_name, str(target_path.absolute())])
 
 
 def start():

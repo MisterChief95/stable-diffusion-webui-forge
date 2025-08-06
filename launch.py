@@ -41,7 +41,9 @@ def main():
             prepare_environment()
 
     if args.forge_ref_a1111_home:
-        launch_utils.configure_forge_reference_checkout(args.forge_ref_a1111_home)
+        launch_utils.configure_a1111_reference(args.forge_ref_a1111_home)
+    if args.forge_ref_comfy_home:
+        launch_utils.configure_comfy_reference(args.forge_ref_comfy_home)
 
     start()
 
