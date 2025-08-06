@@ -32,7 +32,7 @@ def get_loaded_vae_hash():
     if loaded_vae_file is None:
         return None
 
-    sha256 = hashes.sha256(loaded_vae_file, 'vae')
+    sha256 = hashes.sha256(loaded_vae_file, "vae")
 
     return sha256[0:10] if sha256 else None
 
@@ -72,22 +72,17 @@ def get_filename(filepath):
 
 def refresh_vae_list():
     vae_dict.clear()
+    paths = []
 
-    paths = [
-        os.path.join(sd_models.model_path, '**/*.vae.ckpt'),
-        os.path.join(sd_models.model_path, '**/*.vae.pt'),
-        os.path.join(sd_models.model_path, '**/*.vae.safetensors'),
-        os.path.join(vae_path, '**/*.ckpt'),
-        os.path.join(vae_path, '**/*.pt'),
-        os.path.join(vae_path, '**/*.safetensors'),
-    ]
+    file_extensions = ("ckpt", "pt", "pth", "bin", "safetensors", "sft", "gguf")
 
-    if shared.cmd_opts.vae_dir is not None and os.path.isdir(shared.cmd_opts.vae_dir):
-        paths += [
-            os.path.join(shared.cmd_opts.vae_dir, '**/*.ckpt'),
-            os.path.join(shared.cmd_opts.vae_dir, '**/*.pt'),
-            os.path.join(shared.cmd_opts.vae_dir, '**/*.safetensors'),
-        ]
+    for ext in file_extensions:
+        paths.append(os.path.join(sd_models.model_path, f"**/*.vae.{ext}"))
+        paths.append(os.path.join(vae_path, f"**/*.{ext}"))
+
+    for _dir in shared.cmd_opts.vae_dirs:
+        for ext in file_extensions:
+            paths.append(os.path.join(_dir, f"**/*.{ext}"))
 
     candidates = []
     for path in paths:
@@ -101,7 +96,7 @@ def refresh_vae_list():
 
 
 def find_vae_near_checkpoint(checkpoint_file):
-    checkpoint_path = os.path.basename(checkpoint_file).rsplit('.', 1)[0]
+    checkpoint_path = os.path.basename(checkpoint_file).rsplit(".", 1)[0]
     for vae_file in vae_dict.values():
         if os.path.basename(vae_file).startswith(checkpoint_path):
             return vae_file
@@ -129,7 +124,7 @@ def resolve_vae_from_setting() -> VaeResolution:
 
     vae_from_options = vae_dict.get(shared.opts.sd_vae, None)
     if vae_from_options is not None:
-        return VaeResolution(vae_from_options, 'specified in settings')
+        return VaeResolution(vae_from_options, "specified in settings")
 
     if not is_automatic():
         print(f"Couldn't find VAE named {shared.opts.sd_vae}; using None instead")
@@ -154,14 +149,14 @@ def resolve_vae_from_user_metadata(checkpoint_file) -> VaeResolution:
 def resolve_vae_near_checkpoint(checkpoint_file) -> VaeResolution:
     vae_near_checkpoint = find_vae_near_checkpoint(checkpoint_file)
     if vae_near_checkpoint is not None and (not shared.opts.sd_vae_overrides_per_model_preferences or is_automatic()):
-        return VaeResolution(vae_near_checkpoint, 'found near the checkpoint')
+        return VaeResolution(vae_near_checkpoint, "found near the checkpoint")
 
     return VaeResolution(resolved=False)
 
 
 def resolve_vae(checkpoint_file) -> VaeResolution:
     if shared.cmd_opts.vae_path is not None:
-        return VaeResolution(shared.cmd_opts.vae_path, 'from commandline argument')
+        return VaeResolution(shared.cmd_opts.vae_path, "from commandline argument")
 
     if shared.opts.sd_vae_overrides_per_model_preferences and not is_automatic():
         return resolve_vae_from_setting()

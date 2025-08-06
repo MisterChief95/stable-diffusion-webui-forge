@@ -117,15 +117,12 @@ def refresh_models():
 
     module_list.clear()
 
-    module_paths = [
+    module_paths: set[str] = {
         os.path.abspath(os.path.join(paths.models_path, "VAE")),
         os.path.abspath(os.path.join(paths.models_path, "text_encoder")),
-    ]
-
-    if isinstance(shared.cmd_opts.vae_dir, str):
-        module_paths.append(os.path.abspath(shared.cmd_opts.vae_dir))
-    if isinstance(shared.cmd_opts.text_encoder_dir, str):
-        module_paths.append(os.path.abspath(shared.cmd_opts.text_encoder_dir))
+        *shared.cmd_opts.vae_dirs,
+        *shared.cmd_opts.text_encoder_dirs,
+    }
 
     for vae_path in module_paths:
         vae_files = find_files_with_extensions(vae_path, file_extensions)
