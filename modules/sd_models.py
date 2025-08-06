@@ -154,12 +154,12 @@ def checkpoint_tiles(use_short=False):
 def list_models():
     checkpoints_list.clear()
     checkpoint_aliases.clear()
-    model_list = []
+    model_list: set[str] = set()
 
     for _dir in (*cmd_opts.ckpt_dirs, model_path):
-        model_list.extend(modelloader.load_models(model_path=_dir, ext_filter=[".ckpt", ".safetensors", ".gguf"], ext_blacklist=[".vae.ckpt", ".vae.safetensors"]))
+        model_list.update(modelloader.load_models(model_path=_dir, ext_filter=[".ckpt", ".safetensors", ".gguf"], ext_blacklist=[".vae.ckpt", ".vae.safetensors"]))
 
-    for filename in set(model_list):
+    for filename in sorted(model_list, reverse=True):
         checkpoint_info = CheckpointInfo(filename)
         checkpoint_info.register()
 
