@@ -5,8 +5,10 @@ import numpy as np
 from PIL import Image
 
 from modules import scripts_postprocessing, shared
+from modules.modelloader import load_upscalers
 from modules.processing import apply_color_correction, setup_color_correction
 from modules.ui import switch_values_symbol
+from modules.ui_common import create_refresh_button
 from modules.ui_components import FormRow, InputAccordion, ToolButton
 
 upscale_cache = {}
@@ -50,6 +52,7 @@ class ScriptPostprocessingUpscale(scripts_postprocessing.ScriptPostprocessing):
             with FormRow():
                 extras_upscaler_1 = gr.Dropdown(label="Upscaler 1", elem_id="extras_upscaler_1", choices=[x.name for x in shared.sd_upscalers], value=shared.sd_upscalers[0].name)
                 extras_upscaler_2 = gr.Dropdown(label="Upscaler 2", elem_id="extras_upscaler_2", choices=[x.name for x in shared.sd_upscalers], value=shared.sd_upscalers[0].name)
+                create_refresh_button([extras_upscaler_1, extras_upscaler_2], load_upscalers, lambda: {"choices": [x.name for x in shared.sd_upscalers]}, "refresh_upscaler")
 
             with FormRow():
                 extras_color_correction = gr.Checkbox(label="Color Correction", elem_id="extras_color_correction", value=False)
