@@ -7,9 +7,7 @@ let ignore_ids_for_localization = {
     modelmerger_tertiary_model_name: "OPTION",
     txt2img_styles: "OPTION",
     img2img_styles: "OPTION",
-    setting_random_artist_categories: "OPTION",
     setting_face_restoration_model: "OPTION",
-    setting_realesrgan_enabled_models: "OPTION",
     extras_upscaler_1: "OPTION",
     extras_upscaler_2: "OPTION",
 };

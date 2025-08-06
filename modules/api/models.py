@@ -262,11 +262,6 @@ class FaceRestorerItem(BaseModel):
     name: str = Field(title="Name")
     cmd_dir: Optional[str] = Field(title="Path")
 
-class RealesrganItem(BaseModel):
-    name: str = Field(title="Name")
-    path: Optional[str] = Field(title="Path")
-    scale: Optional[int] = Field(title="Scale")
-
 class PromptStyleItem(BaseModel):
     name: str = Field(title="Name")
     prompt: Optional[str] = Field(title="Prompt")
