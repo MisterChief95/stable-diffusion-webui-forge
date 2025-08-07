@@ -480,7 +480,10 @@ def forge_loader(sd: os.PathLike, additional_state_dicts: list[os.PathLike] = No
     try:
         state_dicts, estimated_config = split_state_dict(sd, additional_state_dicts=additional_state_dicts)
         estimated_config.filenames = [sd, *additional_state_dicts]
-    except:
+    except Exception as e:
+        from modules.errors import display
+
+        display(e, "forge_loader")
         raise ValueError("Failed to recognize model type!")
 
     repo_name = estimated_config.huggingface_repo
