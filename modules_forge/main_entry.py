@@ -128,7 +128,7 @@ def refresh_models():
         vae_files = find_files_with_extensions(vae_path, file_extensions)
         module_list.update(vae_files)
 
-    return ckpt_list, module_list.keys()
+    return sorted(ckpt_list), sorted(module_list.keys())
 
 
 def ui_refresh_memory_management_settings(model_memory, async_loading, pin_shared_memory):
