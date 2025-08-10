@@ -1,5 +1,5 @@
 # Cherry-picked some good parts from ComfyUI with some bad parts fixed
-
+import gc
 import sys
 import time
 import psutil
@@ -596,6 +596,8 @@ def free_memory(memory_required, device, keep_loaded=[], free_all=False):
             if mem_free_torch > mem_free_total * 0.25:
                 soft_empty_cache()
 
+    gc.collect()
+
     print('Done.')
     return
 
@@ -746,7 +748,10 @@ def unet_inital_load_device(parameters, dtype):
         return cpu_dev
 
 
-def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, torch.bfloat16, torch.float32]):
+def unet_dtype(device=None, model_params=0, supported_dtypes=None):
+    if supported_dtypes is None:
+        supported_dtypes = [torch.float16, torch.bfloat16, torch.float32]
+
     if args.unet_in_bf16:
         return torch.bfloat16
 
@@ -770,7 +775,10 @@ def unet_dtype(device=None, model_params=0, supported_dtypes=[torch.float16, tor
     return torch.float32
 
 
-def get_computation_dtype(inference_device, parameters=0, supported_dtypes=[torch.float16, torch.bfloat16, torch.float32]):
+def get_computation_dtype(inference_device, parameters=0, supported_dtypes=None):
+    if supported_dtypes is None:
+        supported_dtypes = [torch.float16, torch.bfloat16, torch.float32]
+
     for candidate in supported_dtypes:
         if candidate == torch.float16:
             if should_use_fp16(inference_device, model_params=parameters, prioritize_performance=True, manual_cast=False):
