@@ -1333,3 +1333,182 @@ def soft_empty_cache(force=False):
 
 def unload_all_models():
     free_memory(1e30, get_torch_device(), free_all=True)
+
+
+class BatchedMemoryContext:
+    """Context manager for batched model loading to optimize memory usage and reduce fragmentation."""
+    
+    def __init__(self, inference_memory_required=0, hard_memory_preservation=0):
+        self.models_to_load = []
+        self.additional_patchers = []
+        self.inference_memory_required = inference_memory_required
+        self.hard_memory_preservation = hard_memory_preservation
+        self.loaded_models_backup = None
+        self.was_loaded_before_context = {}
+        print(f"[BatchedMemoryContext] Created with inference_memory={inference_memory_required / (1024 * 1024):.2f} MB, hard_preservation={hard_memory_preservation / (1024 * 1024):.2f} MB")
+        
+    def add_model(self, model, model_type="general"):
+        """Add a model to be loaded in the batch.
+        
+        Args:
+            model: Model object with patcher/LoadedModel interface
+            model_type: Type hint for optimization ("unet", "clip", "vae", "general")
+        """
+        if model is not None and model not in [m[0] for m in self.models_to_load]:
+            model_name = getattr(model, '__class__', type(model)).__name__
+            print(f"[BatchedMemoryContext] Adding {model_type} model: {model_name}")
+            self.models_to_load.append((model, model_type))
+        else:
+            print(f"[BatchedMemoryContext] Skipping duplicate or None {model_type} model")
+        return self
+    
+    def add_unet(self, unet):
+        """Add UNet model for batched loading."""
+        return self.add_model(unet, "unet")
+    
+    def add_clip(self, clip):
+        """Add CLIP/text encoder model for batched loading."""
+        if hasattr(clip, 'patcher'):
+            return self.add_model(clip.patcher, "clip")
+        return self.add_model(clip, "clip")
+    
+    def add_vae(self, vae):
+        """Add VAE model for batched loading."""
+        if hasattr(vae, 'patcher'):
+            return self.add_model(vae.patcher, "vae")
+        return self.add_model(vae, "vae")
+    
+    def add_additional_patcher(self, patcher):
+        """Add additional model patcher (LoRA, etc.) for batch loading."""
+        if patcher is not None and patcher not in self.additional_patchers:
+            patcher_name = getattr(patcher, '__class__', type(patcher)).__name__
+            print(f"[BatchedMemoryContext] Adding additional patcher: {patcher_name}")
+            self.additional_patchers.append(patcher)
+        else:
+            print(f"[BatchedMemoryContext] Skipping duplicate or None additional patcher")
+        return self
+    
+    def __enter__(self):
+        """Enter the context and prepare for batched loading."""
+        print(f"[BatchedMemoryContext] Entering context with {len(self.models_to_load)} models and {len(self.additional_patchers)} additional patchers")
+        
+        # Store which models were already loaded to avoid unnecessary unloading
+        for model, model_type in self.models_to_load:
+            loaded_model = LoadedModel(model)
+            was_loaded = loaded_model in current_loaded_models
+            self.was_loaded_before_context[id(model)] = was_loaded
+            print(f"[BatchedMemoryContext] {model_type} model was {'already loaded' if was_loaded else 'not loaded'}")
+        
+        return self
+    
+    def load_all(self):
+        """Perform the actual batched loading of all registered models."""
+        print(f"[BatchedMemoryContext] *** LOAD_ALL CALLED ***")
+        
+        if not self.models_to_load:
+            print("[BatchedMemoryContext] No models to load - returning early")
+            return self
+            
+        models_only = [model for model, _ in self.models_to_load]
+        all_models = models_only + self.additional_patchers
+        
+        print(f"[BatchedMemoryContext] Processing {len(self.models_to_load)} main models:")
+        for i, (model, model_type) in enumerate(self.models_to_load):
+            model_name = getattr(model, '__class__', type(model)).__name__
+            print(f"[BatchedMemoryContext]   {i+1}. {model_type}: {model_name}")
+        
+        print(f"[BatchedMemoryContext] Processing {len(self.additional_patchers)} additional patchers:")
+        for i, patcher in enumerate(self.additional_patchers):
+            patcher_name = getattr(patcher, '__class__', type(patcher)).__name__
+            print(f"[BatchedMemoryContext]   {i+1}. {patcher_name}")
+        
+        # Calculate total inference memory requirements
+        total_inference_memory = max(minimum_inference_memory(), self.inference_memory_required)
+        print(f"[BatchedMemoryContext] Base inference memory: {total_inference_memory / (1024 * 1024):.2f} MB")
+        
+        # Add any additional memory requirements from LoRA patches
+        additional_memory = self.hard_memory_preservation
+        lora_count = 0
+        for model, model_type in self.models_to_load:
+            if hasattr(model, 'lora_patches') and model.lora_patches:
+                lora_count += 1
+                if hasattr(model, 'model') and hasattr(model.model, 'computation_dtype'):
+                    lora_memory = utils.nested_compute_size(
+                        model.lora_patches, 
+                        element_size=utils.dtype_to_element_size(model.model.computation_dtype)
+                    )
+                    additional_memory += lora_memory
+                    print(f"[BatchedMemoryContext] {model_type} has LoRA patches requiring {lora_memory / (1024 * 1024):.2f} MB")
+        
+        print(f"[BatchedMemoryContext] Found {lora_count} models with LoRA patches")
+        print(f"[BatchedMemoryContext] *** CALLING load_models_gpu WITH {len(all_models)} TOTAL MODELS ***")
+        print(f"[BatchedMemoryContext] Total memory requirements: {total_inference_memory / (1024 * 1024):.2f} MB inference + {additional_memory / (1024 * 1024):.2f} MB additional")
+        
+        # Perform consolidated loading
+        load_models_gpu(
+            models=all_models,
+            memory_required=total_inference_memory,
+            hard_memory_preservation=additional_memory
+        )
+        
+        print(f"[BatchedMemoryContext] *** load_models_gpu COMPLETED ***")
+        
+        # Handle LoRA loading for models that have online LoRA
+        lora_moved_count = 0
+        for model, model_type in self.models_to_load:
+            if hasattr(model, 'has_online_lora') and model.has_online_lora():
+                if hasattr(model, 'current_device') and hasattr(model.model, 'computation_dtype'):
+                    print(f"[BatchedMemoryContext] Moving LoRA patches for {model_type} to device")
+                    utils.nested_move_to_device(
+                        model.lora_patches, 
+                        device=model.current_device, 
+                        dtype=model.model.computation_dtype
+                    )
+                    lora_moved_count += 1
+        
+        print(f"[BatchedMemoryContext] Moved LoRA patches for {lora_moved_count} models")
+        print(f"[BatchedMemoryContext] *** LOAD_ALL COMPLETED SUCCESSFULLY ***")
+        
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit the context and handle cleanup."""
+        print(f"[BatchedMemoryContext] *** EXITING CONTEXT ***")
+        
+        # Handle LoRA cleanup for models that have online LoRA
+        lora_cleanup_count = 0
+        controlnet_cleanup_count = 0
+        
+        for model, model_type in self.models_to_load:
+            if hasattr(model, 'has_online_lora') and model.has_online_lora():
+                if hasattr(model, 'offload_device'):
+                    print(f"[BatchedMemoryContext] Cleaning up LoRA patches for {model_type}")
+                    utils.nested_move_to_device(model.lora_patches, device=model.offload_device)
+                    lora_cleanup_count += 1
+            
+            # Handle controlnet cleanup
+            if hasattr(model, 'list_controlnets'):
+                for cnet in model.list_controlnets():
+                    if hasattr(cnet, 'cleanup'):
+                        print(f"[BatchedMemoryContext] Cleaning up ControlNet for {model_type}")
+                        cnet.cleanup()
+                        controlnet_cleanup_count += 1
+        
+        print(f"[BatchedMemoryContext] Cleaned up {lora_cleanup_count} LoRA models and {controlnet_cleanup_count} ControlNets")
+        
+        # Cleanup operations cache
+        print(f"[BatchedMemoryContext] Cleaning up operations cache")
+        from backend.operations import cleanup_cache
+        cleanup_cache()
+        
+        print(f"[BatchedMemoryContext] *** CONTEXT EXIT COMPLETED ***")
+        
+        return False  # Don't suppress exceptions
+
+
+def create_batched_memory_context(inference_memory=0, hard_memory_preservation=0):
+    """Factory function to create a BatchedMemoryContext."""
+    print(f"[BatchedMemoryContext] *** FACTORY FUNCTION CALLED ***")
+    context = BatchedMemoryContext(inference_memory, hard_memory_preservation)
+    print(f"[BatchedMemoryContext] *** FACTORY FUNCTION RETURNING CONTEXT ***")
+    return context

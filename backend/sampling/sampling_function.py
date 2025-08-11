@@ -406,3 +406,109 @@ def sampling_cleanup(unet):
         cnet.cleanup()
     cleanup_cache()
     return
+
+
+def prepare_batched_memory_context(unet, diffusion_engine, x_in=None, memory_estimation_function=None):
+    """Prepare a BatchedMemoryContext with all models needed for inference.
+    
+    Args:
+        unet: UNet model patcher
+        diffusion_engine: The diffusion engine (SD15Engine, SDXLEngine, FluxEngine, etc.)
+        x_in: Input tensor for memory estimation (optional)
+        memory_estimation_function: Function to estimate UNet memory requirements
+    
+    Returns:
+        BatchedMemoryContext: Configured context ready for .load_all()
+    """
+    print(f"[prepare_batched_memory_context] *** FUNCTION CALLED ***")
+    print(f"[prepare_batched_memory_context] UNet: {type(unet).__name__ if unet else 'None'}")
+    print(f"[prepare_batched_memory_context] Diffusion Engine: {type(diffusion_engine).__name__ if diffusion_engine else 'None'}")
+    print(f"[prepare_batched_memory_context] Input tensor shape: {x_in.shape if x_in is not None else 'None'}")
+    print(f"[prepare_batched_memory_context] Memory estimation function: {'provided' if memory_estimation_function else 'None'}")
+    # Calculate UNet inference memory if provided
+    unet_inference_memory = 0
+    if x_in is not None and memory_estimation_function is not None:
+        B, C, H, W = x_in.shape
+        unet_inference_memory = memory_estimation_function([B * 2, C, H, W])
+    
+    # Calculate additional memory requirements
+    additional_inference_memory = unet.extra_preserved_memory_during_sampling
+    additional_model_patchers = unet.extra_model_patchers_during_sampling.copy()
+    
+    # Add controlnet requirements
+    if unet.controlnet_linked_list is not None:
+        additional_inference_memory += unet.controlnet_linked_list.inference_memory_requirements(unet.model_dtype())
+        additional_model_patchers += unet.controlnet_linked_list.get_models()
+    
+    # Add LoRA memory requirements
+    if unet.has_online_lora():
+        lora_memory = utils.nested_compute_size(unet.lora_patches, element_size=utils.dtype_to_element_size(unet.model.computation_dtype))
+        additional_inference_memory += lora_memory
+    
+    # Create batched context
+    context = memory_management.create_batched_memory_context(
+        inference_memory=unet_inference_memory,
+        hard_memory_preservation=additional_inference_memory
+    )
+    
+    # Add UNet and additional patchers
+    context.add_unet(unet)
+    for patcher in additional_model_patchers:
+        context.add_additional_patcher(patcher)
+    
+    # Add diffusion engine models
+    if hasattr(diffusion_engine, 'forge_objects'):
+        print(f"[prepare_batched_memory_context] Found forge_objects on diffusion engine")
+        if hasattr(diffusion_engine.forge_objects, 'clip'):
+            print(f"[prepare_batched_memory_context] Adding CLIP from forge_objects")
+            context.add_clip(diffusion_engine.forge_objects.clip)
+        else:
+            print(f"[prepare_batched_memory_context] No CLIP found in forge_objects")
+            
+        if hasattr(diffusion_engine.forge_objects, 'vae'):
+            print(f"[prepare_batched_memory_context] Adding VAE from forge_objects")
+            context.add_vae(diffusion_engine.forge_objects.vae)
+        else:
+            print(f"[prepare_batched_memory_context] No VAE found in forge_objects")
+    else:
+        print(f"[prepare_batched_memory_context] No forge_objects found on diffusion engine")
+    
+    print(f"[prepare_batched_memory_context] *** RETURNING CONFIGURED CONTEXT ***")
+    return context
+
+
+def sampling_prepare_batched(unet, x_in, timesteps, cond, diffusion_engine, memory_estimation_function):
+    """Alternative to sampling_prepare using BatchedMemoryContext for optimized loading.
+    
+    Usage example replacing individual load_model_gpu calls:
+    
+    # Instead of:
+    # memory_management.load_model_gpu(diffusion_engine.forge_objects.clip.patcher)  # In get_learned_conditioning
+    # sampling_prepare(unet, x_in, timesteps, cond, memory_estimation_function)      # Loads UNet separately
+    
+    # Use:
+    # context = prepare_batched_memory_context(unet, diffusion_engine, x_in, memory_estimation_function)
+    # with context:
+    #     context.load_all()  # Loads UNet, CLIP, VAE all together
+    #     # ... run inference ...
+    # # Automatic cleanup on context exit
+    """
+    print(f"[sampling_prepare_batched] *** FUNCTION CALLED ***")
+    context = prepare_batched_memory_context(unet, diffusion_engine, x_in, memory_estimation_function)
+    
+    with context:
+        context.load_all()
+        
+        # Handle post-load setup that was in original sampling_prepare
+        if unet.has_online_lora():
+            utils.nested_move_to_device(unet.lora_patches, device=unet.current_device, dtype=unet.model.computation_dtype)
+        
+        real_model = unet.model
+        percent_to_timestep_function = lambda p: real_model.predictor.percent_to_sigma(p)
+        
+        for cnet in unet.list_controlnets():
+            cnet.pre_run(real_model, percent_to_timestep_function)
+        
+        yield context  # Allow inference to happen within the context
+        
+    # Context cleanup happens automatically on __exit__
