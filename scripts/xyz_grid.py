@@ -160,20 +160,6 @@ def apply_uni_pc_order(p, x, xs):
     p.override_settings['uni_pc_order'] = min(x, p.steps - 1)
 
 
-def apply_face_restore(p, opt, x):
-    opt = opt.lower()
-    if opt == 'codeformer':
-        is_active = True
-        p.face_restoration_model = 'CodeFormer'
-    elif opt == 'gfpgan':
-        is_active = True
-        p.face_restoration_model = 'GFPGAN'
-    else:
-        is_active = opt in ('true', 'yes', 'y', '1')
-
-    p.restore_faces = is_active
-
-
 def apply_override(field, boolean: bool = False):
     def fun(p, x, xs):
         if boolean:
@@ -295,7 +281,6 @@ axis_options = [
     AxisOption("VAE", str, apply_vae, cost=0.7, choices=lambda: ['Automatic', 'None'] + list(sd_vae.vae_dict)),
     AxisOption("Styles", str, apply_styles, choices=lambda: list(shared.prompt_styles.styles)),
     AxisOption("UniPC Order", int, apply_uni_pc_order, cost=0.5),
-    AxisOption("Face restore", str, apply_face_restore, format_value=format_value),
     AxisOption("Token merging ratio", float, apply_override('token_merging_ratio')),
     AxisOption("Token merging ratio high-res", float, apply_override('token_merging_ratio_hr')),
     AxisOption("Always discard next-to-last sigma", str, apply_override('always_discard_next_to_last_sigma', boolean=True), choices=boolean_choice(reverse=True)),

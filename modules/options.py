@@ -265,7 +265,7 @@ class Options:
             - sections inside a category are ordered alphabetically
             - categories are ordered by creation order
 
-        Category is a superset of sections: for category "postprocessing" there could be multiple sections: "face restoration", "upscaling".
+        Category is a superset of sections: for category "postprocessing" there could be multiple sections: "upscaling".
 
         This function also changes items' category_id so that all items belonging to a section have the same category_id.
         """

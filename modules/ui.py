@@ -13,7 +13,7 @@ from PIL import Image, PngImagePlugin  # noqa: F401
 from modules.call_queue import wrap_gradio_gpu_call, wrap_queued_call, wrap_gradio_call, wrap_gradio_call_no_job # noqa: F401
 
 from modules import gradio_extensions, sd_schedulers  # noqa: F401
-from modules import sd_hijack, sd_models, script_callbacks, ui_extensions, deepbooru, extra_networks, ui_common, ui_postprocessing, progress, ui_loadsave, shared_items, ui_settings, timer, sysinfo, ui_checkpoint_merger, scripts, sd_samplers, processing, ui_extra_networks, ui_toprow, launch_utils
+from modules import sd_hijack, sd_models, script_callbacks, ui_extensions, extra_networks, ui_common, ui_postprocessing, progress, ui_loadsave, shared_items, ui_settings, timer, sysinfo, ui_checkpoint_merger, scripts, sd_samplers, processing, ui_extra_networks, ui_toprow, launch_utils
 from modules.ui_components import FormRow, FormGroup, ToolButton, FormHTML, InputAccordion, ResizeHandleRow
 from modules.paths import script_path
 from modules.ui_common import create_refresh_button
@@ -145,11 +145,6 @@ def process_interrogate(interrogation_function, mode, ii_input_dir, ii_output_di
 
 def interrogate(image):
     prompt = shared.interrogator.interrogate(image.convert("RGB"))
-    return gr.update() if prompt is None else prompt
-
-
-def interrogate_deepbooru(image):
-    prompt = deepbooru.model.tag(image)
     return gr.update() if prompt is None else prompt
 
 
@@ -870,11 +865,6 @@ def create_ui():
 
             toprow.button_interrogate.click(
                 fn=lambda *args: process_interrogate(interrogate, *args),
-                **interrogate_args,
-            )
-
-            toprow.button_deepbooru.click(
-                fn=lambda *args: process_interrogate(interrogate_deepbooru, *args),
                 **interrogate_args,
             )
 
