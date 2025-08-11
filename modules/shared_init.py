@@ -12,8 +12,6 @@ def initialize():
     Should be called early because some other modules you can import mingt need these fields to be already set.
     """
 
-    os.makedirs(cmd_opts.hypernetwork_dir, exist_ok=True)
-
     from modules import options, shared_options
     shared.options_templates = shared_options.options_templates
     shared.opts = options.Options(shared_options.options_templates, shared_options.restricted_opts)

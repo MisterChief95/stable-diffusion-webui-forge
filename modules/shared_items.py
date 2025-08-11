@@ -3,7 +3,6 @@ import sys
 
 from modules import script_callbacks, scripts, ui_components
 from modules.options import OptionHTML, OptionInfo
-from modules.shared_cmd_options import cmd_opts
 
 
 def realesrgan_models_names():
@@ -63,13 +62,6 @@ def refresh_checkpoints():
 def list_samplers():
     import modules.sd_samplers
     return modules.sd_samplers.all_samplers
-
-
-def reload_hypernetworks():
-    from modules.hypernetworks import hypernetwork
-    from modules import shared
-
-    shared.hypernetworks = hypernetwork.list_hypernetworks(cmd_opts.hypernetwork_dir)
 
 
 def get_infotext_names():

@@ -1,5 +1,4 @@
 # Cherry-picked some good parts from ComfyUI with some bad parts fixed
-import gc
 import sys
 import time
 import psutil
@@ -595,8 +594,6 @@ def free_memory(memory_required, device, keep_loaded=[], free_all=False):
             mem_free_total, mem_free_torch = get_free_memory(device, torch_free_too=True)
             if mem_free_torch > mem_free_total * 0.25:
                 soft_empty_cache()
-
-    gc.collect()
 
     print('Done.')
     return
