@@ -199,10 +199,10 @@ class InterrogateResponse(BaseModel):
     caption: str | None = Field(default=None, title="Caption", description="The generated caption for the image.")
 
 class TrainResponse(BaseModel):
-    info: str = Field(title="Train info", description="Response string from train embedding or hypernetwork task.")
+    info: str = Field(title="Train info", description="Response string from train embedding task.")
 
 class CreateResponse(BaseModel):
-    info: str = Field(title="Create info", description="Response string from create embedding or hypernetwork task.")
+    info: str = Field(title="Create info", description="Response string from create embedding task.")
 
 fields = {}
 for key, metadata in opts.data_labels.items():
@@ -270,10 +270,6 @@ class SDModuleItem(BaseModel):
 
     model_name: str = Field(title="Model Name")
     filename: str = Field(title="Filename")
-
-class HypernetworkItem(BaseModel):
-    name: str = Field(title="Name")
-    path: Optional[str] = Field(title="Path")
 
 class FaceRestorerItem(BaseModel):
     name: str = Field(title="Name")

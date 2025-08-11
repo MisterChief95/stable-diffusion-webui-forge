@@ -23,11 +23,6 @@ def register_extra_network_alias(extra_network, alias):
     extra_network_aliases[alias] = extra_network
 
 
-def register_default_extra_networks():
-    from modules.extra_networks_hypernet import ExtraNetworkHypernet
-    register_extra_network(ExtraNetworkHypernet())
-
-
 class ExtraNetworkParams:
     def __init__(self, items=None):
         self.items = items or []
@@ -65,9 +60,9 @@ class ExtraNetwork:
 
         Can be called multiple times before deactivate() - each new call should override the previous call completely.
 
-        For example, if this ExtraNetwork's name is 'hypernet' and user's prompt is:
+        For example, if this ExtraNetwork's name is 'extrasupernet' and user's prompt is:
 
-        > "1girl, <hypernet:agm:1.1> <extrasupernet:master:12:13:14> <hypernet:ray>"
+        > "1girl, <extrasupernet:master:12:13:14>"
 
         params_list will be:
 
@@ -94,14 +89,12 @@ def lookup_extra_networks(extra_network_data):
     {
         'lora': [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D58310>],
         'lyco': [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D58F70>],
-        'hypernet': [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D5A800>]
     }
 
     Example output:
 
     {
         <extra_networks_lora.ExtraNetworkLora object at 0x0000020581BEECE0>: [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D58310>, <modules.extra_networks.ExtraNetworkParams object at 0x0000020690D58F70>],
-        <modules.extra_networks_hypernet.ExtraNetworkHypernet object at 0x0000020581BEEE60>: [<modules.extra_networks.ExtraNetworkParams object at 0x0000020690D5A800>]
     }
     """
 
