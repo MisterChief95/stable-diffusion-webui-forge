@@ -29,10 +29,8 @@ checkpoints_loaded = collections.OrderedDict()
 
 class ModelType(enum.Enum):
     SD1 = 1
-    SD2 = 2
     SDXL = 3
     SSD = 4
-    SD3 = 5
 
 
 def replace_key(d, key, new_key, value):

@@ -247,7 +247,7 @@ def create_embedding(name, num_vectors_per_token, overwrite_old, init_text='*'):
     cond_model = shared.sd_model.cond_stage_model
 
     with devices.autocast():
-        cond_model([""])  # will send cond model to GPU if lowvram/medvram is active
+        cond_model([""])
 
     #cond_model expects at least some text, so we provide '*' as backup.
     embedded = cond_model.encode_embedding_init_text(init_text or '*', num_vectors_per_token)

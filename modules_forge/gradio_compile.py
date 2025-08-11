@@ -53,12 +53,3 @@ def print_info_text(name_list, prefix):
         print(prefix + '_' + n + ' = ' + n + ', ')
     print(')')
     return
-
-
-# from modules_forge.gradio_compile import gradio_compile
-# ps = []
-# ps += gradio_compile(SVD_img2vid_Conditioning.INPUT_TYPES(), prefix='')
-# ps += gradio_compile(KSampler.INPUT_TYPES(), prefix='sampling')
-# ps += gradio_compile(VideoLinearCFGGuidance.INPUT_TYPES(), prefix='guidance')
-# print(', '.join(ps))
-# print_info_text(ps, '123')
