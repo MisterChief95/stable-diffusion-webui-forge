@@ -43,8 +43,6 @@ def model():
     if not shared.sd_model.is_webui_legacy_model():
         return None
 
-    if shared.sd_model.is_sd3:
-        model_name = "vaeapprox-sd3.pt"
     elif shared.sd_model.is_sdxl:
         model_name = "vaeapprox-sdxl.pt"
     else:

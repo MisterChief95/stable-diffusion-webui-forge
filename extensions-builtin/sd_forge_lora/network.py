@@ -9,9 +9,7 @@ metadata_tags_order = {"ss_sd_model_name": 1, "ss_resolution": 2, "ss_clip_skip"
 class SdVersion(enum.Enum):
     Unknown = 1
     SD1 = 2
-    SD2 = 3
     SDXL = 4
-#    SD3 = 5
     Flux = 6
 
 class NetworkOnDisk:
@@ -60,8 +58,6 @@ class NetworkOnDisk:
             return SdVersion.SDXL
         elif str(self.metadata.get('ss_base_model_version', '')).startswith('sdxl_'):
             return SdVersion.SDXL
-        elif str(self.metadata.get('ss_v2', '')) == 'True':
-            return SdVersion.SD2
         elif str(self.metadata.get('modelspec.architecture', '')) == 'stable-diffusion-v1/lora':
             return SdVersion.SD1
 
