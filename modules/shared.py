@@ -33,8 +33,6 @@ prompt_styles: 'styles.StyleDatabase' = None
 
 interrogator: 'interrogate.InterrogateModels' = None
 
-face_restorers = []
-
 options_templates: dict = None
 opts: options.Options = None
 restricted_opts: set[str] = None

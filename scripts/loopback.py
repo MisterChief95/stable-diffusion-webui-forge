@@ -4,7 +4,7 @@ from PIL import Image
 
 import gradio as gr
 import modules.scripts as scripts
-from modules import deepbooru, images, processing, shared
+from modules import images, processing, shared
 from modules.processing import Processed
 from modules.shared import opts, state
 
@@ -22,7 +22,7 @@ class Script(scripts.Script):
         upscale_amount = gr.Slider(minimum=1, maximum=1.5, step=0.05, label='Upscale amount', value=1.25, elem_id=self.elem_id("upscale_amount"), visible=False)
         final_denoising_strength = gr.Slider(minimum=0, maximum=1, step=0.01, label='Final denoising strength', value=0.5, elem_id=self.elem_id("final_denoising_strength"))
         denoising_curve = gr.Dropdown(label="Denoising strength curve", choices=["Aggressive", "Linear", "Lazy"], value="Linear")
-        append_interrogation = gr.Dropdown(label="Append interrogated prompt at each iteration", choices=["None", "CLIP", "DeepBooru"], value="None")
+        append_interrogation = gr.Dropdown(label="Append interrogated prompt at each iteration", choices=["None", "CLIP"], value="None")
 
         iterative_upscale.change(
             lambda x: gr.Slider(visible=x),
@@ -102,8 +102,6 @@ class Script(scripts.Script):
                     p.prompt = f"{original_prompt}, " if original_prompt else ""
                     if append_interrogation == "CLIP":
                         p.prompt += shared.interrogator.interrogate(p.init_images[0])
-                    elif append_interrogation == "DeepBooru":
-                        p.prompt += deepbooru.model.tag(p.init_images[0])
 
                 state.job = f"Iteration {i + 1}/{loops}, batch {n + 1}/{batch_count}"
 

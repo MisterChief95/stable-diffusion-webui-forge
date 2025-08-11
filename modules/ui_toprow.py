@@ -14,7 +14,6 @@ class Toprow:
     negative_prompt = None
 
     button_interrogate = None
-    button_deepbooru = None
 
     interrupt = None
     interrupting = None
@@ -123,7 +122,6 @@ class Toprow:
 
             if self.is_img2img:
                 self.button_interrogate = ToolButton('📎', tooltip='Interrogate CLIP - use CLIP neural network to create a text describing the image, and put it into the prompt field', elem_id="interrogate")
-                self.button_deepbooru = ToolButton('📦', tooltip='Interrogate DeepBooru - use DeepBooru neural network to create a text describing the image, and put it into the prompt field', elem_id="deepbooru")
 
             self.restore_progress_button = ToolButton(value=restore_progress_symbol, elem_id=f"{self.id_part}_restore_progress", visible=False, tooltip="Restore progress")
 

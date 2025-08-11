@@ -55,15 +55,6 @@ def initialize():
 
     from modules.shared_cmd_options import cmd_opts
 
-    from modules import codeformer_model
-    warnings.filterwarnings(action="ignore", category=UserWarning, module="torchvision.transforms.functional_tensor")
-    codeformer_model.setup_model(cmd_opts.codeformer_models_path)
-    startup_timer.record("setup codeformer")
-
-    from modules import gfpgan_model
-    gfpgan_model.setup_model(cmd_opts.gfpgan_models_path)
-    startup_timer.record("setup gfpgan")
-
     initialize_rest(reload_script_modules=False)
 
 
