@@ -702,9 +702,7 @@ def load_models_gpu(models, memory_required=0, hard_memory_preservation=0):
             if d != torch.device("cpu"):
                 # Check if we already have enough memory (using cache for efficiency)
                 current_free = get_free_memory(d, use_cache=True)
-                if current_free >= memory_to_free:
-                    print(f"[Memory Cache] Skipping free_memory for {d}, sufficient memory available: {current_free / (1024 * 1024):.2f} MB >= {memory_to_free / (1024 * 1024):.2f} MB required")
-                else:
+                if current_free < memory_to_free:
                     free_memory(memory_to_free, d, models_already_loaded)
 
         moving_time = time.perf_counter() - execution_start_time
@@ -742,9 +740,7 @@ def load_models_gpu(models, memory_required=0, hard_memory_preservation=0):
             
             # Check if we already have enough memory (using cache for efficiency)
             current_free = get_free_memory(device, use_cache=True)
-            if current_free >= total_required:
-                print(f"[Memory Cache] Skipping free_memory for {device}, sufficient memory available: {current_free / (1024 * 1024):.2f} MB >= {total_required / (1024 * 1024):.2f} MB required")
-            else:
+            if current_free < total_required:
                 free_memory(total_required, device, models_already_loaded)
 
     for loaded_model in models_to_load:
