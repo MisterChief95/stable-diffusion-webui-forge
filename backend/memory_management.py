@@ -287,7 +287,7 @@ if 'rtx' in torch_device_name.lower():
 class MemoryCache:
     """Cache for memory information to reduce redundant GPU memory queries"""
     
-    def __init__(self, cache_ttl=1.0):
+    def __init__(self, cache_ttl=30.0):
         self.cache = {}  # device_str -> {'timestamp': float, 'mem_free_total': int, 'mem_free_torch': int, 'mem_total': int}
         self.cache_ttl = cache_ttl
     
@@ -345,7 +345,7 @@ class MemoryCache:
 
 
 # Global memory cache instance
-_memory_cache = MemoryCache(cache_ttl=1.0)
+_memory_cache = MemoryCache(cache_ttl=30.0)
 
 current_loaded_models = []
 
@@ -637,7 +637,7 @@ def free_memory(memory_required, device, keep_loaded=[], free_all=False):
     unloaded_model = False
     for i in range(len(current_loaded_models) - 1, -1, -1):
         if not offload_everything:
-            free_memory = get_free_memory(device)
+            free_memory = get_free_memory(device, use_cache=True)
             print(f"Current free memory is {free_memory / (1024 * 1024):.2f} MB ... ", end="")
             if free_memory > memory_required:
                 break
@@ -654,7 +654,7 @@ def free_memory(memory_required, device, keep_loaded=[], free_all=False):
         soft_empty_cache()
     else:
         if vram_state != VRAMState.HIGH_VRAM:
-            mem_free_total, mem_free_torch = get_free_memory(device, torch_free_too=True)
+            mem_free_total, mem_free_torch = get_free_memory(device, torch_free_too=True, use_cache=True)
             if mem_free_torch > mem_free_total * 0.25:
                 soft_empty_cache()
 
@@ -756,7 +756,7 @@ def load_models_gpu(models, memory_required=0, hard_memory_preservation=0):
         if lowvram_available and (vram_set_state == VRAMState.LOW_VRAM or vram_set_state == VRAMState.NORMAL_VRAM):
             model_require = loaded_model.exclusive_memory
             previously_loaded = loaded_model.inclusive_memory
-            current_free_mem = get_free_memory(torch_dev)
+            current_free_mem = get_free_memory(torch_dev, use_cache=True)
             estimated_remaining_memory = current_free_mem - model_require - memory_for_inference
 
             print(f"[Memory Management] Target: {loaded_model.model.model.__class__.__name__}, Free GPU: {current_free_mem / (1024 * 1024):.2f} MB, Model Require: {model_require / (1024 * 1024):.2f} MB, Previously Loaded: {previously_loaded / (1024 * 1024):.2f} MB, Inference Require: {memory_for_inference / (1024 * 1024):.2f} MB, Remaining: {estimated_remaining_memory / (1024 * 1024):.2f} MB, ", end="")
@@ -827,8 +827,8 @@ def unet_inital_load_device(parameters, dtype):
 
     model_size = dtype_size(dtype) * parameters
 
-    mem_dev = get_free_memory(torch_dev)
-    mem_cpu = get_free_memory(cpu_dev)
+    mem_dev = get_free_memory(torch_dev, use_cache=True)
+    mem_cpu = get_free_memory(cpu_dev, use_cache=True)
     if mem_dev > mem_cpu and model_size < mem_dev:
         return torch_dev
     else:
@@ -1229,7 +1229,7 @@ def should_use_fp16(device=None, model_params=0, prioritize_performance=True, ma
         if x in props.name.lower():
             if manual_cast:
                 # For storage dtype
-                free_model_memory = (get_free_memory() * 0.9 - minimum_inference_memory())
+                free_model_memory = (get_free_memory(use_cache=True) * 0.9 - minimum_inference_memory())
                 if (not prioritize_performance) or model_params * 4 > free_model_memory:
                     return True
             else:
