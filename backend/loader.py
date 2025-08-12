@@ -473,7 +473,7 @@ if not chroma_is_in_huggingface_guess:
             'guidance_hidden_dim': 5120,
             'guidance_n_layers': 5
         }
-        unet_remove_config = ['guidance_embed']        
+        unet_remove_config = ['guidance_embed'] 
 @torch.inference_mode()
 def forge_loader(sd, additional_state_dicts=None):
     try:
