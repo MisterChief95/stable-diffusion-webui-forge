@@ -621,7 +621,11 @@ def unload_model_clones(model):
         current_loaded_models.pop(i).model_unload(avoid_model_moving=True)
 
 
-def free_memory(memory_required, device, keep_loaded=[], free_all=False):
+def free_memory(memory_required, device, keep_loaded=[], free_all=False, for_inference=False):
+    if for_inference:
+        soft_empty_cache(for_inference=True)
+        return
+
     # this check fully unloads any 'abandoned' models
     for i in range(len(current_loaded_models) - 1, -1, -1):
         if sys.getrefcount(current_loaded_models[i].model) <= 2:
@@ -657,10 +661,6 @@ def free_memory(memory_required, device, keep_loaded=[], free_all=False):
             mem_free_total, mem_free_torch = get_free_memory(device, torch_free_too=True, use_cache=True)
             if mem_free_torch > mem_free_total * 0.25:
                 soft_empty_cache()
-
-    # Invalidate memory cache after freeing memory since memory state has changed
-    global _memory_cache
-    _memory_cache.invalidate_cache(device)
     
     print('Done.')
     return
@@ -1309,7 +1309,7 @@ def can_install_bnb():
 signal_empty_cache = False
 
 
-def soft_empty_cache(force=False):
+def soft_empty_cache(force=False, for_inference=False):
     global cpu_state, signal_empty_cache, _memory_cache
     if cpu_state == CPUState.MPS:
         torch.mps.empty_cache()
@@ -1322,7 +1322,8 @@ def soft_empty_cache(force=False):
     signal_empty_cache = False
     
     # Invalidate memory cache after emptying cache since memory state has changed
-    _memory_cache.invalidate_cache()
+    if not for_inference:
+        _memory_cache.invalidate_cache()
     
     return
 
