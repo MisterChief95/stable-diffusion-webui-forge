@@ -110,9 +110,3 @@ def resize_image_with_pad(img, resolution):
         return safer_memory(x[:H_target, :W_target])
 
     return safer_memory(img_padded), remove_pad
-
-
-def lazy_memory_management(model):
-    required_memory = memory_management.module_size(model) + memory_management.minimum_inference_memory()
-    memory_management.free_memory(required_memory, device=memory_management.get_torch_device())
-    return
