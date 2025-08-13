@@ -426,7 +426,7 @@ div.toprow-compact-tools {
 /* settings */
 #quicksettings {
     --checkbox-label-padding: 6px 6px;
-    align-items: end;
+    align-items: flex-start;
 }
 
 #quicksettings>div, #quicksettings>fieldset {
@@ -463,6 +463,14 @@ div.toprow-compact-tools {
     display: block;
     margin-left: auto;
     width: 30px;
+}
+
+#quicksettings div span[data-testid="block-info"] {
+    margin-bottom: unset !important;
+}
+
+#quicksettings>button {
+    margin: auto 0px;
 }
 
 #settings {
@@ -1707,14 +1715,26 @@ body.resizing .resize-handle {
     width: 200px;
 }
 
-#quicksettings div.gradio-dropdown.multiselect div.wrap div.token span {
+#quicksettings.scrollbar {
+    height: 90px;
+    overflow: auto;
+    flex-wrap: nowrap;
+    scrollbar-color: var(--border-color-primary) var(--body-text-color);
+    scrollbar-width: thin;
+}
+
+#quicksettings.scrollbar>div, #quicksettings>fieldset {
+    flex: 0 0 auto;
+}
+
+#quicksettings.clip-modules div.gradio-dropdown.multiselect div.wrap div.token span {
     text-overflow: ellipsis;
     width: 2em;
     white-space: nowrap;
     overflow: hidden;
 }
 
-#quicksettings div.gradio-dropdown.multiselect:hover div.wrap div.token span {
+#quicksettings.clip-modules div.gradio-dropdown.multiselect:hover div.wrap div.token span {
     text-overflow: unset;
     width: auto;
     white-space: unset;
