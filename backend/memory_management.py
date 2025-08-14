@@ -287,9 +287,8 @@ if 'rtx' in torch_device_name.lower():
 class MemoryCache:
     """Cache for memory information to reduce redundant GPU memory queries"""
     
-    def __init__(self, cache_ttl=30.0):
-        self.cache = {}  # device_str -> {'timestamp': float, 'mem_free_total': int, 'mem_free_torch': int, 'mem_total': int}
-        self.cache_ttl = cache_ttl
+    def __init__(self):
+        self.cache = {}  # device_str -> {'valid': bool, 'mem_free_total': int, 'mem_free_torch': int, 'mem_total': int}
     
     def _device_key(self, device):
         """Convert device to string key for cache"""
@@ -301,7 +300,7 @@ class MemoryCache:
         
         if device_key in self.cache:
             cache_entry = self.cache[device_key]
-            if time.time() - cache_entry['timestamp'] < self.cache_ttl:
+            if cache_entry.get('valid', False):
                 return (cache_entry['mem_free_total'], cache_entry['mem_free_torch'], cache_entry['mem_total'])
         
         return None
@@ -316,7 +315,7 @@ class MemoryCache:
             mem_total = mem_free_total
             
         self.cache[device_key] = {
-            'timestamp': time.time(),
+            'valid': True,
             'mem_free_total': mem_free_total,
             'mem_free_torch': mem_free_torch,
             'mem_total': mem_total
@@ -326,26 +325,25 @@ class MemoryCache:
         """Invalidate cache for specific device or all devices if device is None"""
         if device is not None:
             device_key = self._device_key(device)
-            self.cache.pop(device_key, None)
+            if device_key in self.cache:
+                self.cache[device_key]['valid'] = False
         else:
-            self.cache.clear()
+            for cache_entry in self.cache.values():
+                cache_entry['valid'] = False
     
     def get_cache_status(self):
         """Debug method to check cache status"""
-        current_time = time.time()
         status = {}
         for device_key, cache_entry in self.cache.items():
-            age = current_time - cache_entry['timestamp']
             status[device_key] = {
-                'age_seconds': age,
-                'valid': age < self.cache_ttl,
+                'valid': cache_entry.get('valid', False),
                 'mem_free_mb': cache_entry['mem_free_total'] / (1024 * 1024)
             }
         return status
 
 
 # Global memory cache instance
-_memory_cache = MemoryCache(cache_ttl=30.0)
+_memory_cache = MemoryCache()
 
 current_loaded_models = []
 
