@@ -270,25 +270,32 @@ def requirements_met(requirements_file):
 
 
 def prepare_environment():
+    ver_TORCH = "2.8.0"
+
     torch_index_url = os.environ.get("TORCH_INDEX_URL", "https://download.pytorch.org/whl/cu128")
-    torch_command = os.environ.get("TORCH_COMMAND", f"pip install torch==2.7.1+cu128 torchvision==0.22.1+cu128 --extra-index-url {torch_index_url}")
-    xformers_package = os.environ.get("XFORMERS_PACKAGE", f"xformers==0.0.31.post1 --extra-index-url {torch_index_url}")
+    torch_command = os.environ.get("TORCH_COMMAND", f"pip install torch=={ver_TORCH}+cu128 torchvision==0.23.0+cu128 --extra-index-url {torch_index_url}")
+    xformers_package = os.environ.get("XFORMERS_PACKAGE", f"xformers==0.0.32.post1 --extra-index-url {torch_index_url}")
     sage_package = os.environ.get("SAGE_PACKAGE", "sageattention==1.0.6")
 
-    if os.name == "nt":
-        flash_package = os.environ.get("FLASH_PACKAGE", "https://github.com/kingbri1/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu128torch2.7.0cxx11abiFALSE-cp311-cp311-win_amd64.whl")
-    else:
-        flash_package = os.environ.get("FLASH_PACKAGE", "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.2/flash_attn-2.8.2+cu12torch2.7cxx11abiFALSE-cp311-cp311-linux_x86_64.whl")
+    ver_PY = f"cp{sys.version_info.major}{sys.version_info.minor}"
 
     if os.name == "nt":
-        triton_package = os.environ.get("TRITION_PACKAGE", "triton-windows")
-    else:
-        triton_package = os.environ.get("TRITION_PACKAGE", "triton")
+        ver_FLASH = "2.8.2"
+        ver_TRITON = "3.4.0.post20"
+        ver_NUNCHAKU = "0.3.2"
 
-    if os.name == "nt":
-        nunchaku_package = os.environ.get("NUNCHAKU_PACKAGE", "https://github.com/nunchaku-tech/nunchaku/releases/download/v0.3.1/nunchaku-0.3.1+torch2.7-cp311-cp311-win_amd64.whl")
+        flash_package = os.environ.get("FLASH_PACKAGE", f"https://github.com/kingbri1/flash-attention/releases/download/v{ver_FLASH}/flash_attn-{ver_FLASH}+cu128torch{ver_TORCH}cxx11abiFALSE-{ver_PY}-{ver_PY}-win_amd64.whl")
+        triton_package = os.environ.get("TRITION_PACKAGE", f"triton-windows=={ver_TRITON}")
+        nunchaku_package = os.environ.get("NUNCHAKU_PACKAGE", f"https://github.com/nunchaku-tech/nunchaku/releases/download/v{ver_NUNCHAKU}/nunchaku-{ver_NUNCHAKU}+torch{ver_TORCH[:3]}-{ver_PY}-{ver_PY}-win_amd64.whl")
+
     else:
-        nunchaku_package = os.environ.get("NUNCHAKU_PACKAGE", "https://github.com/nunchaku-tech/nunchaku/releases/download/v0.3.1/nunchaku-0.3.1+torch2.7-cp311-cp311-linux_x86_64.whl")
+        ver_FLASH = "2.8.2"
+        ver_TRITON = "3.4.0"
+        ver_NUNCHAKU = "0.3.2"
+
+        flash_package = os.environ.get("FLASH_PACKAGE", f"https://github.com/Dao-AILab/flash-attention/releases/download/v{ver_FLASH}/flash_attn-{ver_FLASH}+cu12torch{ver_TORCH[:3]}cxx11abiFALSE-{ver_PY}-{ver_PY}-linux_x86_64.whl")
+        triton_package = os.environ.get("TRITION_PACKAGE", f"triton=={ver_TRITON}")
+        nunchaku_package = os.environ.get("NUNCHAKU_PACKAGE", f"https://github.com/nunchaku-tech/nunchaku/releases/download/v{ver_NUNCHAKU}/nunchaku-{ver_NUNCHAKU}+torch{ver_TORCH[:3]}-{ver_PY}-{ver_PY}-linux_x86_64.whl")
 
     clip_package = os.environ.get("CLIP_PACKAGE", "https://github.com/openai/CLIP/archive/d50d76daa670286dd6cacf3bcd80b5e4823fc8e1.zip")
     gradio_package = os.environ.get("GRADIO_PACKAGE", "gradio==4.40.0 gradio_imageslider==0.0.20 gradio_rangeslider==0.0.6")
@@ -345,8 +352,12 @@ def prepare_environment():
             startup_timer.record("install flash_attn")
 
     if not is_installed("nunchaku"):
-        run_pip(f"install {nunchaku_package}", "nunchaku")
-        startup_timer.record("install nunchaku")
+        try:
+            run_pip(f"install {nunchaku_package}", "nunchaku")
+        except RuntimeError:
+            print("Failed to install nunchaku; Please manually install it")
+        else:
+            startup_timer.record("install nunchaku")
 
     if not is_installed("ngrok") and args.ngrok:
         run_pip("install ngrok", "ngrok")
