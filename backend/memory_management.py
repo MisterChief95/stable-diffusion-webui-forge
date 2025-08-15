@@ -4,6 +4,7 @@ import time
 import psutil
 import torch
 import platform
+import traceback
 
 from enum import Enum
 from backend import stream, utils
@@ -1119,6 +1120,8 @@ def get_free_memory(dev=None, torch_free_too=False, use_cache=True):
                 return mem_free_total_cached
 
     # Query actual memory if cache miss or disabled
+    # Note: mem_free_total represents the primary available memory for the device
+    # mem_free_torch is kept separate for torch_free_too parameter compatibility
     if hasattr(dev, 'type') and (dev.type == 'cpu' or dev.type == 'mps'):
         mem_free_total = psutil.virtual_memory().available
         mem_free_torch = mem_free_total
@@ -1135,14 +1138,18 @@ def get_free_memory(dev=None, torch_free_too=False, use_cache=True):
             mem_free_torch = mem_reserved - mem_active
             mem_total = torch.xpu.get_device_properties(dev).total_memory
             mem_free_xpu = mem_total - mem_reserved
-            mem_free_total = mem_free_xpu + mem_free_torch
+            # mem_free_xpu is the unreserved free memory, use as primary source
+            # Adding mem_free_torch would double-count free reserved memory
+            mem_free_total = mem_free_xpu
         else:
             stats = torch.cuda.memory_stats(dev)
             mem_active = stats['active_bytes.all.current']
             mem_reserved = stats['reserved_bytes.all.current']
             mem_free_cuda, mem_total = torch.cuda.mem_get_info(dev)
             mem_free_torch = mem_reserved - mem_active
-            mem_free_total = mem_free_cuda + mem_free_torch
+            # mem_free_cuda already includes all available memory (unreserved + free portions of reserved)
+            # Adding mem_free_torch would double-count the free reserved memory
+            mem_free_total = mem_free_cuda
 
     # Update cache with fresh data
     if use_cache:

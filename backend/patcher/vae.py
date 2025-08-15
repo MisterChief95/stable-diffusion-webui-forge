@@ -62,10 +62,8 @@ class VAE:
         if no_init:
             return
 
-        dtype_size = memory_management.dtype_size(dtype)
-
-        self.memory_used_encode = lambda shape: (1767 * shape[2] * shape[3]) * dtype_size
-        self.memory_used_decode = lambda shape: (2178 * shape[2] * shape[3] * 64) * dtype_size
+        self.memory_used_encode = lambda shape, _dtype: (1767 * shape[2] * shape[3]) * memory_management.dtype_size(_dtype)
+        self.memory_used_decode = lambda shape, _dtype: (2178 * shape[2] * shape[3] * 8) * memory_management.dtype_size(_dtype)
         self.downscale_ratio = int(2 ** (len(model.config.down_block_types) - 1))
         self.latent_channels = int(model.config.latent_channels)
 
@@ -132,7 +130,7 @@ class VAE:
             return self.decode_tiled(samples_in).to(self.output_device)
 
         try:
-            memory_used = self.memory_used_decode(samples_in.shape)
+            memory_used = self.memory_used_decode(samples_in.shape, self.vae_dtype)
             memory_management.load_models_gpu([self.patcher], memory_required=memory_used)
             free_memory = memory_management.get_free_memory(self.device)
             batch_number = int(free_memory / memory_used)
@@ -169,7 +167,7 @@ class VAE:
 
         pixel_samples = pixel_samples.movedim(-1, 1)
         try:
-            memory_used = self.memory_used_encode(pixel_samples.shape)
+            memory_used = self.memory_used_encode(pixel_samples.shape, self.vae_dtype)
             memory_management.load_models_gpu([self.patcher], memory_required=memory_used)
             free_memory = memory_management.get_free_memory(self.device)
             batch_number = int(free_memory / memory_used)
