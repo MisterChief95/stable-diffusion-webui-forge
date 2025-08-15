@@ -4,7 +4,6 @@ import time
 import psutil
 import torch
 import platform
-import traceback
 
 from enum import Enum
 from backend import stream, utils
