@@ -188,7 +188,7 @@ def calc_cond_uncond_batch(model, cond, uncond, x_in, timestep, model_options):
         to_batch = to_batch_temp[:1]
 
         if memory_management.signal_empty_cache:
-            memory_management.soft_empty_cache()
+            memory_management.soft_empty_cache(for_inference=True)
 
         free_memory = memory_management.get_free_memory(x_in.device)
 
