@@ -11,8 +11,8 @@ class ScriptPostprocessingDenoise(scripts_postprocessing.ScriptPostprocessing):
 
     def ui(self):
         with ui_components.InputAccordion(False, label="Denoising") as enable:
-            denoise_strength = gr.Slider(label='Denoising strength', value=3.0, minimum=0.1, maximum=15.0, step=0.1, elem_id="postprocess_denoise_strength")
-            color_strength = gr.Slider(label='Color component strength', value=3.0, minimum=0.1, maximum=15.0, step=0.1, elem_id="postprocess_denoise_color_strength")
+            denoise_strength = gr.Slider(label='Denoising strength', value=3.0, minimum=0.1, maximum=10.0, step=0.1, elem_id="postprocess_denoise_strength")
+            color_strength = gr.Slider(label='Color component strength', value=3.0, minimum=0.1, maximum=10.0, step=0.1, elem_id="postprocess_denoise_color_strength")
             template_window_size = gr.Slider(label='Template window size', value=7, minimum=3, maximum=21, step=2, elem_id="postprocess_denoise_template_size")
             search_window_size = gr.Slider(label='Search window size', value=21, minimum=7, maximum=35, step=2, elem_id="postprocess_denoise_search_size")
             denoise_method = gr.Dropdown(
