@@ -1051,8 +1051,6 @@ def cast_to_device(tensor, device, dtype, copy=False):
 def sage_attention_enabled():
     return args.use_sage_attention
 
-def flash_attention_enabled():
-    return args.use_flash_attention
 
 def xformers_enabled():
     global directml_enabled

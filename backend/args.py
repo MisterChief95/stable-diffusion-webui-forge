@@ -32,13 +32,15 @@ attn_group.add_argument("--attention-split", action="store_true")
 attn_group.add_argument("--attention-quad", action="store_true")
 attn_group.add_argument("--attention-pytorch", action="store_true")
 attn_group.add_argument("--use-sage-attention", action="store_true", help="Use sage attention.")
-attn_group.add_argument("--use-flash-attention", action="store_true", help="Use FlashAttention.")
 
 upcast = parser.add_mutually_exclusive_group()
 upcast.add_argument("--force-upcast-attention", action="store_true")
 upcast.add_argument("--disable-attention-upcast", action="store_true")
 
 parser.add_argument("--disable-xformers", action="store_true")
+parser.add_argument("--disable-xformers-attention", action="store_true")
+parser.add_argument("--disable-xformers-vae", action="store_true")
+parser.add_argument("--xformers-verbose", action="store_true", help="Enable xformers verbose mode.")
 
 parser.add_argument("--directml", type=int, nargs="?", metavar="DIRECTML_DEVICE", const=-1)
 parser.add_argument("--disable-ipex-hijack", action="store_true")
