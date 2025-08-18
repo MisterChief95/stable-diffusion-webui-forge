@@ -531,9 +531,7 @@ class LoadedModel:
             self.model_unload()
             raise e
 
-        if do_not_need_cpu_swap:
-            print('All loaded to GPU.')
-        else:
+        if not do_not_need_cpu_swap:
             gpu_modules, gpu_modules_only_extras, cpu_modules = build_module_profile(self.real_model, model_gpu_memory_when_using_cpu_swap)
             pin_memory = PIN_SHARED_MEMORY and is_device_cpu(self.model.offload_device)
 
@@ -1051,8 +1049,6 @@ def cast_to_device(tensor, device, dtype, copy=False):
 def sage_attention_enabled():
     return args.use_sage_attention
 
-def flash_attention_enabled():
-    return args.use_flash_attention
 
 def xformers_enabled():
     global directml_enabled
