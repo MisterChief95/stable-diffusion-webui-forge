@@ -40,7 +40,6 @@ upcast.add_argument("--disable-attention-upcast", action="store_true")
 parser.add_argument("--disable-xformers", action="store_true")
 parser.add_argument("--disable-xformers-attention", action="store_true")
 parser.add_argument("--disable-xformers-vae", action="store_true")
-parser.add_argument("--xformers-verbose", action="store_true", help="Enable xformers verbose mode.")
 
 parser.add_argument("--directml", type=int, nargs="?", metavar="DIRECTML_DEVICE", const=-1)
 parser.add_argument("--disable-ipex-hijack", action="store_true")
