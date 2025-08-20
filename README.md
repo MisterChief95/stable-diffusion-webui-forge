@@ -22,7 +22,7 @@ The name "Forge" is inspired by "Minecraft Forge". This project aims to become t
 
 <br>
 
-## Features [Aug. 06]
+## Features [Aug. 20]
 > Most base features of the original [Automatic1111 Webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) should still function
 
 #### New Features
@@ -33,15 +33,13 @@ The name "Forge" is inspired by "Minecraft Forge". This project aims to become t
     - to be properly detected, the file path needs to include `"kontext"`
 - [X] Support [Chroma](https://huggingface.co/lodestones/Chroma)
     - special thanks: @croquelois
+- [X] Rewrite Preset System
+    - now actually remember the checkpoint/modules selections for each preset
 - [X] Support [uv](https://github.com/astral-sh/uv) package manager
     - requires **manually** installing [uv](https://github.com/astral-sh/uv/releases)
     - drastically speed up installation
     - see [Commandline](#by-neo)
-- [X] Support [SageAttention](https://github.com/thu-ml/SageAttention)
-    - see [Commandline](#by-neo)
-- [X] Support [FlashAttention](https://github.com/Dao-AILab/flash-attention)
-    - see [Commandline](#by-neo)
-- [X] Support fast `fp16_accumulation`
+- [X] Support [SageAttention](https://github.com/thu-ml/SageAttention), [FlashAttention](https://github.com/Dao-AILab/flash-attention), fast `fp16_accumulation`
     - see [Commandline](#by-neo)
 - [X] Implement RescaleCFG
     - reduce burnt colors; mainly for `v-pred` checkpoints
@@ -58,6 +56,18 @@ The name "Forge" is inspired by "Minecraft Forge". This project aims to become t
     - support new Upscaler architectures
 - [X] Add `pillow-heif` package
     - support `.avif` and `.heif` images
+
+<br>
+
+- [ ] Limited Support for [Wan](https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B)
+    - only **txt2img** is supported
+    - only `batch_size` of **1** is supported
+    - only **14B** is supported
+    - support both **2.1** and **2.2**
+    - **W.I.P**
+
+> [!Tip]
+> If you wish to test it, please switch to the [wan](https://github.com/Haoming02/sd-webui-forge-classic/tree/wan) branch
 
 #### Removed Features
 
@@ -101,8 +111,8 @@ The name "Forge" is inspired by "Minecraft Forge". This project aims to become t
 - [X] Update `protobuf`
     - faster `insightface` loading
 - [X] Update to latest PyTorch
-    - `torch==2.7.1+cu128`
-    - `xformers==0.0.31`
+    - `torch==2.8.0+cu128`
+    - `xformers==0.0.32`
 
 > [!Note]
 > If your GPU does not support the latest PyTorch, manually [install](#install-older-pytorch) older version of PyTorch
@@ -166,6 +176,7 @@ The name "Forge" is inspired by "Minecraft Forge". This project aims to become t
 > This simply **replaces** the `models` folder, rather than adding on top of it
 
 - `--sage`: Install the `sageattention` package to speed up generation
+    - will also attempt to install `triton` automatically
 
 > [!Note]
 > For RTX **50** users, you may need to manually [install](#install-sageattention-2) `sageattention 2` instead
