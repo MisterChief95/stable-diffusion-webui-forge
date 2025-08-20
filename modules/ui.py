@@ -341,6 +341,22 @@ def create_ui():
                                     hr_distilled_cfg = gr.Slider(minimum=0.0, maximum=30.0, step=0.1, label="Hires Distilled CFG Scale", value=3.5, elem_id="txt2img_hr_distilled_cfg")
                                     hr_cfg = gr.Slider(minimum=1.0, maximum=30.0, step=0.1, label="Hires CFG Scale", value=7.0, elem_id="txt2img_hr_cfg")
 
+                                with FormRow(elem_id="txt2img_hires_fix_row_iterative", variant="compact", visible=shared.opts.hires_fix_show_iterative):
+                                    hr_iterative_steps = gr.Slider(minimum=1, maximum=10, step=1, label='Iterative steps', value=1, elem_id="txt2img_hr_iterative_steps")
+                                    hr_iter_target_denoise = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Target denoising', value=0.0, elem_id="txt2img_hr_iter_target_denoise")
+
+                                with FormRow(elem_id="txt2img_hires_fix_row_iterative2", variant="compact", visible=shared.opts.hires_fix_show_iterative):
+                                    hr_iter_target_cfg = gr.Slider(minimum=0.0, maximum=30.0, step=0.1, label='Target CFG', value=0.0, elem_id="txt2img_hr_iter_target_cfg")
+                                    hr_iter_target_steps = gr.Slider(minimum=0, maximum=150, step=1, label='Target steps', value=0, elem_id="txt2img_hr_iter_target_steps")
+
+                                # Enable/disable iterative controls based on iterative steps value
+                                hr_iterative_steps.change(
+                                    fn=lambda steps: [gr.update(interactive=steps > 1)] * 3,
+                                    inputs=[hr_iterative_steps],
+                                    outputs=[hr_iter_target_denoise, hr_iter_target_cfg, hr_iter_target_steps],
+                                    show_progress=False,
+                                )
+
                                 with FormRow(elem_id="txt2img_hires_fix_row3", variant="compact", visible=shared.opts.hires_fix_show_sampler) as hr_checkpoint_container:
                                     hr_checkpoint_name = gr.Dropdown(label='Hires Checkpoint', elem_id="hr_checkpoint", choices=["Use same checkpoint"] + modules.sd_models.checkpoint_tiles(use_short=True), value="Use same checkpoint", scale=2)
 
@@ -369,7 +385,7 @@ def create_ui():
                                     hr_sampler_name = gr.Dropdown(label='Hires sampling method', elem_id="hr_sampler", choices=["Use same sampler"] + sd_samplers.visible_sampler_names(), value="Use same sampler")
                                     hr_scheduler = gr.Dropdown(label='Hires schedule type', elem_id="hr_scheduler", choices=["Use same scheduler"] + [x.label for x in sd_schedulers.schedulers], value="Use same scheduler")
 
-                                with FormRow(elem_id="txt2img_hires_fix_row4", variant="compact", visible=shared.opts.hires_fix_show_prompts) as hr_prompts_container:
+                                with FormRow(elem_id="txt2img_hires_fix_row4", variant="compact", visible=shared.opts.hires_fix_show_iterative  ) as hr_prompts_container:
                                     with gr.Column():
                                         hr_prompt = gr.Textbox(label="Hires prompt", elem_id="hires_prompt", show_label=False, lines=3, placeholder="Prompt for hires fix pass.\nLeave empty to use the same prompt as in first pass.", elem_classes=["prompt"])
                                     with gr.Column():
@@ -443,6 +459,10 @@ def create_ui():
                 hr_negative_prompt,
                 hr_cfg,
                 hr_distilled_cfg,
+                hr_iterative_steps,
+                hr_iter_target_denoise,
+                hr_iter_target_cfg,
+                hr_iter_target_steps,
                 override_settings,
             ] + custom_inputs
 
@@ -520,6 +540,10 @@ def create_ui():
                 PasteField(hr_cfg, "Hires CFG Scale", api="hr_cfg"),
                 PasteField(hr_distilled_cfg, "Hires Distilled CFG Scale", api="hr_distilled_cfg"),
                 PasteField(hr_prompts_container, lambda d: gr.update(visible=True) if d.get("Hires prompt", "") != "" or d.get("Hires negative prompt", "") != "" else gr.update()),
+                PasteField(hr_iterative_steps, "Hires iterative steps", api="hr_iterative_steps"),
+                PasteField(hr_iter_target_denoise, "Hires target denoise", api="hr_iter_target_denoise"),
+                PasteField(hr_iter_target_cfg, "Hires target CFG", api="hr_iter_target_cfg"),
+                PasteField(hr_iter_target_steps, "Hires target steps", api="hr_iter_target_steps"),
                 *scripts.scripts_txt2img.infotext_fields
             ]
             parameters_copypaste.add_paste_fields("txt2img", None, txt2img_paste_fields, override_settings)
