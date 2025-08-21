@@ -1195,7 +1195,6 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
     hr_iter_target_denoise: float = 0.0
     hr_iter_target_cfg: float = 0.0
     hr_iter_target_steps: int = 0
-    hr_iter_save_intermediate: bool = False
     force_task_id: str = None
 
     cached_hr_uc = [None, None, None]

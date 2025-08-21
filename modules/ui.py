@@ -350,14 +350,11 @@ def create_ui():
                                         hr_iter_target_cfg = gr.Slider(minimum=0.0, maximum=30.0, step=0.1, label='Target CFG', value=0.0, elem_id="txt2img_hr_iter_target_cfg", interactive=False)
                                         hr_iter_target_steps = gr.Slider(minimum=0, maximum=150, step=1, label='Target steps', value=0, elem_id="txt2img_hr_iter_target_steps", interactive=False)
 
-                                    with FormRow(elem_id="txt2img_hires_fix_row_iterative3", variant="compact", visible=shared.opts.hires_fix_show_iterative):
-                                        hr_iter_save_intermediate = gr.Checkbox(label="Save Intermediate Results", elem_id="txt2img_hr_iter_save_intermediate", value=False)
-
                                 # Enable/disable iterative controls based on iterative steps value
                                 hr_iterative_steps.change(
                                     fn=lambda steps: [gr.update(interactive=steps > 1)] * 4,
                                     inputs=[hr_iterative_steps],
-                                    outputs=[hr_iter_target_denoise, hr_iter_target_cfg, hr_iter_target_steps, hr_iter_save_intermediate],
+                                    outputs=[hr_iter_target_denoise, hr_iter_target_cfg, hr_iter_target_steps],
                                     show_progress=False,
                                 )
 
@@ -467,7 +464,6 @@ def create_ui():
                 hr_iter_target_denoise,
                 hr_iter_target_cfg,
                 hr_iter_target_steps,
-                hr_iter_save_intermediate,
                 override_settings,
             ] + custom_inputs
 
@@ -549,7 +545,6 @@ def create_ui():
                 PasteField(hr_iter_target_denoise, "Hires target denoise", api="hr_iter_target_denoise"),
                 PasteField(hr_iter_target_cfg, "Hires target CFG", api="hr_iter_target_cfg"),
                 PasteField(hr_iter_target_steps, "Hires target steps", api="hr_iter_target_steps"),
-                PasteField(hr_iter_save_intermediate, "Hires save intermediate", api="hr_iter_save_intermediate"),
                 *scripts.scripts_txt2img.infotext_fields,
             ]
             parameters_copypaste.add_paste_fields("txt2img", None, txt2img_paste_fields, override_settings)
