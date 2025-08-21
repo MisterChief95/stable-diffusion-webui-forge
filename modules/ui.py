@@ -341,13 +341,14 @@ def create_ui():
                                     hr_distilled_cfg = gr.Slider(minimum=0.0, maximum=30.0, step=0.1, label="Hires Distilled CFG Scale", value=3.5, elem_id="txt2img_hr_distilled_cfg")
                                     hr_cfg = gr.Slider(minimum=1.0, maximum=30.0, step=0.1, label="Hires CFG Scale", value=7.0, elem_id="txt2img_hr_cfg")
 
-                                with FormRow(elem_id="txt2img_hires_fix_row_iterative", variant="compact", visible=shared.opts.hires_fix_show_iterative):
-                                    hr_iterative_steps = gr.Slider(minimum=1, maximum=10, step=1, label='Iterative steps', value=1, elem_id="txt2img_hr_iterative_steps")
-                                    hr_iter_target_denoise = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Target denoising', value=0.0, elem_id="txt2img_hr_iter_target_denoise")
+                                with gr.Accordion(label="Iterative Refinement", open=False):
+                                    with FormRow(elem_id="txt2img_hires_fix_row_iterative", variant="compact", visible=shared.opts.hires_fix_show_iterative):
+                                        hr_iterative_steps = gr.Slider(minimum=1, maximum=10, step=1, label='Iterations', value=1, elem_id="txt2img_hr_iterative_steps", info="Number of refinement iterations (1 = disabled)")
+                                        hr_iter_target_denoise = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label='Target denoising', value=0.0, elem_id="txt2img_hr_iter_target_denoise", interactive=False)
 
-                                with FormRow(elem_id="txt2img_hires_fix_row_iterative2", variant="compact", visible=shared.opts.hires_fix_show_iterative):
-                                    hr_iter_target_cfg = gr.Slider(minimum=0.0, maximum=30.0, step=0.1, label='Target CFG', value=0.0, elem_id="txt2img_hr_iter_target_cfg")
-                                    hr_iter_target_steps = gr.Slider(minimum=0, maximum=150, step=1, label='Target steps', value=0, elem_id="txt2img_hr_iter_target_steps")
+                                    with FormRow(elem_id="txt2img_hires_fix_row_iterative2", variant="compact", visible=shared.opts.hires_fix_show_iterative):
+                                        hr_iter_target_cfg = gr.Slider(minimum=0.0, maximum=30.0, step=0.1, label='Target CFG', value=0.0, elem_id="txt2img_hr_iter_target_cfg", interactive=False)
+                                        hr_iter_target_steps = gr.Slider(minimum=0, maximum=150, step=1, label='Target steps', value=0, elem_id="txt2img_hr_iter_target_steps", interactive=False)
 
                                 # Enable/disable iterative controls based on iterative steps value
                                 hr_iterative_steps.change(
