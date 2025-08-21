@@ -25,7 +25,7 @@ plain: /([^\\\[\]():|]|\\.)+/
 %import common.SIGNED_NUMBER -> NUMBER
 """)
 
-def get_learned_conditioning_prompt_schedules(prompts, base_steps, hires_steps=None, use_old_scheduling=False):
+def get_learned_conditioning_prompt_schedules(prompts, base_steps, hires_steps=None, use_old_scheduling=False, iteration_index=0, total_iterations=1):
     """
     >>> g = lambda p: get_learned_conditioning_prompt_schedules([p], 10)[0]
     >>> g("test")
@@ -68,8 +68,9 @@ def get_learned_conditioning_prompt_schedules(prompts, base_steps, hires_steps=N
         flt_offset = 0
         steps = base_steps
     else:
-        int_offset = base_steps
-        flt_offset = 1.0
+        # Apply iteration-specific offsets for proper scheduling across iterations
+        int_offset = base_steps + iteration_index * hires_steps  # Step-based: absolute step offset per iteration
+        flt_offset = 1.0 + iteration_index  # Percentage-based: iteration 0 = 1.0-2.0, iteration 1 = 2.0-3.0, etc.
         steps = hires_steps
 
     def collect_steps(steps, tree):
@@ -155,7 +156,7 @@ class SdConditioning(list):
 
 
 
-def get_learned_conditioning(model, prompts: SdConditioning | list[str], steps, hires_steps=None, use_old_scheduling=False):
+def get_learned_conditioning(model, prompts: SdConditioning | list[str], steps, hires_steps=None, use_old_scheduling=False, iteration_index=0, total_iterations=1):
     """converts a list of prompts into a list of prompt schedules - each schedule is a list of ScheduledPromptConditioning, specifying the comdition (cond),
     and the sampling step at which this condition is to be replaced by the next one.
 
@@ -175,7 +176,7 @@ def get_learned_conditioning(model, prompts: SdConditioning | list[str], steps, 
     """
     res = []
 
-    prompt_schedules = get_learned_conditioning_prompt_schedules(prompts, steps, hires_steps, use_old_scheduling)
+    prompt_schedules = get_learned_conditioning_prompt_schedules(prompts, steps, hires_steps, use_old_scheduling, iteration_index, total_iterations)
     cache = {}
 
     for prompt, prompt_schedule in zip(prompts, prompt_schedules):
@@ -250,7 +251,7 @@ class MulticondLearnedConditioning:
         self.batch: list[list[ComposableScheduledPromptConditioning]] = batch
 
 
-def get_multicond_learned_conditioning(model, prompts, steps, hires_steps=None, use_old_scheduling=False) -> MulticondLearnedConditioning:
+def get_multicond_learned_conditioning(model, prompts, steps, hires_steps=None, use_old_scheduling=False, iteration_index=0, total_iterations=1) -> MulticondLearnedConditioning:
     """same as get_learned_conditioning, but returns a list of ScheduledPromptConditioning along with the weight objects for each prompt.
     For each prompt, the list is obtained by splitting the prompt using the AND separator.
 
@@ -259,7 +260,7 @@ def get_multicond_learned_conditioning(model, prompts, steps, hires_steps=None, 
 
     res_indexes, prompt_flat_list, prompt_indexes = get_multicond_prompt_list(prompts)
 
-    learned_conditioning = get_learned_conditioning(model, prompt_flat_list, steps, hires_steps, use_old_scheduling)
+    learned_conditioning = get_learned_conditioning(model, prompt_flat_list, steps, hires_steps, use_old_scheduling, iteration_index, total_iterations)
 
     res = []
     for indexes in res_indexes:
@@ -473,8 +474,41 @@ def parse_prompt_attention(text):
 
     return res
 
+def test_iterative_scheduling():
+    """Test that iterative scheduling works correctly for both percentage and step-based modes"""
+    
+    # Test percentage-based scheduling with iterations
+    print("=== Testing Percentage-based Iterative Scheduling ===")
+    
+    # Single iteration (backward compatibility)
+    single_iter = get_learned_conditioning_prompt_schedules(["[cat:dog:1.5]"], 20, 20, False, 0, 1)[0]
+    print(f"Single iteration (1.5): {single_iter}")
+    
+    # Two iterations - should have different schedules
+    iter0 = get_learned_conditioning_prompt_schedules(["[cat:dog:1.5]"], 20, 20, False, 0, 2)[0]
+    iter1 = get_learned_conditioning_prompt_schedules(["[cat:dog:1.5]"], 20, 20, False, 1, 2)[0]
+    print(f"Iteration 0 (1.0-2.0 range, switch at 1.5): {iter0}")
+    print(f"Iteration 1 (2.0-3.0 range, switch at 1.5): {iter1}")
+    
+    # Test step-based scheduling with iterations
+    print("\n=== Testing Step-based Iterative Scheduling ===")
+    
+    # Single iteration
+    single_step = get_learned_conditioning_prompt_schedules(["[cat:dog:30]"], 20, 20, False, 0, 1)[0]
+    print(f"Single iteration (step 30): {single_step}")
+    
+    # Two iterations
+    step_iter0 = get_learned_conditioning_prompt_schedules(["[cat:dog:30]"], 20, 20, False, 0, 2)[0]
+    step_iter1 = get_learned_conditioning_prompt_schedules(["[cat:dog:30]"], 20, 20, False, 1, 2)[0]
+    print(f"Step iteration 0 (step 30): {step_iter0}")
+    print(f"Step iteration 1 (step 30): {step_iter1}")
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod(optionflags=doctest.NORMALIZE_WHITESPACE)
+    
+    # Run iterative scheduling tests
+    print("\n" + "="*50)
+    test_iterative_scheduling()
 else:
     import torch  # doctest faster

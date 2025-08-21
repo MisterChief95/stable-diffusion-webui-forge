@@ -416,10 +416,10 @@ class StableDiffusionProcessing:
         self.main_prompt = self.all_prompts[0]
         self.main_negative_prompt = self.all_negative_prompts[0]
 
-    def cached_params(self, required_prompts, steps, extra_network_data, hires_steps=None, use_old_scheduling=False):
+    def cached_params(self, required_prompts, steps, extra_network_data, hires_steps=None, use_old_scheduling=False, iteration_context=None):
         """Returns parameters that invalidate the cond cache if changed"""
 
-        return (
+        base_params = (
             required_prompts,
             self.distilled_cfg_scale,
             self.hr_distilled_cfg,
@@ -437,8 +437,14 @@ class StableDiffusionProcessing:
             opts.cache_fp16_weight,
             opts.emphasis,
         )
+        
+        # Add iteration context to cache key when provided (for HR iterations)
+        if iteration_context is not None:
+            return base_params + (iteration_context,)
+        
+        return base_params
 
-    def get_conds_with_caching(self, function, required_prompts, steps, caches, extra_network_data, hires_steps=None):
+    def get_conds_with_caching(self, function, required_prompts, steps, caches, extra_network_data, hires_steps=None, iteration_context=None):
         """
         Returns the result of calling function(shared.sd_model, required_prompts, steps)
         using a cache to store the result if the same arguments have been used before.
@@ -457,7 +463,7 @@ class StableDiffusionProcessing:
             if old_schedules != new_schedules:
                 self.extra_generation_params["Old prompt editing timelines"] = True
 
-        cached_params = self.cached_params(required_prompts, steps, extra_network_data, hires_steps, shared.opts.use_old_scheduling)
+        cached_params = self.cached_params(required_prompts, steps, extra_network_data, hires_steps, shared.opts.use_old_scheduling, iteration_context)
 
         for cache in caches:
             if cache[0] is not None and cached_params == cache[0]:
@@ -1185,10 +1191,11 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
     hr_negative_prompt: str = ''
     hr_cfg: float = 1.0
     hr_distilled_cfg: float = 3.5
-    hr_iterative_steps: int = 2
+    hr_iterative_steps: int = 1  # Default to 1 for backward compatibility (unified iterative system)
     hr_iter_target_denoise: float = 0.0
     hr_iter_target_cfg: float = 0.0
     hr_iter_target_steps: int = 0
+    hr_iter_save_intermediate: bool = False
     force_task_id: str = None
 
     cached_hr_uc = [None, None, None]
@@ -1203,6 +1210,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
     latent_scale_mode: dict = field(default=None, init=False)
     hr_c: tuple | None = field(default=None, init=False)
     hr_uc: tuple | None = field(default=None, init=False)
+    hr_c_iterations: list = field(default_factory=list, init=False)  # Pre-calculated conditioning per iteration
+    hr_uc_iterations: list = field(default_factory=list, init=False)  # Pre-calculated unconditioning per iteration
     all_hr_prompts: list = field(default=None, init=False)
     all_hr_negative_prompts: list = field(default=None, init=False)
     hr_prompts: list = field(default=None, init=False)
@@ -1314,10 +1323,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 if state.job_count == -1:
                     state.job_count = self.n_iter
                 
-                # Calculate iterative multiplier for hires steps
-                iterative_multiplier = 1
-                if self.hr_iterative_steps > 1:
-                    iterative_multiplier = self.hr_iterative_steps
+                # Calculate iterative multiplier for hires steps (always use iterative system)
+                iterative_multiplier = max(1, self.hr_iterative_steps)
                 
                 if getattr(self, 'txt2img_upscale', False):
                     total_steps = (self.hr_second_pass_steps or self.steps) * iterative_multiplier * state.job_count
@@ -1325,10 +1332,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                     hires_steps = (self.hr_second_pass_steps or self.steps) * iterative_multiplier
                     total_steps = (self.steps + hires_steps) * state.job_count
                 shared.total_tqdm.updateTotal(total_steps)
-                if self.hr_iterative_steps > 1:
-                    state.job_count = state.job_count * (1 + iterative_multiplier)
-                else:
-                    state.job_count = state.job_count * 2
+                # Always use iterative calculation (hr_iterative_steps=1 means single iteration)
+                state.job_count = state.job_count * (1 + iterative_multiplier)
                 state.processing_has_refined_job_count = True
 
             if self.hr_second_pass_steps:
@@ -1337,6 +1342,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             if self.hr_upscaler is not None:
                 self.extra_generation_params["Hires upscaler"] = self.hr_upscaler
 
+            # Only log iterative params when using multiple iterations
             if self.hr_iterative_steps > 1:
                 self.extra_generation_params["Hires iterative steps"] = self.hr_iterative_steps
                 if self.hr_iter_target_denoise > 0:
@@ -1454,11 +1460,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             info = create_infotext(self, self.all_prompts, self.all_seeds, self.all_subseeds, [], iteration=self.iteration, position_in_batch=index)
             images.save_image(image, self.outpath_samples, "", seeds[index], prompts[index], opts.samples_format, info=info, p=self, suffix=suffix)
 
-        # Check if iterative upscaling is enabled
-        if self.hr_iterative_steps > 1:
-            return self.sample_hr_pass_iterative(samples, decoded_samples, seeds, subseeds, subseed_strength, prompts, target_width, target_height, save_intermediate)
-        else:
-            return self.sample_hr_pass_single(samples, decoded_samples, seeds, subseeds, subseed_strength, prompts, target_width, target_height, save_intermediate)
+        # Always use iterative upscaling system (hr_iterative_steps=1 for backward compatibility)
+        return self.sample_hr_pass_iterative(samples, decoded_samples, seeds, subseeds, subseed_strength, prompts, target_width, target_height, save_intermediate)
 
     def sample_hr_pass_iterative(self, samples, decoded_samples, seeds, subseeds, subseed_strength, prompts, target_width, target_height, save_intermediate):
         """Performs iterative upscaling with multiple smaller steps"""
@@ -1485,6 +1488,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         cfg_factor = 1.0
         steps_factor = 1.0
         
+        # Calculate progression factors (only apply when multiple iterations)
         if self.hr_iterative_steps > 1:
             if self.hr_iter_target_denoise > 0:
                 denoise_factor = (self.hr_iter_target_denoise / self.denoising_strength) ** (1.0 / (self.hr_iterative_steps - 1))
@@ -1545,11 +1549,12 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             if self.hr_iter_target_steps > 0:
                 self.hr_second_pass_steps = current_steps
 
-            # Perform single upscaling step
+            # Perform single upscaling step with iteration context
             current_samples = self.sample_hr_pass_single(
                 current_samples, current_decoded_samples, seeds, subseeds, subseed_strength, prompts,
                 step_width, step_height, save_intermediate, 
-                step_suffix=f"-iter-{step+1}" if step < self.hr_iterative_steps - 1 else ""
+                step_suffix=f"-iter-{step+1}" if step < self.hr_iterative_steps - 1 else "",
+                iteration_index=step
             )
             
             # Restore original parameters
@@ -1576,8 +1581,13 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
 
         return current_samples
 
-    def sample_hr_pass_single(self, samples, decoded_samples, seeds, subseeds, subseed_strength, prompts, step_width, step_height, save_intermediate, step_suffix=""):
+    def sample_hr_pass_single(self, samples, decoded_samples, seeds, subseeds, subseed_strength, prompts, step_width, step_height, save_intermediate, step_suffix="", iteration_index=0):
         """Performs a single upscaling step to the specified resolution"""
+
+        # Use pre-calculated conditioning for this iteration
+        if iteration_index < len(self.hr_c_iterations):
+            self.hr_c = self.hr_c_iterations[iteration_index]
+            self.hr_uc = self.hr_uc_iterations[iteration_index]
 
         img2img_sampler_name = self.hr_sampler_name or self.sampler_name
         self.sampler = sd_samplers.create_sampler(img2img_sampler_name, self.sd_model)
@@ -1707,24 +1717,85 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         self.all_hr_prompts = [shared.prompt_styles.apply_styles_to_prompt(x, self.styles) for x in self.all_hr_prompts]
         self.all_hr_negative_prompts = [shared.prompt_styles.apply_negative_styles_to_prompt(x, self.styles) for x in self.all_hr_negative_prompts]
 
-    def calculate_hr_conds(self):
-        if self.hr_c is not None:
-            return
-
+    def calculate_hr_conds_for_iteration(self, iteration_index, total_iterations, steps_per_iteration):
+        """Calculate conditioning for a specific iteration with proper step context"""
         hr_prompts = prompt_parser.SdConditioning(self.hr_prompts, width=self.hr_upscale_to_x, height=self.hr_upscale_to_y, distilled_cfg_scale=self.hr_distilled_cfg)
         hr_negative_prompts = prompt_parser.SdConditioning(self.hr_negative_prompts, width=self.hr_upscale_to_x, height=self.hr_upscale_to_y, is_negative_prompt=True, distilled_cfg_scale=self.hr_distilled_cfg)
+        
+        # Create cache key that includes iteration context to prevent cross-iteration reuse
+        iteration_cache_key_suffix = (iteration_index, total_iterations, steps_per_iteration)
+        
+        # Create iteration-specific cache arrays (avoid cross-iteration cache reuse)
+        cached_hr_uc_iter = [None, None, None]
+        cached_hr_c_iter = [None, None, None]
+        
+        # Calculate step context for this iteration
+        # For iteration 0: steps 1.0-2.0 (or firstpass_steps to firstpass_steps+steps_per_iteration)
+        # For iteration 1: steps 2.0-3.0, etc.
+        iteration_step_offset = 1.0 + iteration_index  # Base offset for percentage-based
+        iteration_int_offset = self.firstpass_steps + iteration_index * steps_per_iteration  # Base offset for step-based
+        
+        # Create wrapper functions that pass iteration context to the prompt parser
+        def get_learned_conditioning_with_iteration(model, prompts, steps, hires_steps, use_old_scheduling):
+            return prompt_parser.get_learned_conditioning(
+                model, prompts, steps, hires_steps, use_old_scheduling,
+                iteration_index, total_iterations
+            )
+        
+        def get_multicond_learned_conditioning_with_iteration(model, prompts, steps, hires_steps, use_old_scheduling):
+            return prompt_parser.get_multicond_learned_conditioning(
+                model, prompts, steps, hires_steps, use_old_scheduling,
+                iteration_index, total_iterations
+            )
+        
+        # Use iteration-context aware conditioning calculation with proper cache isolation
+        hr_uc = self.get_conds_with_caching(
+            get_learned_conditioning_with_iteration, 
+            hr_negative_prompts, 
+            self.firstpass_steps, 
+            [cached_hr_uc_iter, self.cached_uc], 
+            self.hr_extra_network_data, 
+            steps_per_iteration,
+            iteration_context=iteration_cache_key_suffix
+        )
+        
+        hr_c = self.get_conds_with_caching(
+            get_multicond_learned_conditioning_with_iteration, 
+            hr_prompts, 
+            self.firstpass_steps, 
+            [cached_hr_c_iter, self.cached_c], 
+            self.hr_extra_network_data, 
+            steps_per_iteration,
+            iteration_context=iteration_cache_key_suffix
+        )
+        
+        return hr_c, hr_uc
+    
+    def calculate_hr_conds(self):
+        if len(self.hr_c_iterations) > 0:
+            return  # Already calculated
 
+        # Clear any existing single conditioning
+        self.hr_c = None
+        self.hr_uc = None
+        
         sampler_config = sd_samplers.find_sampler_config(self.hr_sampler_name or self.sampler_name)
         steps = self.hr_second_pass_steps or self.steps
         total_steps = sampler_config.total_steps(steps) if sampler_config else steps
-
-        # if self.hr_cfg == 1:
-        #     self.hr_uc = None
-        #     print('Skipping unconditional conditioning (HR pass) when CFG = 1. Negative Prompts are ignored.')
-        # else:
-            
-        self.hr_uc = self.get_conds_with_caching(prompt_parser.get_learned_conditioning, hr_negative_prompts, self.firstpass_steps, [self.cached_hr_uc, self.cached_uc], self.hr_extra_network_data, total_steps)
-        self.hr_c = self.get_conds_with_caching(prompt_parser.get_multicond_learned_conditioning, hr_prompts, self.firstpass_steps, [self.cached_hr_c, self.cached_c], self.hr_extra_network_data, total_steps)
+        
+        # Pre-calculate conditioning for all iterations
+        self.hr_c_iterations = []
+        self.hr_uc_iterations = []
+        
+        for iteration in range(self.hr_iterative_steps):
+            hr_c, hr_uc = self.calculate_hr_conds_for_iteration(iteration, self.hr_iterative_steps, total_steps)
+            self.hr_c_iterations.append(hr_c)
+            self.hr_uc_iterations.append(hr_uc)
+        
+        # For backward compatibility, set the first iteration as default
+        if len(self.hr_c_iterations) > 0:
+            self.hr_c = self.hr_c_iterations[0]
+            self.hr_uc = self.hr_uc_iterations[0]
 
     def setup_conds(self):
         if self.is_hr_pass:
@@ -1737,6 +1808,9 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
 
         self.hr_uc = None
         self.hr_c = None
+        # Clear iteration conditioning arrays to force recalculation
+        self.hr_c_iterations = []
+        self.hr_uc_iterations = []
 
         if self.enable_hr and self.hr_checkpoint_info is None:
             if shared.opts.hires_fix_use_firstpass_conds:
