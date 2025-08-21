@@ -1,8 +1,11 @@
-from modules import scripts_postprocessing, ui_components
-import gradio as gr
 import cv2
+import gradio as gr
 import numpy as np
+
 from PIL import Image
+
+from modules import errors
+from modules import scripts_postprocessing, ui_components
 
 
 class ScriptPostprocessingDenoise(scripts_postprocessing.ScriptPostprocessing):
@@ -11,8 +14,8 @@ class ScriptPostprocessingDenoise(scripts_postprocessing.ScriptPostprocessing):
 
     def ui(self):
         with ui_components.InputAccordion(False, label="Denoising") as enable:
-            denoise_strength = gr.Slider(label='Denoising Strength', value=3.0, minimum=0.1, maximum=10.0, step=0.1, elem_id="postprocess_denoise_strength")
-            color_strength = gr.Slider(label='Color Component Strength', value=3.0, minimum=0.1, maximum=10.0, step=0.1, elem_id="postprocess_denoise_color_strength")
+            denoise_strength = gr.Slider(label='Denoising Strength', value=3.0, minimum=0.0, maximum=10.0, step=0.1, elem_id="postprocess_denoise_strength")
+            color_strength = gr.Slider(label='Color Component Strength', value=3.0, minimum=0.0, maximum=10.0, step=0.1, elem_id="postprocess_denoise_color_strength")
             template_window_size = gr.Slider(label='Template Window Size', value=7, minimum=3, maximum=21, step=2, elem_id="postprocess_denoise_template_size")
             search_window_size = gr.Slider(label='Search Window Size', value=21, minimum=7, maximum=35, step=2, elem_id="postprocess_denoise_search_size")
             denoise_method = gr.Dropdown(
@@ -33,6 +36,10 @@ class ScriptPostprocessingDenoise(scripts_postprocessing.ScriptPostprocessing):
 
     def process(self, pp: scripts_postprocessing.PostprocessedImage, d_enable, d_denoise_strength, d_color_strength, d_template_window_size, d_search_window_size, d_denoise_method):
         if not d_enable:
+            return
+
+        if d_denoise_strength == 0.0 and d_color_strength == 0.0:
+            errors.display("At least one strength must be greater than 0.")
             return
 
         # Convert PIL image to OpenCV format
