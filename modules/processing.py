@@ -27,6 +27,7 @@ import modules.images as images
 import modules.styles
 import modules.sd_models as sd_models
 import modules.sd_vae as sd_vae
+from modules.nn_upscale import NNLatentUpscale
 
 from einops import repeat, rearrange
 from blendmodes.blend import blendLayers, BlendType
@@ -116,6 +117,36 @@ def txt2img_image_conditioning(sd_model, x, width, height):
         # Still takes up a bit of memory, but no encoder call.
         # Pretty sure we can just make this a 1x1 image since its not going to be used besides its batch size.
         return x.new_zeros(x.shape[0], 5, 1, 1, dtype=x.dtype, device=x.device)
+
+
+def validate_nn_upscale_factor(target_scale, tolerance=0.1):
+    """
+    Validates and rounds a scale factor to the nearest supported NN upscaler scale.
+    
+    Args:
+        target_scale (float): The desired scale factor
+        tolerance (float): Maximum allowed difference from supported scales
+        
+    Returns:
+        float: The nearest supported scale factor (1.25, 1.5, or 2.0)
+        
+    Raises:
+        ValueError: If the target scale is too far from any supported scale
+    """
+    supported_scales = [1.25, 1.5, 2.0]
+    
+    # Find the nearest supported scale
+    nearest_scale = min(supported_scales, key=lambda x: abs(x - target_scale))
+    
+    # Check if the difference is within tolerance
+    if abs(target_scale - nearest_scale) > tolerance:
+        raise ValueError(
+            f"Neural network upscaler scale {target_scale:.2f} is not supported. "
+            f"Supported scales are {supported_scales} (±{tolerance} tolerance). "
+            f"Nearest supported scale is {nearest_scale}."
+        )
+    
+    return nearest_scale
 
 
 @dataclass(repr=False)
@@ -1304,7 +1335,14 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 self.hr_scheduler = self.scheduler
 
             self.latent_scale_mode = shared.latent_upscale_modes.get(self.hr_upscaler, None) if self.hr_upscaler is not None else shared.latent_upscale_modes.get(shared.latent_upscale_default_mode, "nearest")
-            if self.enable_hr and self.latent_scale_mode is None:
+            self.nn_latent_scale_mode = self.hr_upscaler if self.hr_upscaler in shared.nn_latent_upscalers else None
+
+            # Disable iterative upscaling when using neural network latent upscaling
+            if self.nn_latent_scale_mode is not None and self.hr_iterative_steps > 1:
+                logging.info(f"Neural network latent upscaling detected. Disabling iterative upscaling (was {self.hr_iterative_steps} steps, now 1 step).")
+                self.hr_iterative_steps = 1
+
+            if self.enable_hr and self.latent_scale_mode is None and self.nn_latent_scale_mode is None:
                 if not any(x.name == self.hr_upscaler for x in shared.sd_upscalers):
                     raise Exception(f"could not find upscaler named {self.hr_upscaler}")
 
@@ -1352,7 +1390,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         if self.firstpass_image is not None and self.enable_hr:
             # here we don't need to generate image, we just take self.firstpass_image and prepare it for hires fix
 
-            if self.latent_scale_mode is None:
+            if self.latent_scale_mode is None and self.nn_latent_scale_mode is None:
                 image = np.array(self.firstpass_image).astype(np.float32) / 255.0 * 2.0 - 1.0
                 image = np.moveaxis(image, 2, 0)
 
@@ -1464,7 +1502,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         """Performs iterative upscaling with multiple smaller steps"""
         
         # Calculate starting dimensions
-        if self.latent_scale_mode is not None:
+        if self.latent_scale_mode is not None or self.nn_latent_scale_mode is not None:
             current_width = samples.shape[3] * opt_f
             current_height = samples.shape[2] * opt_f
         else:
@@ -1474,8 +1512,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         # Calculate scale factor per step
         total_scale_x = target_width / current_width
         total_scale_y = target_height / current_height
-        total_scale = math.sqrt(total_scale_x * total_scale_y)
-        scale_per_step = total_scale ** (1.0 / self.hr_iterative_steps)
+        scale_per_step_x = total_scale_x ** (1.0 / self.hr_iterative_steps)
+        scale_per_step_y = total_scale_y ** (1.0 / self.hr_iterative_steps)
         
         current_samples = samples
         current_decoded_samples = decoded_samples
@@ -1508,10 +1546,9 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 step_width = target_width
                 step_height = target_height
             else:
-                # Intermediate step - calculate progressive resolution
-                progress = (step + 1) / self.hr_iterative_steps
-                step_scale_x = 1.0 + (total_scale_x - 1.0) * progress
-                step_scale_y = 1.0 + (total_scale_y - 1.0) * progress
+                # Intermediate step - calculate progressive resolution using geometric progression
+                step_scale_x = scale_per_step_x ** (step + 1)
+                step_scale_y = scale_per_step_y ** (step + 1)
                 step_width = int(current_width * step_scale_x)
                 step_height = int(current_height * step_scale_y)
                 
@@ -1587,6 +1624,55 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 save_intermediate(samples, i, step_suffix + "-before-highres-fix")
 
             samples = torch.nn.functional.interpolate(samples, size=(step_height // opt_f, step_width // opt_f), mode=self.latent_scale_mode["mode"], antialias=self.latent_scale_mode["antialias"])
+
+            # Avoid making the inpainting conditioning unless necessary as
+            # this does need some extra compute to decode / encode the image again.
+            if getattr(self, "inpainting_mask_weight", shared.opts.inpainting_mask_weight) < 1.0:
+                image_conditioning = self.img2img_image_conditioning(decode_first_stage(self.sd_model, samples), samples)
+            else:
+                image_conditioning = self.txt2img_image_conditioning(samples)
+        elif self.nn_latent_scale_mode is not None:
+            for i in range(samples.shape[0]):
+                save_intermediate(samples, i, step_suffix + "-before-highres-fix")
+
+            # Calculate the scale factor from current and target dimensions
+            current_width = samples.shape[3] * opt_f
+            current_height = samples.shape[2] * opt_f
+            scale_x = step_width / current_width
+            scale_y = step_height / current_height
+            
+            # Use the average scale or validate that both dimensions scale equally
+            if abs(scale_x - scale_y) > 0.01:  # Allow small differences due to rounding
+                scale_factor = (scale_x + scale_y) / 2
+                logging.warning(f"Different scale factors for width ({scale_x:.3f}) and height ({scale_y:.3f}). Using average: {scale_factor:.3f}")
+            else:
+                scale_factor = scale_x
+
+            # Validate and round to the nearest supported NN scale
+            try:
+                validated_scale = validate_nn_upscale_factor(scale_factor)
+                logging.info(f"Using neural network latent upscaler '{self.nn_latent_scale_mode}' with scale factor {validated_scale}")
+            except ValueError as e:
+                logging.error(str(e))
+                raise e
+
+            # Initialize the NN upscaler
+            nn_upscaler = NNLatentUpscale()
+            
+            # Determine the model version based on the upscaler type
+            if self.nn_latent_scale_mode == "SDXL NeuralNetwork":
+                version = "SDXL NeuralNetwork"
+            elif self.nn_latent_scale_mode == "SD 1.x NeuralNetwork":
+                version = "SD 1.x NeuralNetwork"
+            else:
+                # Default to SDXL if we can't determine
+                version = "SDXL NeuralNetwork"
+                logging.warning(f"Unknown NN upscaler '{self.nn_latent_scale_mode}', defaulting to SDXL")
+            
+            # Upscale the latent samples
+            latent_dict = {"samples": samples}
+            upscaled_samples = nn_upscaler.upscale(latent_dict, version, validated_scale)
+            samples = upscaled_samples
 
             # Avoid making the inpainting conditioning unless necessary as
             # this does need some extra compute to decode / encode the image again.

@@ -54,6 +54,11 @@ latent_upscale_modes = {
     "Latent (nearest-exact)": {"mode": "nearest-exact", "antialias": False},
 }
 
+nn_latent_upscalers = [
+    "SDXL NeuralNetwork",
+    "SD 1.x NeuralNetwork",
+]
+
 sd_upscalers = []
 
 clip_model = None

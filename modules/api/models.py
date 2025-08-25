@@ -250,6 +250,9 @@ class UpscalerItem(BaseModel):
 class LatentUpscalerModeItem(BaseModel):
     name: str = Field(title="Name")
 
+class NNLatentUpscalerModeItem(BaseModel):
+    name: str = Field(title="Name")
+
 class SDModelItem(BaseModel):
     class Config:
         protected_namespaces = ()
