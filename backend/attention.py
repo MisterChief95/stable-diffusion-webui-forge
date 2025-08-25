@@ -1,6 +1,9 @@
 import math
 import torch
+import torch.nn.functional as F
+import torch.nn.attention as A
 import einops
+from torch.nn.attention import SDPBackend, sdpa_kernel
 
 from backend.args import args
 from backend import memory_management
@@ -342,7 +345,8 @@ def attention_pytorch(q, k, v, heads, mask=None, attn_precision=None, skip_resha
             (q, k, v),
         )
 
-    out = torch.nn.functional.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=False)
+    with A.sdpa_kernel([SDPBackend.EFFICIENT_ATTENTION, SDPBackend.FLASH_ATTENTION, SDPBackend.MATH]):
+        out = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=False)
     out = (
         out.transpose(1, 2).reshape(b, -1, heads * dim_head)
     )
