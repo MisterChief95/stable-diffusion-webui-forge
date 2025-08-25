@@ -32,7 +32,7 @@ div.form{
     box-shadow: none;
     background: transparent;
     overflow: visible;
-    gap: 0.5em;
+    gap: 0.25em;
 }
 
 .block.gradio-dropdown,
@@ -53,11 +53,11 @@ div.gradio-group, div.styler{
 }
 .gap.compact{
     padding: 0;
-    gap: 0.2em 0;
+    gap: 0.1em 0;
 }
 
 div.compact{
-    gap: 1em;
+    gap: 0.5em;
 }
 
 .gradio-dropdown label span:not(.has-info),
@@ -114,7 +114,7 @@ div.compact{
 }
 
 .block.gradio-checkbox {
-    margin: 0.75em 1.5em 0 0;
+    margin: 0.5em 1em 0 0;
 }
 
 .gradio-html div.wrap{
@@ -204,8 +204,8 @@ button.custom-button{
 div.block.gradio-accordion {
     border: 1px solid var(--block-border-color) !important;
     border-radius: 8px !important;
-    margin: 2px 0;
-    padding: 8px 8px;
+    margin: 1px 0;
+    padding: 4px 6px;
 }
 
 input[type="checkbox"].input-accordion-checkbox{
@@ -247,7 +247,7 @@ input[type="checkbox"].input-accordion-checkbox{
 }
 
 .block.token-counter span{
-    padding: 0.1em 0.75em;
+    padding: 0.05em 0.5em;
 }
 
 [id$=_subseed_show]{
@@ -262,11 +262,11 @@ input[type="checkbox"].input-accordion-checkbox{
 }
 
 [id$=_seed_extras] > div{
-    gap: 0.5em;
+    gap: 0.25em;
 }
 
 .html-log .comments{
-    padding-top: 0.5em;
+    padding-top: 0.25em;
 }
 
 .html-log .comments:empty{
@@ -325,16 +325,16 @@ input[type="checkbox"].input-accordion-checkbox{
     object-fit: scale-down !important;
 }
 #txt2img_actions_column, #img2img_actions_column {
-    gap: 0.5em;
+    gap: 0.25em;
 }
 #txt2img_tools, #img2img_tools{
-    gap: 0.4em;
+    gap: 0.2em;
 }
 
 .interrogate-col{
     min-width: 0 !important;
     max-width: fit-content;
-    gap: 0.5em;
+    gap: 0.25em;
 }
 .interrogate-col > button{
     flex: 1;
@@ -416,7 +416,7 @@ div#extras_scale_to_tab div.form{
 }
 
 div.toprow-compact-stylerow{
-    margin: 0.5em 0;
+    margin: 0.25em 0;
 }
 
 div.toprow-compact-tools{
@@ -426,7 +426,7 @@ div.toprow-compact-tools{
 
 /* settings */
 #quicksettings {
-    --checkbox-label-padding: 6px 6px;
+    --checkbox-label-padding: 3px 4px;
     align-items: end;
 }
 
@@ -471,7 +471,7 @@ div.toprow-compact-tools{
 #settings > div{
     border: none;
     margin-left: 10em;
-    padding: 0 var(--spacing-xl);
+    padding: 0 var(--spacing-lg);
 }
 
 #settings > div.tab-nav{
@@ -486,12 +486,12 @@ div.toprow-compact-tools{
     border: none;
     text-align: left;
     white-space: initial;
-    padding: 4px;
+    padding: 2px;
 }
 
 #settings > div.tab-nav .settings-category{
     display: block;
-    margin: 1em 0 0.25em 0;
+    margin: 0.75em 0 0.15em 0;
     font-weight: bold;
     text-decoration: underline;
     cursor: default;
@@ -507,12 +507,12 @@ table.popup-table{
     background: var(--body-background-fill);
     color: var(--body-text-color);
     border-collapse: collapse;
-    margin: 1em;
-    border: 4px solid var(--body-background-fill);
+    margin: 0.5em;
+    border: 2px solid var(--body-background-fill);
 }
 
 table.popup-table td{
-    padding: 0.4em;
+    padding: 0.2em;
     border: 1px solid rgba(128, 128, 128, 0.5);
     max-width: 36em;
 }
@@ -536,7 +536,7 @@ table.popup-table .link{
 }
 
 #settings .gradio-textbox, #settings .gradio-slider, #settings .gradio-number, #settings .gradio-dropdown, #settings .gradio-checkboxgroup, #settings .gradio-radio{
-    margin-top: 0.75em;
+    margin-top: 0.5em;
 }
 
 #settings span .settings-comment {
@@ -552,7 +552,7 @@ table.popup-table .link{
 }
 
 .settings-comment .info ol{
-    margin: 0.4em 0 0.8em 1em;
+    margin: 0.2em 0 0.5em 0.75em;
 }
 
 #sysinfo_download a.sysinfo_big_link{
@@ -571,7 +571,7 @@ table.popup-table .link{
     max-width: 48em;
     border: 1px dotted #777;
     margin: 0;
-    padding: 1em;
+    padding: 0.5em;
 }
 
 
@@ -605,12 +605,12 @@ table.popup-table .link{
     color: white;
     font-weight: bold;
     line-height: 20px;
-    padding: 0 8px 0 0;
+    padding: 0 4px 0 0;
     text-align: right;
     border-radius: 3px;
     overflow: visible;
     white-space: nowrap;
-    padding: 0 0.5em;
+    padding: 0 0.25em;
 }
 
 .livePreview{
@@ -634,7 +634,7 @@ table.popup-table .link{
     color: black;
     background: white;
     display: inline-block;
-    padding: 1em;
+    padding: 0.5em;
     white-space: pre-wrap;
 }
 
@@ -675,7 +675,7 @@ table.popup-table .link{
 .global-popup-inner{
     display: inline-block;
     margin: auto;
-    padding: 2em;
+    padding: 1em;
     z-index: 1001;
     max-height: 90%;
     max-width: 90%;
@@ -703,8 +703,8 @@ table.popup-table .link{
     position: absolute;
     right: 0px;
     left: 0px;
-    gap: 1em;
-    padding: 1em;
+    gap: 0.5em;
+    padding: 0.5em;
     background-color:rgba(0,0,0,0);
     z-index: 1;
     transition: 0.2s ease background-color;
@@ -804,10 +804,10 @@ table.popup-table .link{
     position:absolute;
     display:block;
     padding:0px 0;
-    border:2px solid var(--primary-800);
-    border-radius:8px;
+    border:1px solid var(--primary-800);
+    border-radius:4px;
     box-shadow:1px 1px 2px var(--primary-500);
-    width: 200px;
+    width: 180px;
 }
 
 .context-menu-items{
@@ -818,7 +818,7 @@ table.popup-table .link{
 
 .context-menu-items a{
     display:block;
-    padding:5px;
+    padding:3px;
     cursor:pointer;
 }
 
@@ -837,7 +837,7 @@ table.popup-table .link{
 
 #tab_extensions table td, #tab_extensions table th{
     border: 1px solid #ccc;
-    padding: 0.25em 0.5em;
+    padding: 0.15em 0.3em;
 }
 
 #tab_extensions table input[type="checkbox"]{
@@ -863,7 +863,7 @@ table.popup-table .link{
 }
 
 #available_extensions .info{
-    margin: 0.5em 0;
+    margin: 0.25em 0;
     display: flex;
     margin-top: auto;
     opacity: 0.80;
@@ -881,7 +881,7 @@ table.popup-table .link{
 }
 
 .compact-checkbox-group  div label {
-    padding: 0.1em 0.3em !important;
+    padding: 0.05em 0.2em !important;
 }
 
 /* extensions tab table row hover highlight */
@@ -941,13 +941,13 @@ footer {
 }
 
 .extra-networks > div > [id *= '_extra_']{
-    margin: 0.3em;
+    margin: 0.15em;
 }
 
 .extra-networks .tab-nav .search,
 .extra-networks .tab-nav .sort
 {
-    margin: 0.3em;
+    margin: 0.15em;
     align-self: center;
     width: auto;
 }
@@ -967,16 +967,16 @@ footer {
 }
 
 .extra-network-pane .nocards{
-    margin: 1.25em 0.5em 0.5em 0.5em;
+    margin: 0.75em 0.25em 0.25em 0.25em;
 }
 
 .extra-network-pane .nocards h1{
     font-size: 1.5em;
-    margin-bottom: 1em;
+    margin-bottom: 0.5em;
 }
 
 .extra-network-pane .nocards li{
-    margin-left: 0.5em;
+    margin-left: 0.25em;
 }
 
 .extra-network-pane .card .button-row{
@@ -1015,7 +1015,7 @@ footer {
     width: 1.5em;
     text-shadow: 2px 2px 3px black;
     color: white;
-    padding: 0.25em 0.1em;
+    padding: 0.15em 0.05em;
 }
 
 .extra-network-pane .card-button:hover{
@@ -1039,7 +1039,7 @@ footer {
 
 .extra-network-pane .card, .standalone-card-preview.card{
     display: inline-block;
-    margin: 0.5rem;
+    margin: 0.25rem;
     width: 16rem;
     height: 24rem;
     box-shadow: 0 0 5px rgba(128, 128, 128, 0.5);
@@ -1067,7 +1067,7 @@ footer {
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 0.5em;
+    padding: 0.25em;
     background: rgba(0,0,0,0.5);
     box-shadow: 0 0 0.25em 0.25em rgba(0,0,0,0.5);
     text-shadow: 0 0 0.2em black;
@@ -1099,7 +1099,7 @@ footer {
 }
 
 .extra-network-pane .card ul{
-    margin: 0.25em 0 0.75em 0.25em;
+    margin: 0.15em 0 0.5em 0.15em;
     cursor: unset;
 }
 
@@ -1121,7 +1121,7 @@ footer {
 .edit-user-metadata {
     width: 56em;
     background: var(--body-background-fill) !important;
-    padding: 2em !important;
+    padding: 1em !important;
 }
 
 .edit-user-metadata .extra-network-name{
@@ -1138,7 +1138,7 @@ footer {
 }
 
 .edit-user-metadata .file-metadata th, .edit-user-metadata .file-metadata td{
-    padding: 0.3em 1em;
+    padding: 0.2em 0.75em;
     overflow-wrap: anywhere;
     word-break: break-word;
 }
@@ -1151,13 +1151,13 @@ footer {
 }
 
 .edit-user-metadata-buttons{
-    margin-top: 1.5em;
+    margin-top: 1em;
 }
 
 .popup-dialog {
     width: 56em;
     background: var(--body-background-fill) !important;
-    padding: 2em !important;
+    padding: 1em !important;
 }
 
 div.block.input-accordion{
@@ -1166,7 +1166,7 @@ div.block.input-accordion{
 
 .input-accordion-extra{
     flex: 0 0 auto !important;
-    margin: 0 0.5em 0 auto;
+    margin: 0 0.25em 0 auto;
 }
 
 div.accordions > div.input-accordion{
@@ -1179,7 +1179,7 @@ div.accordions > div.gradio-accordion .label-wrap span{
 }
 
 div.accordions{
-    gap: 0.5em;
+    gap: 0.25em;
 }
 
 div.accordions > div.input-accordion.input-accordion-open{
@@ -1192,7 +1192,7 @@ div.accordions > div.input-accordion.input-accordion-open{
 
 #img2img_results, #txt2img_results, #extras_results {
     position: sticky;
-    top: 0.5em;
+    top: 0.25em;
 }
 
 body.resizing {
@@ -1691,11 +1691,11 @@ body.resizing .resize-handle {
 }
 
 .forge_space_label{
-    padding: 10px;
+    padding: 6px;
     min-width: 60% !important;
     margin: 1px;
     border-width: 1px;
-    border-radius: 8px;
+    border-radius: 6px;
     border-style: solid;
     border-color: #6f6f6f;
 }
