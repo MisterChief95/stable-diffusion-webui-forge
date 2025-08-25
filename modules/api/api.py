@@ -225,6 +225,7 @@ class Api:
         self.add_api_route("/sdapi/v1/schedulers", self.get_schedulers, methods=["GET"], response_model=list[models.SchedulerItem])
         self.add_api_route("/sdapi/v1/upscalers", self.get_upscalers, methods=["GET"], response_model=list[models.UpscalerItem])
         self.add_api_route("/sdapi/v1/latent-upscale-modes", self.get_latent_upscale_modes, methods=["GET"], response_model=list[models.LatentUpscalerModeItem])
+        self.add_api_route("/sdapi/v1/nn-latent-upscale-modes", self.get_nn_latent_upscale_modes, methods=["GET"], response_model=list[models.NNLatentUpscalerModeItem])
         self.add_api_route("/sdapi/v1/sd-models", self.get_sd_models, methods=["GET"], response_model=list[models.SDModelItem])
         self.add_api_route("/sdapi/v1/sd-modules", self.get_sd_vaes_and_text_encoders, methods=["GET"], response_model=list[models.SDModuleItem])
         self.add_api_route("/sdapi/v1/realesrgan-models", self.get_realesrgan_models, methods=["GET"], response_model=list[models.RealesrganItem])
@@ -720,6 +721,14 @@ class Api:
                 "name": upscale_mode,
             }
             for upscale_mode in [*(shared.latent_upscale_modes or {})]
+        ]
+    
+    def get_nn_latent_upscale_modes(self):
+        return [
+            {
+                "name": nn_upscale_mode,
+            }
+            for nn_upscale_mode in [*(shared.nn_latent_upscalers or {})]
         ]
 
     def get_sd_models(self):
