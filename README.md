@@ -22,7 +22,7 @@ The name "Forge" is inspired by "Minecraft Forge". This project aims to become t
 
 <br>
 
-## Features [Aug. 20]
+## Features [Aug. 27]
 > Most base features of the original [Automatic1111 Webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) should still function
 
 #### New Features
@@ -59,15 +59,24 @@ The name "Forge" is inspired by "Minecraft Forge". This project aims to become t
 
 <br>
 
-- [ ] Limited Support for [Wan](https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B)
-    - only **txt2img** is supported
-    - only `batch_size` of **1** is supported
-    - only **14B** is supported
-    - support both **2.1** and **2.2**
-    - **W.I.P**
+- [ ] Experimental Support for [Wan](https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B)
+    - support **Wan 2.2 14B**
+    - support both **T2V** and **I2V**
+    - support both **txt2img** and **img2img**
+    - support both **txt2vid** and **img2vid**
+    - replace **Batch size** with **Frames** slider
+    - replace **Distilled CFG** with **Shift** slider
+    - save video in H.264
 
 > [!Tip]
 > If you wish to test it, please switch to the [wan](https://github.com/Haoming02/sd-webui-forge-classic/tree/wan) branch
+
+#### TODO
+- [ ] Fix Memory Leak when switching Models
+- [ ] Improve Memory Management during Generation
+- [ ] Live Preview for Wan
+- [ ] Video Player for Wan
+- [ ] Better Detection for Nunchaku & Kontext
 
 #### Removed Features
 
