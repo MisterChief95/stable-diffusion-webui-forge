@@ -29,6 +29,20 @@ class UpscalerSpandrel(Upscaler):
             scaler_data = UpscalerData(name, file, upscaler=self, scale=scale)
             self.scalers.append(scaler_data)
 
+    def cleanup_model(model):
+        """Thoroughly clean up a PyTorch model from memory"""
+        if model is None:
+            return
+        
+        # Clear gradients and set to eval mode
+        for param in model.parameters():
+            if param.grad is not None:
+                param.grad = None
+        
+        # Move to CPU before deletion
+        model.to('cpu')
+        
+
     def do_upscale(self, img, selected_model):
         prepare_free_memory()
 
@@ -54,9 +68,10 @@ class UpscalerSpandrel(Upscaler):
         )
 
         # Clean up memory
-        model.to(memory_management.cpu)
-        del model
-        memory_management.soft_empty_cache()
+        self.cleanup_model(model)
+        model = None  # Clear the variable reference too
+
+        memory_management.soft_empty_cache(force=True)
 
         return upscaled_img
 
@@ -67,3 +82,10 @@ class UpscalerSpandrel(Upscaler):
             path,
             device=memory_management.get_torch_device(),
         )
+        # Clear the reference
+        del model
+        
+        # Force garbage collection and cache clearing
+        import gc
+        gc.collect()
+        memory_management.soft_empty_cache(force=True)
