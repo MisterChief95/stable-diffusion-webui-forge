@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 
@@ -8,6 +9,8 @@ from modules.shared import opts
 from modules.upscaler import Upscaler, UpscalerData
 
 from modules_forge.utils import prepare_free_memory
+
+logger = logging.getLogger(__name__)
 
 
 class UpscalerSpandrel(Upscaler):
@@ -27,24 +30,26 @@ class UpscalerSpandrel(Upscaler):
             name = modelloader.friendly_name(file)
             scale = 4
             scaler_data = UpscalerData(name, file, upscaler=self, scale=scale)
-            self.scalers.append(scaler_data)
-
-    def cleanup_model(model):
-        """Thoroughly clean up a PyTorch model from memory"""
-        if model is None:
-            return
-        
-        # Clear gradients and set to eval mode
-        for param in model.parameters():
-            if param.grad is not None:
-                param.grad = None
-        
-        # Move to CPU before deletion
-        model.to('cpu')
-        
+            self.scalers.append(scaler_data)   
 
     def do_upscale(self, img, selected_model):
-        prepare_free_memory()
+        # Intelligent memory preparation based on model size
+        try:
+            estimated_mb = modelloader.estimate_model_memory_mb(selected_model)
+            logger.info(f"Estimated memory requirement for {selected_model}: {estimated_mb}MB")
+            
+            # Use targeted memory freeing instead of generic prepare_free_memory()
+            current_device = memory_management.get_torch_device()
+            if not memory_management.is_device_cpu(current_device):
+                free_memory = memory_management.get_free_memory(current_device)
+                if free_memory < estimated_mb * 1024 * 1024:
+                    logger.info(f"Freeing memory for model loading (need {estimated_mb}MB, have {free_memory / (1024 * 1024):.2f}MB)")
+                    memory_management.free_memory(estimated_mb * 1024 * 1024, current_device)
+            else:
+                prepare_free_memory()  # Fallback for CPU
+        except Exception as e:
+            logger.warning(f"Memory estimation failed: {e}, using generic memory preparation")
+            prepare_free_memory()
 
         try:
             model = self.load_model(selected_model)
@@ -68,8 +73,9 @@ class UpscalerSpandrel(Upscaler):
         )
 
         # Clean up memory
-        self.cleanup_model(model)
-        model = None  # Clear the variable reference too
+        model.to('cpu')
+        del model
+        model = None
 
         memory_management.soft_empty_cache(force=True)
 
@@ -78,14 +84,9 @@ class UpscalerSpandrel(Upscaler):
     def load_model(self, path: str):
         if not os.path.isfile(path):
             raise FileNotFoundError(f"Model file {path} not found")
-        return modelloader.load_spandrel_model(
+        
+        # Use memory-aware loading for better resource management
+        return modelloader.load_model_with_memory_management(
             path,
             device=memory_management.get_torch_device(),
         )
-        # Clear the reference
-        del model
-        
-        # Force garbage collection and cache clearing
-        import gc
-        gc.collect()
-        memory_management.soft_empty_cache(force=True)

@@ -1033,8 +1033,9 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
                     p.extra_generation_params['VAE Decoder'] = opts.sd_vae_decode_method
                 x_samples_ddim = decode_latent_batch(p.sd_model, samples_ddim, target_device=devices.cpu, check_for_nans=True)
 
-            x_samples_ddim = torch.stack(x_samples_ddim).float()
-            x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
+            with torch.no_grad():
+                x_samples_ddim = torch.stack(x_samples_ddim).float()
+                x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
 
             del samples_ddim
 
@@ -1401,7 +1402,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 image = np.array(self.firstpass_image).astype(np.float32) / 255.0
                 image = np.moveaxis(image, 2, 0)
                 image = torch.from_numpy(np.expand_dims(image, axis=0))
-                image = image.to(shared.device, dtype=torch.float32)
+                with torch.no_grad():
+                    image = image.to(shared.device, dtype=torch.float32)
 
                 if opts.sd_vae_encode_method != 'Full':
                     self.extra_generation_params['VAE Encoder'] = opts.sd_vae_encode_method
@@ -1438,7 +1440,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             devices.torch_gc()
 
             if self.latent_scale_mode is None:
-                decoded_samples = torch.stack(decode_latent_batch(self.sd_model, samples, target_device=devices.cpu, check_for_nans=True)).to(dtype=torch.float32)
+                with torch.no_grad():
+                    decoded_samples = torch.stack(decode_latent_batch(self.sd_model, samples, target_device=devices.cpu, check_for_nans=True)).to(dtype=torch.float32)
             else:
                 decoded_samples = None
 
@@ -1599,7 +1602,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 # Decode samples for next iteration
                 decoded_list = decode_latent_batch(self.sd_model, current_samples, target_device=devices.cpu, check_for_nans=True)
                 # Convert list to tensor for consistency
-                current_decoded_samples = torch.stack(decoded_list).to(dtype=torch.float32)
+                with torch.no_grad():
+                    current_decoded_samples = torch.stack(decoded_list).to(dtype=torch.float32)
                 
                 # For next iteration input, we need to convert decoded samples back to latent samples
                 if self.latent_scale_mode is None:
@@ -1681,7 +1685,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             else:
                 image_conditioning = self.txt2img_image_conditioning(samples)
         else:
-            lowres_samples = torch.clamp((decoded_samples + 1.0) / 2.0, min=0.0, max=1.0)
+            with torch.no_grad():
+                lowres_samples = torch.clamp((decoded_samples + 1.0) / 2.0, min=0.0, max=1.0)
 
             batch_images = []
             for i, x_sample in enumerate(lowres_samples):
@@ -1697,7 +1702,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 batch_images.append(image)
 
             decoded_samples = torch.from_numpy(np.array(batch_images))
-            decoded_samples = decoded_samples.to(shared.device, dtype=torch.float32)
+            with torch.no_grad():
+                decoded_samples = decoded_samples.to(shared.device, dtype=torch.float32)
 
             if opts.sd_vae_encode_method != 'Full':
                 self.extra_generation_params['VAE Encoder'] = opts.sd_vae_encode_method
@@ -2048,8 +2054,9 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
                 latmask = np.around(latmask)
             latmask = np.tile(latmask[None], (self.init_latent.shape[1], 1, 1))
 
-            self.mask = torch.asarray(1.0 - latmask).to(shared.device).type(devices.dtype)
-            self.nmask = torch.asarray(latmask).to(shared.device).type(devices.dtype)
+            with torch.no_grad():
+                self.mask = torch.asarray(1.0 - latmask).to(shared.device).type(devices.dtype)
+                self.nmask = torch.asarray(latmask).to(shared.device).type(devices.dtype)
 
             # this needs to be fixed to be done in sample() using actual seeds for batches
             if self.inpainting_fill == 2:

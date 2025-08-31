@@ -20,19 +20,27 @@ class NeverOOMForForge(scripts.Script):
     def ui(self, *args, **kwargs):
         with gr.Accordion(open=False, label=self.title()):
             unet_enabled = gr.Checkbox(label='Enabled for UNet (always maximize offload)', value=False)
-            vae_enabled = gr.Checkbox(label='Enabled for VAE (always tiled)', value=False)
-        return unet_enabled, vae_enabled
+            with gr.Row():
+                vae_enabled = gr.Checkbox(label='Enabled for VAE (always tiled)', value=False)
+                use_tiled_diffusion = gr.Checkbox(label='Use Tiled Diffusion', value=False)
+                tile_size = gr.Slider(label='Tile Size', minimum=64, maximum=2048, step=64, value=1024)
+        return unet_enabled, vae_enabled, use_tiled_diffusion, tile_size
 
     def process(self, p, *script_args, **kwargs):
-        unet_enabled, vae_enabled = script_args
+        unet_enabled, vae_enabled, use_tiled_diffusion, tile_size = script_args
 
         if unet_enabled:
             print('NeverOOM Enabled for UNet (always maximize offload)')
 
         if vae_enabled:
             print('NeverOOM Enabled for VAE (always tiled)')
+        
+        if use_tiled_diffusion:
+            print(f"NeverOOM uses Tiled Diffusion VAE Tiling. Tile Size {tile_size}")
 
         memory_management.VAE_ALWAYS_TILED = vae_enabled
+        memory_management.USE_TILED_DIFFUSION = use_tiled_diffusion
+        memory_management.TILE_SIZE = tile_size
 
         if self.previous_unet_enabled != unet_enabled:
             memory_management.unload_all_models()

@@ -209,6 +209,8 @@ if args.vae_in_cpu:
     VAE_DTYPES = [torch.float32]
 
 VAE_ALWAYS_TILED = False
+USE_TILED_DIFFUSION = False
+TILE_SIZE = 1024
 
 if ENABLE_PYTORCH_ATTENTION:
     torch.backends.cuda.enable_math_sdp(True)
@@ -1319,6 +1321,7 @@ def soft_empty_cache(force=False, for_inference=False):
         if force or is_nvidia():  # This seems to make things worse on ROCm so I only do it for cuda
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
+            torch.cuda.synchronize()
     signal_empty_cache = False
     
     # Invalidate memory cache after emptying cache since memory state has changed

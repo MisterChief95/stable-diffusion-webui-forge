@@ -11,6 +11,7 @@ import torch
 from modules import shared
 from modules.upscaler import Upscaler, UpscalerLanczos, UpscalerNearest, UpscalerNone
 from modules.util import load_file_from_url # noqa, backwards compatibility
+from backend import memory_management
 
 if TYPE_CHECKING:
     import spandrel
@@ -172,3 +173,92 @@ def load_spandrel_model(
         arch, path, device, half, dtype,
     )
     return model_descriptor
+
+
+def estimate_model_memory_mb(path: str | os.PathLike) -> int:
+    """
+    Estimate memory requirements for a model file.
+    
+    Args:
+        path: Path to the model file
+        
+    Returns:
+        Estimated memory requirement in MB
+    """
+    try:
+        import os
+        file_size = os.path.getsize(path)
+        # Conservative estimate: model size * 1.25 for loading overhead
+        estimated_mb = int((file_size * 1.25) / (1024 * 1024))
+        
+        # Minimum estimate of 256MB for any model
+        return max(estimated_mb, 256)
+    except Exception:
+        # Default fallback estimate
+        return 512
+
+
+def load_model_with_memory_management(
+    path: str | os.PathLike,
+    *,
+    device: str | torch.device | None = None,
+    prefer_half: bool = False,
+    dtype: str | torch.dtype | None = None,
+    expected_architecture: str | None = None,
+    memory_required_mb: int = None,
+) -> spandrel.ModelDescriptor:
+    """
+    Load a spandrel model with enhanced memory management and pre-checks.
+    
+    Args:
+        path: Path to the model file
+        device: Target device (auto-detected if None)
+        prefer_half: Prefer half precision
+        dtype: Specific dtype to use
+        expected_architecture: Expected model architecture
+        memory_required_mb: Estimated memory requirement in MB (auto-estimated if None)
+        
+    Returns:
+        Loaded model descriptor
+        
+    Raises:
+        RuntimeError: If loading fails (allows natural OOM)
+    """
+    # Auto-estimate memory if not provided
+    if memory_required_mb is None:
+        memory_required_mb = estimate_model_memory_mb(path)
+    
+    logger.info(f"Loading model {path} with estimated memory requirement: {memory_required_mb}MB")
+    
+    # Determine device
+    if device is None:
+        device = memory_management.get_torch_device()
+    
+    # Check memory and attempt to free if necessary
+    if not memory_management.is_device_cpu(device):
+        try:
+            free_memory = memory_management.get_free_memory(device)
+            required_memory = memory_required_mb * 1024 * 1024
+            
+            logger.debug(f"Memory check: Available {free_memory / (1024 * 1024):.2f}MB, Required {memory_required_mb}MB")
+            
+            if free_memory < required_memory:
+                logger.info(f"Insufficient memory ({free_memory / (1024 * 1024):.2f}MB < {memory_required_mb}MB), attempting to free memory...")
+                memory_management.free_memory(required_memory, device)
+                
+                # Log final memory state but allow natural OOM if still insufficient
+                final_free_memory = memory_management.get_free_memory(device)
+                logger.info(f"After cleanup: Available {final_free_memory / (1024 * 1024):.2f}MB")
+                        
+        except Exception as e:
+            logger.warning(f"Memory check failed: {e}, proceeding anyway")
+    
+    # Load model with standard function
+    try:
+        return load_spandrel_model(
+            path, device=device, prefer_half=prefer_half,
+            dtype=dtype, expected_architecture=expected_architecture
+        )
+    except Exception as e:
+        logger.error(f"Failed to load model {path}: {e}")
+        raise RuntimeError(f"Model loading failed: {e}")
