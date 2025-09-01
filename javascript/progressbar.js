@@ -91,6 +91,9 @@ function requestProgress(
     let parentProgressbar = progressbarContainer.parentNode;
     let wakeLock = null;
 
+    if (gallery && gallery.classList.contains("hidden"))
+        gallery = gallery.parentElement.querySelector(".gradio-video");
+
     let requestWakeLock = async function () {
         if (!opts.prevent_screen_sleep_during_generation || wakeLock) return;
         try {
