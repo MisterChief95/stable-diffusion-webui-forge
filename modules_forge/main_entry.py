@@ -58,7 +58,7 @@ def make_checkpoint_manager_ui():
         if len(sd_models.checkpoints_list) > 0:
             shared.opts.set("sd_model_checkpoint", next(iter(sd_models.checkpoints_list.values())).name)
 
-    ui_forge_preset = gr.Radio(label="UI Preset", value=lambda: shared.opts.forge_preset, choices=("sd", "xl", "flux"), elem_id="forge_ui_preset")
+    ui_forge_preset = gr.Radio(label="UI Preset", value=lambda: shared.opts.forge_preset, choices=("sd", "xl", "flux", "wan"), elem_id="forge_ui_preset")
 
     ui_checkpoint = gr.Dropdown(label="Checkpoint", value=None, choices=None, elem_classes=["model_selection"])
 
@@ -200,7 +200,8 @@ def checkpoint_change(ckpt_name: str, preset: str, save=True, refresh=True) -> b
         return False
 
     shared.opts.set("sd_model_checkpoint", ckpt_name)
-    shared.opts.set(f"forge_checkpoint_{preset}", ckpt_name)
+    if preset is not None:
+        shared.opts.set(f"forge_checkpoint_{preset}", ckpt_name)
 
     if save:
         shared.opts.save(shared.config_filename)
@@ -256,6 +257,9 @@ def forge_main_entry():
     ui_txt2img_hr_cfg = get_a1111_ui_component("txt2img", "Hires CFG Scale")
     ui_txt2img_hr_distilled_cfg = get_a1111_ui_component("txt2img", "Hires Distilled CFG Scale")
 
+    ui_txt2img_batch_size = get_a1111_ui_component("txt2img", "Batch size")
+    ui_img2img_batch_size = get_a1111_ui_component("img2img", "Batch size")
+
     output_targets = [
         ui_checkpoint,
         ui_vae,
@@ -278,6 +282,8 @@ def forge_main_entry():
         ui_img2img_scheduler,
         ui_txt2img_hr_cfg,
         ui_txt2img_hr_distilled_cfg,
+        ui_txt2img_batch_size,
+        ui_img2img_batch_size,
     ]
 
     ui_forge_preset.change(on_preset_change, inputs=[ui_forge_preset], outputs=output_targets, queue=False, show_progress=False).then(js="clickLoraRefresh", fn=None, queue=False, show_progress=False)
@@ -295,10 +301,12 @@ def on_preset_change(preset: str):
     if model_mem < 0 or model_mem > total_vram:
         model_mem = total_vram - 1024
 
-    show_clip_skip = True
+    show_clip_skip = preset != "wan"
     show_basic_mem = preset != "sd"
-    show_adv_mem = preset == "flux"
-    distilled = preset == "flux"
+    show_adv_mem = preset in ("flux", "wan")
+    distilled = preset in ("flux", "wan")
+    d_label = "Distilled CFG Scale" if preset == "flux" else "Shift"
+    batch_args = {"minimum": 1, "maximum": 97, "step": 16, "label": "Frames", "value": 1} if preset == "wan" else {"minimum": 1, "maximum": 8, "step": 1, "label": "Batch size", "value": 1}
 
     additional_modules = [os.path.basename(x) for x in getattr(shared.opts, f"forge_additional_modules_{preset}", [])]
 
@@ -316,12 +324,14 @@ def on_preset_change(preset: str):
         gr.update(value=getattr(shared.opts, f"{preset}_i2i_height", 768)),  # ui_img2img_height
         gr.update(value=getattr(shared.opts, f"{preset}_t2i_cfg", 1.0)),  # ui_txt2img_cfg
         gr.update(value=getattr(shared.opts, f"{preset}_i2i_cfg", 1.0)),  # ui_img2img_cfg
-        gr.update(visible=distilled, value=getattr(shared.opts, f"{preset}_t2i_d_cfg", 3.0)),  # ui_txt2img_distilled_cfg
-        gr.update(visible=distilled, value=getattr(shared.opts, f"{preset}_i2i_d_cfg", 3.0)),  # ui_img2img_distilled_cfg
+        gr.update(visible=distilled, label=d_label, value=getattr(shared.opts, f"{preset}_t2i_d_cfg", 3.0)),  # ui_txt2img_distilled_cfg
+        gr.update(visible=distilled, label=d_label, value=getattr(shared.opts, f"{preset}_i2i_d_cfg", 3.0)),  # ui_img2img_distilled_cfg
         gr.update(value=getattr(shared.opts, f"{preset}_t2i_sampler", "Euler")),  # ui_txt2img_sampler
         gr.update(value=getattr(shared.opts, f"{preset}_i2i_sampler", "Euler")),  # ui_img2img_sampler
         gr.update(value=getattr(shared.opts, f"{preset}_t2i_scheduler", "Simple")),  # ui_txt2img_scheduler
         gr.update(value=getattr(shared.opts, f"{preset}_i2i_scheduler", "Simple")),  # ui_img2img_scheduler
         gr.update(value=getattr(shared.opts, f"{preset}_t2i_hr_cfg", 1.0)),  # ui_txt2img_hr_cfg
-        gr.update(visible=distilled, value=getattr(shared.opts, f"{preset}_t2i_hr_d_cfg", 3.0)),  # ui_txt2img_hr_distilled_cfg
+        gr.update(visible=distilled, label=d_label, value=getattr(shared.opts, f"{preset}_t2i_hr_d_cfg", 3.0)),  # ui_txt2img_hr_distilled_cfg
+        gr.update(**batch_args),  # ui_txt2img_batch_size
+        gr.update(**batch_args),  # ui_img2img_batch_size
     ]
