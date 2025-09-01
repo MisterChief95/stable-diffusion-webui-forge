@@ -110,7 +110,7 @@ def txt2img_upscale_function(id_task: str, request: gr.Request, gallery, gallery
             new_gallery.append(image)
         if i == gallery_index:
             new_gallery.extend(processed.images)
-        
+
     new_index = gallery_index
     if insert:
         new_index += 1
@@ -139,7 +139,14 @@ def txt2img_function(id_task: str, request: gr.Request, *args):
     if opts.do_not_show_images:
         processed.images = []
 
-    return processed.images + processed.extra_images, generation_info_js, plaintext_to_html(processed.info), plaintext_to_html(processed.comments, classname="comments")
+    if processed.video_path is None:
+        gallery_arg = gr.update(value=processed.images + processed.extra_images, visible=True)
+        video_arg = gr.update(value=None, visible=False)
+    else:
+        gallery_arg = gr.update(value=None, visible=False)
+        video_arg = gr.update(value=processed.video_path, visible=True)
+
+    return gallery_arg, video_arg, generation_info_js, plaintext_to_html(processed.info), plaintext_to_html(processed.comments, classname="comments")
 
 
 def txt2img_upscale(id_task: str, request: gr.Request, gallery, gallery_index, generation_info, *args):
