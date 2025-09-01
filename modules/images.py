@@ -6,6 +6,7 @@ import pytz
 import io
 import math
 import os
+import subprocess
 from collections import namedtuple
 import re
 
@@ -897,3 +898,79 @@ def fix_png_transparency(image: Image.Image):
 
     image = image.convert("RGBA")
     return image
+
+
+def save_video(p, frames: list[np.ndarray], fps: int = 16, basename: str = "") -> str:
+    height, width, channels = frames[0].shape
+    assert channels == 3, "Frames must be in (H, W, 3) RGB format"
+
+    namegen = FilenameGenerator(p, p.seeds[0], p.prompts[0], image=None, basename=basename)
+    file_decoration = opts.samples_filename_pattern or ("[seed]" if opts.save_to_dirs else "[seed]-[prompt_spaces]")
+    folder = opts.outdir_samples or opts.outdir_videos
+    extension = opts.video_container
+
+    os.makedirs(folder, exist_ok=True)
+
+    file_decoration = namegen.apply(file_decoration)
+
+    add_number = opts.save_images_add_number or file_decoration == ""
+
+    if file_decoration != "" and add_number:
+        file_decoration = f"-{file_decoration}"
+
+    if add_number:
+        basecount = get_next_sequence_number(folder, basename)
+        fullfn = None
+        for i in range(256):
+            fn = f"{basecount + i:05}" if basename == "" else f"{basename}-{basecount + i:04}"
+            fullfn = os.path.join(folder, f"{fn}{file_decoration}.{extension}")
+            if not os.path.exists(fullfn):
+                break
+    else:
+        fullfn = os.path.join(folder, f"{file_decoration}.{extension}")
+
+    crf = int(opts.video_crf)
+    preset = str(opts.video_preset)
+    profile = str(opts.video_profile)
+
+    cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-hwaccel",
+        "auto",
+        "-y",
+        "-f",
+        "rawvideo",
+        "-vcodec",
+        "rawvideo",
+        "-pix_fmt",
+        "rgb24",
+        "-s",
+        f"{width}x{height}",
+        "-r",
+        str(fps),
+        "-i",
+        "-",
+        "-vcodec",
+        "h264",
+        "-crf",
+        str(crf),
+        "-preset",
+        str(preset),
+        "-pix_fmt",
+        "yuv420p",
+        "-profile:v",
+        profile,
+        "-an",
+        fullfn,
+    ]
+
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    for frame in frames:
+        proc.stdin.write(frame.tobytes())
+    proc.stdin.close()
+    proc.wait()
+
+    return fullfn
