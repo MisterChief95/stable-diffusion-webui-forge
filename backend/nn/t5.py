@@ -193,10 +193,10 @@ class T5(torch.nn.Module):
         self.encoder = T5Stack(self.num_layers, model_dim, model_dim, config["d_ff"], config["dense_act_fn"], config["is_gated_act"], config["num_heads"], config["model_type"] != "umt5")
         self.shared = torch.nn.Embedding(config["vocab_size"], model_dim)
 
-    def forward(self, input_ids, *args, **kwargs):
+    def forward(self, input_ids, attention_mask=None, *args, **kwargs):
         x = self.shared(input_ids)
         x = torch.nan_to_num(x)
-        return self.encoder(x, *args, **kwargs)
+        return self.encoder(x, attention_mask=attention_mask, *args, **kwargs)
 
 
 class IntegratedT5(torch.nn.Module):
