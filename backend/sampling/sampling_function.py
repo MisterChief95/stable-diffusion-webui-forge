@@ -373,7 +373,7 @@ def sampling_prepare(unet: "UnetPatcher", x: torch.Tensor, *, is_img2img: bool =
     else:
         unet.set_transformer_option("ref_latents", None)
 
-    B, C, H, W = x.shape
+    B, C, H, W = x.shape[0], x.shape[1], x.shape[-2], x.shape[-1]
 
     memory_estimation_function = unet.model_options.get("memory_peak_estimation_modifier", unet.memory_required)
 

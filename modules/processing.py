@@ -503,9 +503,9 @@ class StableDiffusionProcessing:
     def parse_extra_network_prompts(self):
         self.prompts, self.extra_network_data = extra_networks.parse_prompts(self.prompts)
 
-    def save_samples(self) -> bool:
+    def save_samples(self, *, is_video: bool = False) -> bool:
         """Returns whether generated images need to be written to disk"""
-        return opts.samples_save and not self.do_not_save_samples and (opts.save_incomplete_images or not state.interrupted and not state.skipped)
+        return opts.samples_save and (not self.do_not_save_samples) and (opts.save_incomplete_images or not state.interrupted and not state.skipped) and not (is_video and not opts.video_save_frames)
 
 
 class Processed:
@@ -563,6 +563,8 @@ class Processed:
         self.all_subseeds = all_subseeds or p.all_subseeds or [self.subseed]
         self.infotexts = infotexts or [info] * len(images_list)
         self.version = program_version()
+
+        self.video_path = None
 
     def js(self):
         obj = {
@@ -843,6 +845,13 @@ def process_images(p: StableDiffusionProcessing) -> Processed:
 def process_images_inner(p: StableDiffusionProcessing) -> Processed:
     """this is the main loop that both txt2img and img2img use; it calls func_init once inside all the scopes and func_sample once per batch"""
 
+    _is_video = False
+    video_path = None
+    if shared.sd_model.is_wan:
+        _times = ((getattr(p, "batch_size", 1) - 1) // 4) + 1  # https://github.com/comfyanonymous/ComfyUI/blob/v0.3.52/comfy_extras/nodes_wan.py#L41
+        p.batch_size = (_times - 1) * 4 + 1
+        _is_video: bool = _times > 1
+
     if isinstance(p.prompt, list):
         assert(len(p.prompt) > 0)
     else:
@@ -932,7 +941,8 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
             p.subseeds = p.all_subseeds[n * p.batch_size:(n + 1) * p.batch_size]
 
             latent_channels = shared.sd_model.forge_objects.vae.latent_channels
-            p.rng = rng.ImageRNG((latent_channels, p.height // opt_f, p.width // opt_f), p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, seed_resize_from_h=p.seed_resize_from_h, seed_resize_from_w=p.seed_resize_from_w)
+            _shape = (latent_channels, _times, p.height // opt_f, p.width // opt_f) if shared.sd_model.is_wan else (latent_channels, p.height // opt_f, p.width // opt_f)
+            p.rng = rng.ImageRNG(_shape, p.seeds, subseeds=p.subseeds, subseed_strength=p.subseed_strength, seed_resize_from_h=p.seed_resize_from_h, seed_resize_from_w=p.seed_resize_from_w)
 
             if p.scripts is not None:
                 p.scripts.before_process_batch(p, batch_number=n, prompts=p.prompts, seeds=p.seeds, subseeds=p.subseeds)
@@ -1003,6 +1013,9 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
             x_samples_ddim = torch.stack(x_samples_ddim).float()
             x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
 
+            if len(x_samples_ddim.shape) == 5:
+                x_samples_ddim = x_samples_ddim.reshape(-1, *x_samples_ddim.shape[-3:])
+
             del samples_ddim
 
             devices.torch_gc()
@@ -1022,13 +1035,16 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
             def infotext(index=0, use_main_prompt=False):
                 return create_infotext(p, p.prompts, p.seeds, p.subseeds, use_main_prompt=use_main_prompt, index=index, all_negative_prompts=p.negative_prompts)
 
-            save_samples = p.save_samples()
+            save_samples = p.save_samples(is_video=_is_video)
+            if _is_video:
+                frames = []
 
             for i, x_sample in enumerate(x_samples_ddim):
                 p.batch_index = i
-
                 x_sample = 255. * np.moveaxis(x_sample.cpu().numpy(), 0, 2)
                 x_sample = x_sample.astype(np.uint8)
+                if _is_video:
+                    frames.append(x_sample)
 
                 if p.restore_faces:
                     if save_samples and opts.save_images_before_face_restoration:
@@ -1103,6 +1119,10 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
                         if opts.return_mask_composite:
                             output_images.append(image_mask_composite)
 
+            if _is_video:
+                video_path = images.save_video(p, frames)
+                del frames
+
             del x_samples_ddim
 
             devices.torch_gc()
@@ -1142,6 +1162,8 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
         infotexts=infotexts,
         extra_images_list=p.extra_result_images,
     )
+
+    res.video_path = video_path
 
     if p.scripts is not None:
         p.scripts.postprocess(p, res)
@@ -1360,6 +1382,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             # here we generate an image normally
 
             x = self.rng.next()
+            if shared.sd_model.is_wan:  # enforce batch_size of 1
+                x = x[0].unsqueeze(0)
 
             self.sd_model.forge_objects = self.sd_model.forge_objects_after_applying_lora.shallow_copy()
             apply_token_merging(self.sd_model, self.get_token_merging_ratio())
@@ -1834,6 +1858,8 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
 
     def sample(self, conditioning, unconditional_conditioning, seeds, subseeds, subseed_strength, prompts):
         x = self.rng.next()
+        if shared.sd_model.is_wan:  # enforce batch_size of 1
+            x = x[0].unsqueeze(0)
 
         if self.initial_noise_multiplier != 1.0:
             self.extra_generation_params["Noise multiplier"] = self.initial_noise_multiplier
