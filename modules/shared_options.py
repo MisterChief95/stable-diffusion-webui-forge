@@ -35,7 +35,7 @@ restricted_opts = {
     "temp_dir",
 }
 
-categories.register_category("saving", "Saving Images")
+categories.register_category("saving", "Saving")
 categories.register_category("sd", "Stable Diffusion")
 categories.register_category("ui", "User Interface")
 categories.register_category("presets", "Presets")
@@ -45,7 +45,7 @@ categories.register_category("svdq", "Nunchaku")
 
 options_templates.update(
     options_section(
-        ("saving-images", "Saving images/grids", "saving"),
+        ("saving-images", "Saving Images/Grids", "saving"),
         {
             "samples_save": OptionInfo(True, "Automatically save every generated image").info('if disabled, images will needed to be manually saved via the "Save Image" button'),
             "samples_format": OptionInfo("png", "Image Format", gr.Dropdown, {"choices": ("jpg", "jpeg", "png", "webp", "avif", "heif")}).info('"webp" is recommended if supported'),
@@ -88,12 +88,34 @@ options_templates.update(
 
 options_templates.update(
     options_section(
+        ("saving-videos", "Saving Videos", "saving"),
+        {
+            "video_save_frames": OptionInfo(False, "Save intermediate frames when generating video"),
+            "video_player_auto": OptionInfo(True, "Play the generated video when done"),
+            "video_player_loop": OptionInfo(False, "Make the video player loop the playback"),
+            "video_explanation": OptionHTML(
+                """
+Parameters for encoding videos in <b>H.264</b> using <b>FFmpeg</b><br>
+Refer to the <a href="https://trac.ffmpeg.org/wiki/Encode/H.264">Wiki</a> for what these parameters mean
+                """
+            ),
+            "video_crf": OptionInfo(16, "CRF", gr.Slider, {"minimum": 0, "maximum": 51, "step": 1}),
+            "video_preset": OptionInfo("fast", "Preset", gr.Dropdown, {"choices": ("ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow")}),
+            "video_profile": OptionInfo("main", "Profile", gr.Dropdown, {"choices": ("baseline", "main", "high")}),
+            "video_container": OptionInfo("mp4", "Extension", gr.Radio, {"choices": ("mp4", "mkv")}),
+        },
+    )
+)
+
+options_templates.update(
+    options_section(
         ("saving-paths", "Paths for Saving", "saving"),
         {
-            "outdir_samples": OptionInfo("", "Output Directory for Images", component_args=hide_dirs).info("if empty, default to the <b>three</b> folders below"),
+            "outdir_samples": OptionInfo("", "Output Directory", component_args=hide_dirs).info("if empty, default to the <b>four</b> folders below"),
             "outdir_txt2img_samples": OptionInfo(util.truncate_path(os.path.join(default_output_dir, "txt2img-images")), "Output Directory for txt2img Images", component_args=hide_dirs),
             "outdir_img2img_samples": OptionInfo(util.truncate_path(os.path.join(default_output_dir, "img2img-images")), "Output Directory for img2img Images", component_args=hide_dirs),
             "outdir_extras_samples": OptionInfo(util.truncate_path(os.path.join(default_output_dir, "extras-images")), "Output Directory for Extras Images", component_args=hide_dirs),
+            "outdir_videos": OptionInfo(util.truncate_path(os.path.join(default_output_dir, "videos")), "Output Directory for Videos", component_args=hide_dirs),
             "div00": OptionDiv(),
             "outdir_grids": OptionInfo("", "Output Directory for Grids", component_args=hide_dirs).info("if empty, default to the <b>two</b> folders below"),
             "outdir_txt2img_grids": OptionInfo(util.truncate_path(os.path.join(default_output_dir, "txt2img-grids")), "Output Directory for txt2img Grids", component_args=hide_dirs),
@@ -374,16 +396,6 @@ options_templates.update(
             "show_rescale_cfg": OptionInfo(False, "Display the Rescale CFG Slider").info("feature for v-pred checkpoints").needs_reload_ui(),
             "show_mahiro": OptionInfo(False, "Display the MaHiRo Toggle").info('see <a href="https://huggingface.co/spaces/yoinked/blue-arxiv">blue-arxiv</a> - <b>id:</b> <ins>2024-1208.1</ins>').needs_reload_ui(),
             "paste_safe_guard": OptionInfo(False, 'Disable the "Read generation parameters" button (↙️) when negative prompt is not empty'),
-            "quicksettings_style": OptionInfo("default", "Quicksettings Style", gr.Radio, {"choices": ("default", "clip-modules", "scrollbar")}).needs_reload_ui(),
-            "qs_style_exp": OptionHTML(
-                """
-<ul>
-<li><b>default:</b> Same as the original Webui; excess elements get placed into a new row</li>
-<li><b>clip-modules:</b> Display the full name only when hovering the "VAE / Text Encoder" setting; otherwise, shorten the module names</li>
-<li><b>scrollbar:</b> Keep all elements within the same row, and add a scrollbar if needed</li>
-</ul>
-                """.strip()
-            ),
             "div_classic": OptionDiv(),
             "compact_prompt_box": OptionInfo(False, "Compact Prompt Layout").info("put prompts inside the Generate tab, leaving more space for the gallery").needs_reload_ui(),
             "dimensions_and_batch_together": OptionInfo(True, "Show Width/Height and Batch sliders in same row").needs_reload_ui(),
