@@ -310,6 +310,42 @@ class PredictionFlux(AbstractPrediction):
         return 1.0 - percent
 
 
+class PredictionDiscreteFlow(AbstractPrediction):
+    """https://github.com/comfyanonymous/ComfyUI/blob/v0.3.50/comfy/model_sampling.py#L243"""
+
+    def __init__(self, model_config):
+        super().__init__(sigma_data=None, prediction_type="const")
+        sampling_settings: dict = model_config.sampling_settings
+        self.set_parameters(shift=sampling_settings.get("shift", 1.0), multiplier=sampling_settings.get("multiplier", 1000))
+
+    def set_parameters(self, shift=1.0, timesteps=1000, multiplier=1000):
+        self.shift = shift
+        self.multiplier = multiplier
+        ts = self.sigma((torch.arange(1, timesteps + 1, 1) / timesteps) * multiplier)
+        self.register_buffer("sigmas", ts)
+
+    @property
+    def sigma_min(self):
+        return self.sigmas[0]
+
+    @property
+    def sigma_max(self):
+        return self.sigmas[-1]
+
+    def timestep(self, sigma):
+        return sigma * self.multiplier
+
+    def sigma(self, timestep):
+        return time_snr_shift(self.shift, timestep / self.multiplier)
+
+    def percent_to_sigma(self, percent):
+        if percent <= 0.0:
+            return 1.0
+        if percent >= 1.0:
+            return 0.0
+        return time_snr_shift(self.shift, 1.0 - percent)
+
+
 def k_prediction_from_diffusers_scheduler(scheduler):
     if hasattr(scheduler.config, "prediction_type") and scheduler.config.prediction_type in ["epsilon", "v_prediction"]:
         if scheduler.config.beta_schedule == "scaled_linear":
