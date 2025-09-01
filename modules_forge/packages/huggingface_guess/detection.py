@@ -1,3 +1,5 @@
+# reference: https://github.com/comfyanonymous/ComfyUI/blob/v0.3.52/comfy/model_detection.py
+
 import logging
 
 from . import model_list
@@ -29,18 +31,38 @@ def calculate_transformer_depth(prefix, state_dict_keys, state_dict):
         use_linear_in_transformer = len(state_dict["{}1.proj_in.weight".format(prefix)].shape) == 2
         time_stack = "{}1.time_stack.0.attn1.to_q.weight".format(prefix) in state_dict or "{}1.time_mix_blocks.0.attn1.to_q.weight".format(prefix) in state_dict
         time_stack_cross = "{}1.time_stack.0.attn2.to_q.weight".format(prefix) in state_dict or "{}1.time_mix_blocks.0.attn2.to_q.weight".format(prefix) in state_dict
-        return (
-            last_transformer_depth,
-            context_dim,
-            use_linear_in_transformer,
-            time_stack,
-            time_stack_cross,
-        )
+        return last_transformer_depth, context_dim, use_linear_in_transformer, time_stack, time_stack_cross
     return None
 
 
-def detect_unet_config(state_dict, key_prefix):
+def detect_unet_config(state_dict: dict, key_prefix: str):
     state_dict_keys = list(state_dict.keys())
+
+    if "{}head.modulation".format(key_prefix) in state_dict_keys:  # Wan 2.1
+        dit_config = {}
+        dit_config["image_model"] = "wan2.1"
+        dim = state_dict["{}head.modulation".format(key_prefix)].shape[-1]
+        out_dim = state_dict["{}head.head.weight".format(key_prefix)].shape[0] // 4
+        dit_config["dim"] = int(dim)
+        dit_config["out_dim"] = int(out_dim)
+        dit_config["num_heads"] = int(dim // 128)
+        dit_config["ffn_dim"] = int(state_dict["{}blocks.0.ffn.0.weight".format(key_prefix)].shape[0])
+        dit_config["num_layers"] = count_blocks(state_dict_keys, "{}blocks.".format(key_prefix) + "{}.")
+        dit_config["patch_size"] = (1, 2, 2)
+        dit_config["freq_dim"] = 256
+        dit_config["window_size"] = (-1, -1)
+        dit_config["qk_norm"] = True
+        dit_config["cross_attn_norm"] = True
+        dit_config["eps"] = 1e-6
+        dit_config["in_dim"] = int(state_dict["{}patch_embedding.weight".format(key_prefix)].shape[1])
+        if "{}img_emb.proj.0.bias".format(key_prefix) in state_dict_keys:
+            dit_config["model_type"] = "i2v"
+        else:
+            dit_config["model_type"] = "t2v"
+        flf_weight = state_dict.get("{}img_emb.emb_pos".format(key_prefix))
+        if flf_weight is not None:
+            dit_config["flf_pos_embed_token_number"] = flf_weight.shape[1]
+        return dit_config
 
     if "{}single_transformer_blocks.0.mlp_fc1.qweight".format(key_prefix) in state_dict_keys:  # SVDQ
         dit_config = {}
@@ -62,25 +84,36 @@ def detect_unet_config(state_dict, key_prefix):
         dit_config["vec_in_dim"] = 768
         return dit_config
 
-    if "{}double_blocks.0.img_attn.norm.key_norm.scale".format(key_prefix) in state_dict_keys:  # Flux
+    if "{}double_blocks.0.img_attn.norm.key_norm.scale".format(key_prefix) in state_dict_keys and "{}img_in.weight".format(key_prefix) in state_dict_keys:  # Flux
         dit_config = {}
         dit_config["image_model"] = "flux"
         dit_config["in_channels"] = 16
-        dit_config["vec_in_dim"] = 768
+        patch_size = 2
+        dit_config["patch_size"] = patch_size
+        in_key = "{}img_in.weight".format(key_prefix)
+        if in_key in state_dict_keys:
+            dit_config["in_channels"] = state_dict[in_key].shape[1] // (patch_size * patch_size)
+        dit_config["out_channels"] = 16
+        vec_in_key = "{}vector_in.in_layer.weight".format(key_prefix)
+        if vec_in_key in state_dict_keys:
+            dit_config["vec_in_dim"] = state_dict[vec_in_key].shape[1]
         dit_config["context_in_dim"] = 4096
         dit_config["hidden_size"] = 3072
         dit_config["mlp_ratio"] = 4.0
         dit_config["num_heads"] = 24
-        dit_config["depth"] = 19
-        dit_config["depth_single_blocks"] = 38
+        dit_config["depth"] = count_blocks(state_dict_keys, "{}double_blocks.".format(key_prefix) + "{}.")
+        dit_config["depth_single_blocks"] = count_blocks(state_dict_keys, "{}single_blocks.".format(key_prefix) + "{}.")
         dit_config["axes_dim"] = [16, 56, 56]
         dit_config["theta"] = 10000
         dit_config["qkv_bias"] = True
-        if "{}distilled_guidance_layer.layers.0.in_layer.bias".format(key_prefix) in state_dict_keys:
-            # Chroma
-            dit_config["guidance_out_dim"] = 3072
-            dit_config["guidance_hidden_dim"] = 5120
-            dit_config["guidance_n_layers"] = 5
+        if "{}distilled_guidance_layer.0.norms.0.scale".format(key_prefix) in state_dict_keys or "{}distilled_guidance_layer.norms.0.scale".format(key_prefix) in state_dict_keys:  # Chroma
+            dit_config["image_model"] = "chroma"
+            dit_config["in_channels"] = 64
+            dit_config["out_channels"] = 64
+            dit_config["in_dim"] = 64
+            dit_config["out_dim"] = 3072
+            dit_config["hidden_dim"] = 5120
+            dit_config["n_layers"] = 5
         else:
             dit_config["guidance_embed"] = "{}guidance_in.in_layer.weight".format(key_prefix) in state_dict_keys
         return dit_config
@@ -119,7 +152,6 @@ def detect_unet_config(state_dict, key_prefix):
     use_linear_in_transformer = False
 
     video_model = False
-    video_model_cross = False
 
     current_res = 1
     count = 0
@@ -163,7 +195,6 @@ def detect_unet_config(state_dict, key_prefix):
                         context_dim = out[1]
                         use_linear_in_transformer = out[2]
                         video_model = out[3]
-                        video_model_cross = out[4]
                 else:
                     transformer_depth.append(0)
 
@@ -178,10 +209,7 @@ def detect_unet_config(state_dict, key_prefix):
     num_res_blocks.append(last_res_blocks)
     channel_mult.append(last_channel_mult)
     if "{}middle_block.1.proj_in.weight".format(key_prefix) in state_dict_keys:
-        transformer_depth_middle = count_blocks(
-            state_dict_keys,
-            "{}middle_block.1.transformer_blocks.".format(key_prefix) + "{}",
-        )
+        transformer_depth_middle = count_blocks(state_dict_keys, "{}middle_block.1.transformer_blocks.".format(key_prefix) + "{}")
     elif "{}middle_block.0.in_layers.0.weight".format(key_prefix) in state_dict_keys:
         transformer_depth_middle = -1
     else:
@@ -198,18 +226,9 @@ def detect_unet_config(state_dict, key_prefix):
     unet_config["use_linear_in_transformer"] = use_linear_in_transformer
     unet_config["context_dim"] = context_dim
 
-    if video_model:
-        unet_config["extra_ff_mix_layer"] = True
-        unet_config["use_spatial_context"] = True
-        unet_config["merge_strategy"] = "learned_with_images"
-        unet_config["merge_factor"] = 0.0
-        unet_config["video_kernel_size"] = [3, 1, 1]
-        unet_config["use_temporal_resblock"] = True
-        unet_config["use_temporal_attention"] = True
-        unet_config["disable_temporal_crossattention"] = not video_model_cross
-    else:
-        unet_config["use_temporal_resblock"] = False
-        unet_config["use_temporal_attention"] = False
+    assert not video_model
+    unet_config["use_temporal_resblock"] = False
+    unet_config["use_temporal_attention"] = False
 
     return unet_config
 
@@ -249,16 +268,20 @@ def unet_prefix_from_state_dict(state_dict):
     candidates = [
         "model.diffusion_model.",  # ldm/sgm models
         "model.model.",  # audio models
+        "net.",  # cosmos
     ]
-    top, count = top_candidate(state_dict, candidates)
-    if count > 5:
-        return top
+    counts = {k: 0 for k in candidates}
+    for k in state_dict:
+        for c in candidates:
+            if k.startswith(c):
+                counts[c] += 1
+                break
 
-    candidates = ["model."]  # aura flow
-    top, count = top_candidate(state_dict, candidates)
-    if count > 5:
+    top = max(counts, key=counts.get)
+    if counts[top] > 5:
         return top
-    return ""  # Chroma
+    else:
+        return "model."  # etc.
 
 
 def convert_config(unet_config):
@@ -291,7 +314,6 @@ def convert_config(unet_config):
             t_out += [d] * (res + 1)
             s *= 2
         transformer_depth = t_in
-        # transformer_depth_output = t_out
         new_config["transformer_depth"] = t_in
         new_config["transformer_depth_output"] = t_out
         new_config["transformer_depth_middle"] = transformer_depth_middle
@@ -470,37 +492,13 @@ def unet_config_from_diffusers_unet(state_dict, dtype=None):
         "use_temporal_resblock": False,
     }
 
-    SDXL_diffusers_ip2p = {
-        "use_checkpoint": False,
-        "image_size": 32,
-        "out_channels": 4,
-        "use_spatial_transformer": True,
-        "legacy": False,
-        "num_classes": "sequential",
-        "adm_in_channels": 2816,
-        "dtype": dtype,
-        "in_channels": 8,
-        "model_channels": 320,
-        "num_res_blocks": [2, 2, 2],
-        "transformer_depth": [0, 0, 2, 2, 10, 10],
-        "channel_mult": [1, 2, 4],
-        "transformer_depth_middle": 10,
-        "use_linear_in_transformer": True,
-        "context_dim": 2048,
-        "num_head_channels": 64,
-        "transformer_depth_output": [0, 0, 0, 2, 2, 2, 10, 10, 10],
-        "use_temporal_attention": False,
-        "use_temporal_resblock": False,
-    }
-
     supported_models = [
+        SD15,
         SDXL,
         SDXL_refiner,
-        SD15,
         SDXL_mid_cnet,
         SDXL_small_cnet,
         SDXL_diffusers_inpaint,
-        SDXL_diffusers_ip2p,
     ]
 
     for unet_config in supported_models:
