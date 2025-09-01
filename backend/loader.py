@@ -13,10 +13,12 @@ from backend.diffusion_engine.chroma import Chroma
 from backend.diffusion_engine.flux import Flux
 from backend.diffusion_engine.sd15 import StableDiffusion
 from backend.diffusion_engine.sdxl import StableDiffusionXL, StableDiffusionXLRefiner
+from backend.diffusion_engine.wan import Wan
 from backend.misc.filenames import svdq_flux, svdq_t5
 from backend.nn.clip import IntegratedCLIP
 from backend.nn.unet import IntegratedUNet2DConditionModel
 from backend.nn.vae import IntegratedAutoencoderKL
+from backend.nn.wan_vae import WanVAE
 from backend.operations import using_forge_operations
 from backend.state_dict import load_state_dict, try_filter_state_dict
 from backend.utils import (
@@ -25,7 +27,7 @@ from backend.utils import (
     read_arbitrary_config,
 )
 
-possible_models = [StableDiffusion, StableDiffusionXLRefiner, StableDiffusionXL, Chroma, Flux]
+possible_models = [StableDiffusion, StableDiffusionXLRefiner, StableDiffusionXL, Chroma, Flux, Wan]
 
 
 logging.getLogger("diffusers").setLevel(logging.ERROR)
@@ -39,7 +41,7 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
         return None
 
     if lib_name in ["transformers", "diffusers"]:
-        if component_name in ["scheduler"]:
+        if component_name == "scheduler":
             cls = getattr(importlib.import_module(lib_name), cls_name)
             return cls.from_pretrained(os.path.join(repo_path, component_name))
         if component_name.startswith("tokenizer"):
@@ -47,7 +49,7 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
             comp = cls.from_pretrained(os.path.join(repo_path, component_name))
             comp._eventual_warn_about_too_long_sequence = lambda *args, **kwargs: None
             return comp
-        if cls_name in ["AutoencoderKL"]:
+        if cls_name == "AutoencoderKL":
             assert isinstance(state_dict, dict) and len(state_dict) > 16, "You do not have VAE state dict!"
 
             config = IntegratedAutoencoderKL.load_config(config_path)
@@ -58,6 +60,16 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
             if "decoder.up_blocks.0.resnets.0.norm1.weight" in state_dict.keys():  # diffusers format
                 state_dict = huggingface_guess.diffusers_convert.convert_vae_state_dict(state_dict)
             load_state_dict(model, state_dict, ignore_start="loss.")
+            return model
+        if cls_name == "AutoencoderKLWan":
+            assert isinstance(state_dict, dict) and len(state_dict) > 16, "You do not have VAE state dict!"
+
+            config = WanVAE.load_config(config_path)
+
+            with using_forge_operations(device=memory_management.cpu, dtype=memory_management.vae_dtype()):
+                model = WanVAE.from_config(config)
+
+            load_state_dict(model, state_dict)
             return model
         if component_name.startswith("text_encoder") and cls_name in ["CLIPTextModel", "CLIPTextModelWithProjection"]:
             assert isinstance(state_dict, dict) and len(state_dict) > 16, "You do not have CLIP state dict!"
@@ -75,7 +87,7 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
             load_state_dict(model, state_dict, ignore_errors=["transformer.text_projection.weight", "transformer.text_model.embeddings.position_ids", "logit_scale"], log_name=cls_name)
 
             return model
-        if cls_name == "T5EncoderModel":
+        if cls_name in ["T5EncoderModel", "UMT5EncoderModel"]:
             if _svdq := svdq_t5(guess.filenames):
                 if memory_management.is_device_cpu(memory_management.text_encoder_device()):
                     raise SystemError("nunchaku T5 does not support CPU!")
@@ -113,10 +125,10 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
                     with using_forge_operations(device=memory_management.cpu, dtype=storage_dtype, manual_cast_enabled=True):
                         model = IntegratedT5(config)
 
-            load_state_dict(model, state_dict, log_name=cls_name, ignore_errors=["transformer.encoder.embed_tokens.weight", "logit_scale"])
+            load_state_dict(model, state_dict, log_name=cls_name, ignore_errors=["transformer.encoder.embed_tokens.weight", "logit_scale", "transformer.scaled_fp8"])
 
             return model
-        if cls_name in ["UNet2DConditionModel", "FluxTransformer2DModel", "ChromaTransformer2DModel"]:
+        if cls_name in ["UNet2DConditionModel", "FluxTransformer2DModel", "ChromaTransformer2DModel", "WanTransformer3DModel"]:
             assert isinstance(state_dict, dict) and len(state_dict) > 16, "You do not have model state dict!"
 
             model_loader = None
@@ -138,6 +150,10 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
                 from backend.nn.chroma import IntegratedChromaTransformer2DModel
 
                 model_loader = lambda c: IntegratedChromaTransformer2DModel(**c)
+            elif cls_name == "WanTransformer3DModel":
+                from backend.nn.wan import WanModel
+
+                model_loader = lambda c: WanModel(**c)
 
             unet_config = guess.unet_config.copy()
             state_dict_parameters = memory_management.state_dict_parameters(state_dict)
@@ -224,7 +240,8 @@ def replace_state_dict(sd, asd, guess):
         asd.clear()
         asd = asd_new
 
-    if "decoder.conv_in.weight" in asd:
+    #   sd / sdxl / wan                  # wan
+    if "decoder.conv_in.weight" in asd or "decoder.middle.0.residual.0.gamma" in asd:
         keys_to_delete = [k for k in sd if k.startswith(vae_key_prefix)]
         for k in keys_to_delete:
             del sd[k]
@@ -232,6 +249,7 @@ def replace_state_dict(sd, asd, guess):
             sd[vae_key_prefix + k] = v
 
     ##  identify model type
+    wan_test_key = "model.diffusion_model.head.modulation"
     flux_test_key = "model.diffusion_model.double_blocks.0.img_attn.norm.key_norm.scale"
     svdq_test_key = "model.diffusion_model.single_transformer_blocks.0.mlp_fc1.qweight"
     legacy_test_key = "model.diffusion_model.input_blocks.4.1.transformer_blocks.0.attn2.to_k.weight"
@@ -247,6 +265,8 @@ def replace_state_dict(sd, asd, guess):
                 model_type = "sdxl"
     elif flux_test_key in sd or svdq_test_key in sd:
         model_type = "flux"
+    elif wan_test_key in sd:
+        model_type = "wan"
 
     ##  prefixes used by various model types for CLIP-L
     prefix_L = {
@@ -282,10 +302,7 @@ def replace_state_dict(sd, asd, guess):
                     sd[k] = v
 
     ##  CLIP-H
-    CLIP_H = {  #   key to identify source model             old_prefix
-        "cond_stage_model.model.ln_final.weight": "cond_stage_model.model.",
-        #        'text_model.encoder.layers.0.layer_norm1.bias'      : 'text_model'.    # would need converting
-    }
+    CLIP_H = {"cond_stage_model.model.ln_final.weight": "cond_stage_model.model."}
     for CLIP_key in CLIP_H.keys():
         if CLIP_key in asd and asd[CLIP_key].shape[0] == 1024:
             new_prefix = prefix_H[model_type]
@@ -418,11 +435,14 @@ def replace_state_dict(sd, asd, guess):
                         sd[new_k] = v
 
     if "encoder.block.0.layer.0.SelfAttention.k.weight" in asd:
-        keys_to_delete = [k for k in sd if k.startswith(f"{text_encoder_key_prefix}t5xxl.")]
+        _key = "umt5xxl" if asd["shared.weight"].size(0) == 256384 else "t5xxl"
+        keys_to_delete = [k for k in sd if k.startswith(f"{text_encoder_key_prefix}{_key}.")]
         for k in keys_to_delete:
             del sd[k]
         for k, v in asd.items():
-            sd[f"{text_encoder_key_prefix}t5xxl.transformer.{k}"] = v
+            if k == "spiece_model":
+                continue
+            sd[f"{text_encoder_key_prefix}{_key}.transformer.{k}"] = v
 
     if "encoder.block.0.layer.0.SelfAttention.k.qweight" in asd:
         keys_to_delete = [k for k in sd if k.startswith(f"{text_encoder_key_prefix}t5xxl.")]
