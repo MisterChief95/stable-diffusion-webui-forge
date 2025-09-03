@@ -1,28 +1,19 @@
-import collections
-import importlib
-import os
-import sys
-import math
-import threading
+import contextlib
 import enum
+import gc
+import math
+import os
+import re
+import sys
 
 import torch
-import re
-import safetensors.torch
-from omegaconf import OmegaConf, ListConfig
-from urllib import request
-import gc
-import contextlib
 
-from modules import paths, shared, modelloader, devices, script_callbacks, sd_vae, errors, hashes, sd_unet, cache, extra_networks, processing, sd_hijack, patches
-from modules.shared import opts, cmd_opts
-from modules.timer import Timer
-import numpy as np
-from backend.loader import forge_loader
 from backend import memory_management
 from backend.args import dynamic_args
-from backend.utils import load_torch_file
-
+from backend.loader import forge_loader
+from modules import cache, devices, errors, extra_networks, hashes, modelloader, patches, paths, processing, script_callbacks, sd_hijack, sd_unet, sd_vae, shared  # noqa
+from modules.shared import cmd_opts, opts
+from modules.timer import Timer
 
 model_dir = "Stable-diffusion"
 model_path = os.path.abspath(os.path.join(paths.models_path, model_dir))
@@ -30,15 +21,6 @@ model_path = os.path.abspath(os.path.join(paths.models_path, model_dir))
 checkpoints_list = {}
 checkpoint_aliases = {}
 checkpoint_alisases = checkpoint_aliases  # for compatibility with old name
-checkpoints_loaded = collections.OrderedDict()
-
-
-class ModelType(enum.Enum):
-    SD1 = 1
-    # SD2 = 2
-    SDXL = 3
-    SSD = 4
-    # SD3 = 5
 
 
 def replace_key(d, key, new_key, value):
@@ -271,24 +253,6 @@ def read_metadata_from_safetensors(filename):
 
 def read_state_dict(checkpoint_file, print_global_state=False, map_location=None):
     pass
-
-
-def get_checkpoint_state_dict(checkpoint_info: CheckpointInfo, timer):
-    sd_model_hash = checkpoint_info.calculate_shorthash()
-    timer.record("calculate hash")
-
-    if checkpoint_info in checkpoints_loaded:
-        # use checkpoint cache
-        print(f"Loading weights [{sd_model_hash}] from cache")
-        # move to end as latest
-        checkpoints_loaded.move_to_end(checkpoint_info)
-        return checkpoints_loaded[checkpoint_info]
-
-    print(f"Loading weights [{sd_model_hash}] from {checkpoint_info.filename}")
-    res = load_torch_file(checkpoint_info.filename)
-    timer.record("load weights from disk")
-
-    return res
 
 
 def SkipWritingToConfig():

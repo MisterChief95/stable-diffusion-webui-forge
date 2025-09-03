@@ -1,13 +1,9 @@
+import glob
 import os
-import collections
+from copy import deepcopy
 from dataclasses import dataclass
 
-from modules import paths, shared, devices, script_callbacks, sd_models, extra_networks, sd_hijack, hashes
-
-import glob
-from copy import deepcopy
-from backend.utils import load_torch_file
-
+from modules import extra_networks, hashes, paths, sd_models, shared
 
 vae_path = os.path.abspath(os.path.join(paths.models_path, "VAE"))
 vae_ignore_keys = {"model_ema.decay", "model_ema.num_updates"}
@@ -17,8 +13,6 @@ vae_dict = {}
 base_vae = None
 loaded_vae_file = None
 checkpoint_info = None
-
-checkpoints_loaded = collections.OrderedDict()
 
 
 def get_loaded_vae_name():
