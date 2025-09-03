@@ -58,7 +58,7 @@ class ForgeDiffusionEngine:
         self.is_sd1 = False
         self.is_sd2 = False
         self.is_sdxl = False
-        self.is_sd3 = False
+        self.is_wan = False
         return
 
     def save_unet(self, filename):

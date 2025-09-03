@@ -1,3 +1,5 @@
+# reference: https://github.com/comfyanonymous/ComfyUI/blob/v0.3.52/comfy/utils.py
+
 import math
 import struct
 
@@ -18,7 +20,10 @@ def weight_dtype(sd, prefix=""):
     for k in sd.keys():
         if k.startswith(prefix):
             w = sd[k]
-            dtypes[w.dtype] = dtypes.get(w.dtype, 0) + 1
+            dtypes[w.dtype] = dtypes.get(w.dtype, 0) + w.numel()
+
+    if len(dtypes) == 0:
+        return None
 
     return max(dtypes, key=dtypes.get)
 
@@ -36,12 +41,7 @@ def state_dict_prefix_replace(state_dict, replace_prefix, filter_keys=False):
     else:
         out = state_dict
     for rp in replace_prefix:
-        replace = list(
-            map(
-                lambda a: (a, "{}{}".format(replace_prefix[rp], a[len(rp) :])),
-                filter(lambda a: a.startswith(rp), state_dict.keys()),
-            )
-        )
+        replace = list(map(lambda a: (a, "{}{}".format(replace_prefix[rp], a[len(rp) :])), filter(lambda a: a.startswith(rp), state_dict.keys())))
         for x in replace:
             w = state_dict.pop(x[0])
             out[x[1]] = w
@@ -260,11 +260,7 @@ MMDIT_MAP_BASIC = {
     ("y_embedder.mlp.2.weight", "time_text_embed.text_embedder.linear_2.weight"),
     ("pos_embed", "pos_embed.pos_embed"),
     ("final_layer.adaLN_modulation.1.bias", "norm_out.linear.bias", swap_scale_shift),
-    (
-        "final_layer.adaLN_modulation.1.weight",
-        "norm_out.linear.weight",
-        swap_scale_shift,
-    ),
+    ("final_layer.adaLN_modulation.1.weight", "norm_out.linear.weight", swap_scale_shift),
     ("final_layer.linear.bias", "proj_out.bias"),
     ("final_layer.linear.weight", "proj_out.weight"),
 }
@@ -278,10 +274,18 @@ MMDIT_MAP_BLOCK = {
     ("context_block.mlp.fc1.weight", "ff_context.net.0.proj.weight"),
     ("context_block.mlp.fc2.bias", "ff_context.net.2.bias"),
     ("context_block.mlp.fc2.weight", "ff_context.net.2.weight"),
+    ("context_block.attn.ln_q.weight", "attn.norm_added_q.weight"),
+    ("context_block.attn.ln_k.weight", "attn.norm_added_k.weight"),
     ("x_block.adaLN_modulation.1.bias", "norm1.linear.bias"),
     ("x_block.adaLN_modulation.1.weight", "norm1.linear.weight"),
     ("x_block.attn.proj.bias", "attn.to_out.0.bias"),
     ("x_block.attn.proj.weight", "attn.to_out.0.weight"),
+    ("x_block.attn.ln_q.weight", "attn.norm_q.weight"),
+    ("x_block.attn.ln_k.weight", "attn.norm_k.weight"),
+    ("x_block.attn2.proj.bias", "attn2.to_out.0.bias"),
+    ("x_block.attn2.proj.weight", "attn2.to_out.0.weight"),
+    ("x_block.attn2.ln_q.weight", "attn2.norm_q.weight"),
+    ("x_block.attn2.ln_k.weight", "attn2.norm_k.weight"),
     ("x_block.mlp.fc1.bias", "ff.net.0.proj.bias"),
     ("x_block.mlp.fc1.weight", "ff.net.0.proj.weight"),
     ("x_block.mlp.fc2.bias", "ff.net.2.bias"),
@@ -312,24 +316,18 @@ def mmdit_to_diffusers(mmdit_config, output_prefix=""):
             key_map["{}add_k_proj.{}".format(k, end)] = (qkv, (0, offset, offset))
             key_map["{}add_v_proj.{}".format(k, end)] = (qkv, (0, offset * 2, offset))
 
+            k = "{}.attn2.".format(block_from)
+            qkv = "{}.x_block.attn2.qkv.{}".format(block_to, end)
+            key_map["{}to_q.{}".format(k, end)] = (qkv, (0, 0, offset))
+            key_map["{}to_k.{}".format(k, end)] = (qkv, (0, offset, offset))
+            key_map["{}to_v.{}".format(k, end)] = (qkv, (0, offset * 2, offset))
+
         for k in MMDIT_MAP_BLOCK:
             key_map["{}.{}".format(block_from, k[1])] = "{}.{}".format(block_to, k[0])
 
     map_basic = MMDIT_MAP_BASIC.copy()
-    map_basic.add(
-        (
-            "joint_blocks.{}.context_block.adaLN_modulation.1.bias".format(depth - 1),
-            "transformer_blocks.{}.norm1_context.linear.bias".format(depth - 1),
-            swap_scale_shift,
-        )
-    )
-    map_basic.add(
-        (
-            "joint_blocks.{}.context_block.adaLN_modulation.1.weight".format(depth - 1),
-            "transformer_blocks.{}.norm1_context.linear.weight".format(depth - 1),
-            swap_scale_shift,
-        )
-    )
+    map_basic.add(("joint_blocks.{}.context_block.adaLN_modulation.1.bias".format(depth - 1), "transformer_blocks.{}.norm1_context.linear.bias".format(depth - 1), swap_scale_shift))
+    map_basic.add(("joint_blocks.{}.context_block.adaLN_modulation.1.weight".format(depth - 1), "transformer_blocks.{}.norm1_context.linear.weight".format(depth - 1), swap_scale_shift))
 
     for k in map_basic:
         if len(k) > 2:
@@ -477,7 +475,7 @@ def copy_to_param(obj, attr, value):
     prev.data.copy_(value)
 
 
-def get_attr(obj, attr):
+def get_attr(obj, attr: str):
     attrs = attr.split(".")
     for name in attrs:
         obj = getattr(obj, name)

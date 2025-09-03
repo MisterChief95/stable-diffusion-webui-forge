@@ -1,3 +1,5 @@
+# reference: https://github.com/comfyanonymous/ComfyUI/blob/v0.3.52/comfy/supported_models.py
+
 from enum import Enum
 
 import torch
@@ -59,7 +61,7 @@ class BASE:
         return {}
 
     def inpaint_model(self):
-        return self.unet_config["in_channels"] > 4
+        return self.unet_config.get("in_channels", -1) > 4
 
     def __init__(self, unet_config):
         self.unet_config = unet_config.copy()
@@ -120,10 +122,7 @@ class SD15(BASE):
         k = list(state_dict.keys())
         for x in k:
             if x.startswith("cond_stage_model.transformer.") and not x.startswith("cond_stage_model.transformer.text_model."):
-                y = x.replace(
-                    "cond_stage_model.transformer.",
-                    "cond_stage_model.transformer.text_model.",
-                )
+                y = x.replace("cond_stage_model.transformer.", "cond_stage_model.transformer.text_model.")
                 state_dict[y] = state_dict.pop(x)
 
         if "cond_stage_model.transformer.text_model.embeddings.position_ids" in state_dict:
@@ -200,22 +199,16 @@ class SDXL(BASE):
     }
 
     latent_format = latent.SDXL
-
-    memory_usage_factor = 0.7
+    memory_usage_factor = 0.8
 
     def model_type(self, state_dict, prefix=""):
-        if "edm_mean" in state_dict and "edm_std" in state_dict:  # Playground V2.5
-            self.latent_format = latent.SDXL_Playground_2_5()
-            self.sampling_settings["sigma_data"] = 0.5
-            self.sampling_settings["sigma_max"] = 80.0
-            self.sampling_settings["sigma_min"] = 0.002
-            return ModelType.EDM
-        elif "edm_vpred.sigma_max" in state_dict:
+        if "edm_vpred.sigma_max" in state_dict:
             self.sampling_settings["sigma_max"] = float(state_dict["edm_vpred.sigma_max"].item())
             if "edm_vpred.sigma_min" in state_dict:
                 self.sampling_settings["sigma_min"] = float(state_dict["edm_vpred.sigma_min"].item())
             return ModelType.V_PREDICTION_EDM
         elif "v_pred" in state_dict:
+            self.sampling_settings["zsnr"] = "ztsnr" in state_dict
             return ModelType.V_PREDICTION
         else:
             return ModelType.EPS
@@ -234,7 +227,6 @@ class SDXL(BASE):
 
     def process_clip_state_dict_for_saving(self, state_dict):
         replace_prefix = {}
-        # keys_to_replace = {}
         state_dict_g = diffusers_convert.convert_text_enc_state_dict_v20(state_dict, "clip_g")
         for k in state_dict:
             if k.startswith("clip_l"):
@@ -255,29 +247,6 @@ class SDXL(BASE):
         return {"clip_l": "text_encoder", "clip_g": "text_encoder_2"}
 
 
-class SD15_instructpix2pix(SD15):
-    unet_config = {
-        "context_dim": 768,
-        "model_channels": 320,
-        "use_linear_in_transformer": False,
-        "adm_in_channels": None,
-        "use_temporal_attention": False,
-        "in_channels": 8,
-    }
-
-
-class SDXL_instructpix2pix(SDXL):
-    unet_config = {
-        "model_channels": 320,
-        "use_linear_in_transformer": True,
-        "transformer_depth": [0, 0, 2, 2, 10, 10],
-        "context_dim": 2048,
-        "adm_in_channels": 2816,
-        "use_temporal_attention": False,
-        "in_channels": 8,
-    }
-
-
 class Flux(BASE):
     huggingface_repo = "black-forest-labs/FLUX.1-dev"
 
@@ -291,7 +260,7 @@ class Flux(BASE):
     unet_extra_config = {}
     latent_format = latent.Flux
 
-    memory_usage_factor = 2.6
+    memory_usage_factor = 2.8
 
     supported_inference_dtypes = [torch.bfloat16, torch.float16, torch.float32]
 
@@ -310,7 +279,7 @@ class Flux(BASE):
         if "{}t5xxl.transformer.encoder.final_layer_norm.weight".format(pref) in state_dict:
             result["t5xxl"] = "text_encoder_2"
 
-        if "{}t5xxl.transformer.encoder.final_layer_norm.qweight".format(pref) in state_dict:
+        elif "{}t5xxl.transformer.encoder.final_layer_norm.qweight".format(pref) in state_dict:
             result["t5xxl"] = "text_encoder_2"
 
         return result
@@ -329,6 +298,8 @@ class FluxSchnell(Flux):
         "shift": 1.0,
     }
 
+    supported_inference_dtypes = [torch.bfloat16, torch.float32]
+
 
 class Chroma(FluxSchnell):
     huggingface_repo = "Chroma"
@@ -342,8 +313,11 @@ class Chroma(FluxSchnell):
 
     sampling_settings = {
         "multiplier": 1.0,
-        "shift": 1.0,
     }
+
+    memory_usage_factor = 3.2
+
+    supported_inference_dtypes = [torch.bfloat16, torch.float16, torch.float32]
 
     def clip_target(self, state_dict={}):
         result = {}
@@ -352,16 +326,61 @@ class Chroma(FluxSchnell):
         if "{}t5xxl.transformer.encoder.final_layer_norm.weight".format(pref) in state_dict:
             result["t5xxl"] = "text_encoder"
 
+        elif "{}t5xxl.transformer.encoder.final_layer_norm.qweight".format(pref) in state_dict:
+            result["t5xxl"] = "text_encoder"
+
         return result
 
 
+class WAN21_T2V(BASE):
+    huggingface_repo = "Wan-AI/Wan2.1-T2V-14B"
+
+    unet_config = {
+        "image_model": "wan2.1",
+        "model_type": "t2v",
+    }
+
+    sampling_settings = {
+        "shift": 8.0,
+    }
+
+    unet_extra_config = {}
+    latent_format = latent.Wan21
+
+    memory_usage_factor = 1.0
+
+    supported_inference_dtypes = [torch.float16, torch.bfloat16, torch.float32]
+
+    vae_key_prefix = ["vae."]
+    text_encoder_key_prefix = ["text_encoders."]
+
+    unet_target = "transformer"
+
+    def __init__(self, unet_config):
+        super().__init__(unet_config)
+        self.memory_usage_factor = self.unet_config.get("dim", 2000) / 2000
+
+    def clip_target(self, state_dict={}):
+        return {"umt5xxl": "text_encoder"}
+
+
+class WAN21_I2V(WAN21_T2V):
+    huggingface_repo = "Wan-AI/Wan2.1-I2V-14B-720P"
+
+    unet_config = {
+        "image_model": "wan2.1",
+        "model_type": "i2v",
+        "in_dim": 36,
+    }
+
+
 models = [
-    SD15_instructpix2pix,
     SD15,
-    SDXL_instructpix2pix,
-    SDXLRefiner,
     SDXL,
+    SDXLRefiner,
     Flux,
     FluxSchnell,
     Chroma,
+    WAN21_T2V,
+    WAN21_I2V,
 ]

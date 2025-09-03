@@ -299,17 +299,14 @@ class IntegratedAutoencoderKL(nn.Module, ConfigMixin):
         if not isinstance(self.shift_factor, float):
             self.shift_factor = 0.0
 
-    def encode(self, x, regulation=None):
+    def encode(self, x):
         z = self.encoder(x)
 
         if self.quant_conv is not None:
             z = self.quant_conv(z)
 
         posterior = DiagonalGaussianDistribution(z)
-        if regulation is not None:
-            return regulation(posterior)
-        else:
-            return posterior.sample()
+        return posterior.sample()
 
     def decode(self, z):
         if self.post_quant_conv is not None:

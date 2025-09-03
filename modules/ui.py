@@ -421,13 +421,14 @@ def create_ui():
 
             txt2img_outputs = [
                 output_panel.gallery,
+                output_panel.player,
                 output_panel.generation_info,
                 output_panel.infotext,
                 output_panel.html_log,
             ]
 
             txt2img_args = dict(
-                fn=wrap_gradio_gpu_call(modules.txt2img.txt2img, extra_outputs=[None, '', '']),
+                fn=wrap_gradio_gpu_call(modules.txt2img.txt2img, extra_outputs=[None, None, "", ""]),
                 _js="submit",
                 inputs=txt2img_inputs,
                 outputs=txt2img_outputs,
@@ -445,10 +446,15 @@ def create_ui():
 
             txt2img_upscale_inputs = txt2img_inputs[0:1] + [output_panel.gallery, dummy_component_number, output_panel.generation_info] + txt2img_inputs[1:]
             output_panel.button_upscale.click(
-                fn=wrap_gradio_gpu_call(modules.txt2img.txt2img_upscale, extra_outputs=[None, '', '']),
+                fn=wrap_gradio_gpu_call(modules.txt2img.txt2img_upscale, extra_outputs=[None, "", ""]),
                 _js="submit_txt2img_upscale",
                 inputs=txt2img_upscale_inputs,
-                outputs=txt2img_outputs,
+                outputs=[
+                    output_panel.gallery,
+                    output_panel.generation_info,
+                    output_panel.infotext,
+                    output_panel.html_log,
+                ],
                 show_progress=False,
             ).then(fn=select_gallery_image, js="selected_gallery_index", inputs=[dummy_component], outputs=[output_panel.gallery])
 
@@ -788,11 +794,12 @@ def create_ui():
             ] + custom_inputs
 
             img2img_args = dict(
-                fn=wrap_gradio_gpu_call(modules.img2img.img2img, extra_outputs=[None, '', '']),
+                fn=wrap_gradio_gpu_call(modules.img2img.img2img, extra_outputs=[None, None, "", ""]),
                 _js="submit_img2img",
                 inputs=submit_img2img_inputs,
                 outputs=[
                     output_panel.gallery,
+                    output_panel.player,
                     output_panel.generation_info,
                     output_panel.infotext,
                     output_panel.html_log,

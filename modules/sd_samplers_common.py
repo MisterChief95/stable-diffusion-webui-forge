@@ -42,27 +42,24 @@ def samples_to_images_tensor(sample, approximation=None, model=None):
     if approximation is None or (shared.state.interrupted and opts.live_preview_fast_interrupt):
         approximation = approximation_indexes.get(opts.show_progress_type, 0)
         if approximation == 0:
-            approximation = 1
+            approximation = 2
+
+    if approximation == 1:
+        if (mdl := sd_vae_approx.model()) is not None:
+            x_sample = mdl(sample.to(devices.device, devices.dtype)).detach()
+        else:
+            approximation = 2
+    elif approximation == 3:
+        if (mdl := sd_vae_taesd.decoder_model()) is not None:
+            x_sample = mdl(sample.to(devices.device, devices.dtype)).detach()
+            x_sample = x_sample * 2 - 1
+        else:
+            approximation = 2
 
     if approximation == 2:
-        x_sample = sd_vae_approx.cheap_approximation(sample)
-    elif approximation == 1:
-        m = sd_vae_approx.model()
-        if m is None:
-            x_sample = sd_vae_approx.cheap_approximation(sample)
-        else:
-            x_sample = m(sample.to(devices.device, devices.dtype)).detach()
-    elif approximation == 3:
-        m = sd_vae_taesd.decoder_model()
-        if m is None:
-            x_sample = sd_vae_approx.cheap_approximation(sample)
-        else:
-            x_sample = m(sample.to(devices.device, devices.dtype)).detach()
-            x_sample = x_sample * 2 - 1
+        x_sample = sd_vae_approx.cheap_approximation(sample).detach()
     else:
-        if model is None:
-            model = shared.sd_model
-        x_sample = model.decode_first_stage(sample)
+        x_sample = (model or shared.sd_model).decode_first_stage(sample)
 
     return x_sample
 
@@ -107,7 +104,7 @@ def images_tensor_to_samples(image, approximation=None, model=None):
 
         image = image.to(shared.device, dtype=devices.dtype_vae)
         image = image * 2 - 1
-        if len(image) > 1:
+        if len(image) > 1 and not model.is_wan:
             x_latent = torch.stack([
                 model.get_first_stage_encoding(
                     model.encode_first_stage(torch.unsqueeze(img, 0))
@@ -193,13 +190,13 @@ def apply_refiner(cfg_denoiser, x):
 
     with sd_models.SkipWritingToConfig():
         fp_checkpoint = getattr(shared.opts, 'sd_model_checkpoint')
-        checkpoint_changed = main_entry.checkpoint_change(refiner_checkpoint_info.short_title, save=False, refresh=False)
+        checkpoint_changed = main_entry.checkpoint_change(refiner_checkpoint_info.short_title, preset=None, save=False, refresh=False)
         if checkpoint_changed:
             try:
                 main_entry.refresh_model_loading_parameters()
                 sd_models.forge_model_reload()
             finally:
-                main_entry.checkpoint_change(fp_checkpoint, save=False, refresh=True)
+                main_entry.checkpoint_change(fp_checkpoint, preset=None, save=False, refresh=True)
 
     if not cfg_denoiser.p.disable_extra_networks:
         extra_networks.activate(cfg_denoiser.p, cfg_denoiser.p.extra_network_data)

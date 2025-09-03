@@ -151,11 +151,12 @@ def save_files(js_data, images, do_make_zip, index):
 
 @dataclasses.dataclass
 class OutputPanel:
-    gallery = None
-    generation_info = None
-    infotext = None
-    html_log = None
-    button_upscale = None
+    gallery: gr.Gallery = None
+    player: gr.Video = None
+    generation_info: gr.HTML = None
+    infotext: gr.HTML = None
+    html_log: gr.HTML = None
+    button_upscale: gr.Button = None
 
 
 def create_output_panel(tabname, outdir, toprow=None):
@@ -181,7 +182,8 @@ def create_output_panel(tabname, outdir, toprow=None):
 
         with gr.Column(variant='panel', elem_id=f"{tabname}_results_panel"):
             with gr.Group(elem_id=f"{tabname}_gallery_container"):
-                res.gallery = gr.Gallery(label='Output', show_label=False, elem_id=f"{tabname}_gallery", columns=4, preview=True, height=shared.opts.gallery_height or None, interactive=False, type="pil", object_fit="contain")
+                res.gallery = gr.Gallery(label="Output", show_label=False, elem_id=f"{tabname}_gallery", columns=4, preview=True, height=shared.opts.gallery_height or None, interactive=False, type="pil", object_fit="contain")
+                res.player = gr.Video(label="Output", show_label=False, elem_id=f"{tabname}_player", height=shared.opts.gallery_height or None, interactive=False, autoplay=shared.opts.video_player_auto, loop=shared.opts.video_player_loop, include_audio=False, show_download_button=False, show_share_button=False, visible=False)
 
             with gr.Row(elem_id=f"image_buttons_{tabname}", elem_classes="image-buttons"):
                 open_folder_button = ToolButton(folder_symbol, elem_id=f'{tabname}_open_folder', visible=not shared.cmd_opts.hide_ui_dir_config, tooltip="Open images output directory.")
