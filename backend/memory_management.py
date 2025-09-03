@@ -10,6 +10,7 @@ import torch
 
 from backend import stream, utils
 from backend.args import args
+from backend.patcher.base import ModelPatcher
 
 cpu = torch.device("cpu")
 
@@ -320,7 +321,7 @@ if "rtx" in torch_device_name.lower():
         print("Hint: your device supports --cuda-malloc for potential speed improvements.")
 
 
-current_loaded_models = []
+current_loaded_models: list["LoadedModel"] = []
 
 
 def state_dict_size(sd, exclude_device=None):
@@ -476,7 +477,7 @@ def build_module_profile(model, model_gpu_memory_when_using_cpu_swap):
 
 
 class LoadedModel:
-    def __init__(self, model):
+    def __init__(self, model: ModelPatcher):
         self.model = model
         self.model_accelerated = False
         self.device = model.load_device
@@ -486,7 +487,6 @@ class LoadedModel:
     def compute_inclusive_exclusive_memory(self):
         self.inclusive_memory = module_size(self.model.model, include_device=self.device)
         self.exclusive_memory = module_size(self.model.model, exclude_device=self.device)
-        return
 
     def model_load(self, model_gpu_memory_when_using_cpu_swap=-1):
         patch_model_to = None
@@ -570,8 +570,11 @@ class LoadedModel:
             self.model.forge_unpatch_model(self.model.offload_device)
             self.model.model_patches_to(self.model.offload_device)
 
-    def __eq__(self, other):
-        return self.model is other.model  # and self.memory_required == other.memory_required
+    def __eq__(self, other: "LoadedModel"):
+        return self.model is other.model
+
+    def __del__(self):
+        del self.model
 
 
 current_inference_memory = 1024 * 1024 * 1024
@@ -583,34 +586,30 @@ def minimum_inference_memory():
 
 
 def unload_model_clones(model):
-    to_unload = []
-    for i in range(len(current_loaded_models)):
-        if model.is_clone(current_loaded_models[i].model):
-            to_unload = [i] + to_unload
+    to_unload = [i for i in range(len(current_loaded_models)) if model.is_clone(current_loaded_models[i].model)]
 
-    for i in to_unload:
-        current_loaded_models.pop(i).model_unload(avoid_model_moving=True)
+    for i in reversed(to_unload):
+        m = current_loaded_models.pop(i)
+        m.model_unload(avoid_model_moving=True)
+        del m
+
+    if len(to_unload) > 0:
+        soft_empty_cache()
 
 
 def free_memory(memory_required, device, keep_loaded=[], free_all=False):
-    # this check fully unloads any 'abandoned' models
-    for i in range(len(current_loaded_models) - 1, -1, -1):
-        if sys.getrefcount(current_loaded_models[i].model) <= 2:
-            current_loaded_models.pop(i).model_unload(avoid_model_moving=True)
-
     if free_all:
         memory_required = 1e30
         print(f"[Unload] Trying to free all memory for {device} with {len(keep_loaded)} models keep loaded ... ", end="")
+        offload_everything = True
     else:
         print(f"[Unload] Trying to free {memory_required / (1024 * 1024):.2f} MB for {device} with {len(keep_loaded)} models keep loaded ... ", end="")
+        offload_everything = ALWAYS_VRAM_OFFLOAD or vram_state is VRAMState.NO_VRAM
 
-    offload_everything = ALWAYS_VRAM_OFFLOAD or vram_state == VRAMState.NO_VRAM
     unloaded_model = False
     for i in range(len(current_loaded_models) - 1, -1, -1):
         if not offload_everything:
-            free_memory = get_free_memory(device)
-            print(f"Current free memory is {free_memory / (1024 * 1024):.2f} MB ... ", end="")
-            if free_memory > memory_required:
+            if get_free_memory(device) > memory_required:
                 break
         shift_model = current_loaded_models[i]
         if shift_model.device == device:
@@ -630,7 +629,6 @@ def free_memory(memory_required, device, keep_loaded=[], free_all=False):
                 soft_empty_cache()
 
     print("Done.")
-    return
 
 
 def compute_model_gpu_memory_when_using_cpu_swap(current_free_mem, inference_memory):
@@ -651,14 +649,16 @@ def load_models_gpu(models, memory_required=0, hard_memory_preservation=0):
     models_to_load = []
     models_already_loaded = []
     for x in models:
-        loaded_model = LoadedModel(x)
+        load_model = LoadedModel(x)
 
-        if loaded_model in current_loaded_models:
-            index = current_loaded_models.index(loaded_model)
-            current_loaded_models.insert(0, current_loaded_models.pop(index))
+        if load_model in current_loaded_models:
+            index = current_loaded_models.index(load_model)
+            loaded_model = current_loaded_models.pop(index)
+            current_loaded_models.insert(0, loaded_model)
             models_already_loaded.append(loaded_model)
+            del load_model
         else:
-            models_to_load.append(loaded_model)
+            models_to_load.append(load_model)
 
     if len(models_to_load) == 0:
         devs = set(map(lambda a: a.device, models_already_loaded))
@@ -666,8 +666,7 @@ def load_models_gpu(models, memory_required=0, hard_memory_preservation=0):
             if d != torch.device("cpu"):
                 free_memory(memory_to_free, d, models_already_loaded)
 
-        moving_time = time.perf_counter() - execution_start_time
-        if moving_time > 0.1:
+        if (moving_time := time.perf_counter() - execution_start_time) > 0.1:
             print(f"Memory cleanup has taken {moving_time:.2f} seconds")
 
         return
@@ -717,23 +716,13 @@ def load_models_gpu(models, memory_required=0, hard_memory_preservation=0):
     moving_time = time.perf_counter() - execution_start_time
     print(f"Moving model(s) has taken {moving_time:.2f} seconds")
 
-    return
-
 
 def load_model_gpu(model):
     return load_models_gpu([model])
 
 
 def cleanup_models():
-    to_delete = []
-    for i in range(len(current_loaded_models)):
-        if sys.getrefcount(current_loaded_models[i].model) <= 2:
-            to_delete = [i] + to_delete
-
-    for i in to_delete:
-        x = current_loaded_models.pop(i)
-        x.model_unload()
-        del x
+    unload_all_models()
 
 
 def dtype_size(dtype):
@@ -1054,7 +1043,6 @@ def force_upcast_attention_dtype():
 
 
 def get_free_memory(dev=None, torch_free_too=False):
-    global directml_enabled
     if dev is None:
         dev = get_torch_device()
 
@@ -1063,21 +1051,21 @@ def get_free_memory(dev=None, torch_free_too=False):
         mem_free_torch = mem_free_total
     else:
         if directml_enabled:
-            mem_free_total = 1024 * 1024 * 1024
+            mem_free_total = 1024 * 1024 * 1024  # TODO
             mem_free_torch = mem_free_total
         elif is_intel_xpu():
             stats = torch.xpu.memory_stats(dev)
             mem_active = stats["active_bytes.all.current"]
+            mem_allocated = stats["allocated_bytes.all.current"]
             mem_reserved = stats["reserved_bytes.all.current"]
             mem_free_torch = mem_reserved - mem_active
-            mem_free_xpu = torch.xpu.get_device_properties(dev).total_memory - mem_reserved
-            mem_free_total = mem_free_xpu + mem_free_torch
+            mem_free_total = torch.xpu.get_device_properties(dev).total_memory - mem_allocated
         else:
             stats = torch.cuda.memory_stats(dev)
             mem_active = stats["active_bytes.all.current"]
             mem_reserved = stats["reserved_bytes.all.current"]
             mem_free_cuda, _ = torch.cuda.mem_get_info(dev)
-            mem_free_torch = mem_reserved - mem_active
+            mem_free_torch = max(mem_reserved - mem_active, 0)
             mem_free_total = mem_free_cuda + mem_free_torch
 
     if torch_free_too:
@@ -1221,21 +1209,6 @@ def should_use_bf16(device=None, model_params=0, prioritize_performance=True, ma
     return False
 
 
-def can_install_bnb():
-    try:
-        if not torch.cuda.is_available():
-            return False
-
-        cuda_version = tuple(int(x) for x in torch.version.cuda.split("."))
-
-        if cuda_version >= (11, 7):
-            return True
-
-        return False
-    except Exception:
-        return False
-
-
 signal_empty_cache = False
 
 
@@ -1250,8 +1223,9 @@ def soft_empty_cache(force=False):
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
     signal_empty_cache = False
-    return
 
 
 def unload_all_models():
-    free_memory(1e30, get_torch_device(), free_all=True)
+    free_memory(float("inf"), get_torch_device(), free_all=True)
+    if vram_state != VRAMState.HIGH_VRAM:
+        free_memory(float("inf"), torch.device("cpu"), free_all=True)
