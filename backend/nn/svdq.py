@@ -21,9 +21,9 @@ from modules import shared
 class SVDQFluxTransformer2DModel(nn.Module):
     """https://github.com/nunchaku-tech/ComfyUI-nunchaku/blob/v0.3.3/wrappers/flux.py"""
 
-    def __init__(self, config: dict, path: str):
-        super(SVDQFluxTransformer2DModel, self).__init__()
-        model = NunchakuFluxTransformer2dModel.from_pretrained(path, offload=shared.opts.svdq_cpu_offload)
+    def __init__(self, config: dict):
+        super().__init__()
+        model = NunchakuFluxTransformer2dModel.from_pretrained(config.pop("filename"), offload=shared.opts.svdq_cpu_offload)
         model = apply_cache_on_transformer(transformer=model, residual_diff_threshold=shared.opts.svdq_cache_threshold)
         model.set_attention_impl(shared.opts.svdq_attention)
 

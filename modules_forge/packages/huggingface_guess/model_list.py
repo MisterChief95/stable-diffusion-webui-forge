@@ -269,6 +269,10 @@ class Flux(BASE):
 
     unet_target = "transformer"
 
+    def __init__(self, unet_config):
+        super().__init__(unet_config)
+        self.nunchaku: bool = self.unet_config.pop("nunchaku", False)
+
     def clip_target(self, state_dict={}):
         result = {}
         pref = self.text_encoder_key_prefix[0]

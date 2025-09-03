@@ -65,7 +65,7 @@ def detect_unet_config(state_dict: dict, key_prefix: str):
         return dit_config
 
     if "{}single_transformer_blocks.0.mlp_fc1.qweight".format(key_prefix) in state_dict_keys:  # SVDQ
-        dit_config = {}
+        dit_config = {"nunchaku": True}
         dit_config["axes_dim"] = [16, 56, 56]
         dit_config["context_in_dim"] = 4096
         dit_config["depth"] = 19

@@ -14,7 +14,6 @@ from backend.diffusion_engine.flux import Flux
 from backend.diffusion_engine.sd15 import StableDiffusion
 from backend.diffusion_engine.sdxl import StableDiffusionXL, StableDiffusionXLRefiner
 from backend.diffusion_engine.wan import Wan
-from backend.misc.filenames import svdq_flux, svdq_t5
 from backend.nn.clip import IntegratedCLIP
 from backend.nn.unet import IntegratedUNet2DConditionModel
 from backend.nn.vae import IntegratedAutoencoderKL
@@ -88,13 +87,13 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
 
             return model
         if cls_name in ["T5EncoderModel", "UMT5EncoderModel"]:
-            if _svdq := svdq_t5(guess.filenames):
+            if filename := state_dict.get("transformer.filename", None):
                 if memory_management.is_device_cpu(memory_management.text_encoder_device()):
                     raise SystemError("nunchaku T5 does not support CPU!")
 
                 from backend.nn.svdq import SVDQT5
 
-                model = SVDQT5(_svdq)
+                model = SVDQT5(filename)
                 return model
 
             assert isinstance(state_dict, dict) and len(state_dict) > 16, "You do not have T5 state dict!"
@@ -135,13 +134,10 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
             if cls_name == "UNet2DConditionModel":
                 model_loader = lambda c: IntegratedUNet2DConditionModel.from_config(c)
             elif cls_name == "FluxTransformer2DModel":
-                _svdq = svdq_flux(guess.filenames)
-
-                if _svdq:
+                if guess.nunchaku:
                     from backend.nn.svdq import SVDQFluxTransformer2DModel
 
-                    model_loader = lambda c: SVDQFluxTransformer2DModel(c, _svdq)
-                    backend.args.dynamic_args["nunchaku"] = True
+                    model_loader = lambda c: SVDQFluxTransformer2DModel(c)
                 else:
                     from backend.nn.flux import IntegratedFluxTransformer2DModel
 
@@ -208,7 +204,7 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
     return None
 
 
-def replace_state_dict(sd, asd, guess):
+def replace_state_dict(sd, asd, guess, path):
     vae_key_prefix = guess.vae_key_prefix[0]
     text_encoder_key_prefix = guess.text_encoder_key_prefix[0]
 
@@ -444,12 +440,13 @@ def replace_state_dict(sd, asd, guess):
                 continue
             sd[f"{text_encoder_key_prefix}{_key}.transformer.{k}"] = v
 
-    if "encoder.block.0.layer.0.SelfAttention.k.qweight" in asd:
+    elif "encoder.block.0.layer.0.SelfAttention.k.qweight" in asd:
         keys_to_delete = [k for k in sd if k.startswith(f"{text_encoder_key_prefix}t5xxl.")]
         for k in keys_to_delete:
             del sd[k]
         for k, v in asd.items():
             sd[f"{text_encoder_key_prefix}t5xxl.transformer.{k}"] = v
+        sd[f"{text_encoder_key_prefix}t5xxl.transformer.filename"] = str(path)
 
     return sd
 
@@ -468,9 +465,9 @@ def split_state_dict(sd, additional_state_dicts: list = None):
 
     if isinstance(additional_state_dicts, list):
         for asd in additional_state_dicts:
-            asd = load_torch_file(asd)
-            sd = replace_state_dict(sd, asd, guess)
-            del asd
+            _asd = load_torch_file(asd)
+            sd = replace_state_dict(sd, _asd, guess, asd)
+            del _asd
 
     guess.clip_target = guess.clip_target(sd)
     guess.model_type = guess.model_type(sd)
@@ -499,7 +496,6 @@ def split_state_dict(sd, additional_state_dicts: list = None):
 def forge_loader(sd: os.PathLike, additional_state_dicts: list[os.PathLike] = None):
     try:
         state_dicts, estimated_config = split_state_dict(sd, additional_state_dicts=additional_state_dicts)
-        estimated_config.filenames = [sd, *additional_state_dicts]
     except Exception as e:
         from modules.errors import display
 
@@ -508,7 +504,10 @@ def forge_loader(sd: os.PathLike, additional_state_dicts: list[os.PathLike] = No
 
     repo_name = estimated_config.huggingface_repo
     backend.args.dynamic_args["kontext"] = "kontext" in str(sd).lower()
-    backend.args.dynamic_args["nunchaku"] = False
+    backend.args.dynamic_args["nunchaku"] = getattr(estimated_config, "nunchaku", False)
+
+    if getattr(estimated_config, "nunchaku", False):
+        estimated_config.unet_config["filename"] = str(sd)
 
     local_path = os.path.join(dir_path, "huggingface", repo_name)
     config: dict = DiffusionPipeline.load_config(local_path)
