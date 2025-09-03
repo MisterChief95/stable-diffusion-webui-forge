@@ -326,12 +326,13 @@ class LastLayer(nn.Module):
 
 
 class IntegratedFluxTransformer2DModel(nn.Module):
-    def __init__(self, in_channels: int, vec_in_dim: int, context_in_dim: int, hidden_size: int, mlp_ratio: float, num_heads: int, depth: int, depth_single_blocks: int, axes_dim: list[int], theta: int, qkv_bias: bool, guidance_embed: bool):
+    def __init__(self, in_channels: int, out_channels: int, vec_in_dim: int, context_in_dim: int, hidden_size: int, mlp_ratio: float, num_heads: int, depth: int, depth_single_blocks: int, axes_dim: list[int], theta: int, patch_size: int, qkv_bias: bool, guidance_embed: bool):
         super().__init__()
 
         self.guidance_embed = guidance_embed
-        self.in_channels = in_channels * 4
-        self.out_channels = self.in_channels
+        self.patch_size = patch_size
+        self.in_channels = in_channels * patch_size * patch_size
+        self.out_channels = out_channels * patch_size * patch_size
 
         if hidden_size % num_heads != 0:
             raise ValueError(f"Hidden size {hidden_size} must be divisible by num_heads {num_heads}")
@@ -362,7 +363,16 @@ class IntegratedFluxTransformer2DModel(nn.Module):
             ]
         )
 
-        self.single_blocks = nn.ModuleList([SingleStreamBlock(self.hidden_size, self.num_heads, mlp_ratio=mlp_ratio) for _ in range(depth_single_blocks)])
+        self.single_blocks = nn.ModuleList(
+            [
+                SingleStreamBlock(
+                    self.hidden_size,
+                    self.num_heads,
+                    mlp_ratio=mlp_ratio,
+                )
+                for _ in range(depth_single_blocks)
+            ]
+        )
 
         self.final_layer = LastLayer(self.hidden_size, 1, self.out_channels)
 
@@ -396,9 +406,8 @@ class IntegratedFluxTransformer2DModel(nn.Module):
 
     def forward(self, x, timestep, context, y, guidance=None, control=None, transformer_options={}, **kwargs):
         bs, c, h_orig, w_orig = x.shape
-        patch_size = self.config.get("patch_size", 2)
-        h_len = (h_orig + (patch_size // 2)) // patch_size
-        w_len = (w_orig + (patch_size // 2)) // patch_size
+        h_len = (h_orig + (self.patch_size // 2)) // self.patch_size
+        w_len = (w_orig + (self.patch_size // 2)) // self.patch_size
 
         img, img_ids = process_img(x)
         img_tokens = img.shape[1]
@@ -426,7 +435,7 @@ class IntegratedFluxTransformer2DModel(nn.Module):
         out = self.inner_forward(img, img_ids, context, txt_ids, timestep, y, guidance)
         del img, img_ids, txt_ids, timestep, context
         out = out[:, :img_tokens]
-        out = rearrange(out, "b (h w) (c ph pw) -> b c (h ph) (w pw)", h=h_len, w=w_len, ph=patch_size, pw=patch_size)
+        out = rearrange(out, "b (h w) (c ph pw) -> b c (h ph) (w pw)", h=h_len, w=w_len, ph=self.patch_size, pw=self.patch_size)
         out = out[:, :, :h_orig, :w_orig]
         del h_len, w_len, bs
         return out
