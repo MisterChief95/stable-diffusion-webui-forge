@@ -204,12 +204,12 @@ def load_huggingface_component(guess, component_name, lib_name, cls_name, repo_p
     return None
 
 
-def replace_state_dict(sd, asd, guess, path):
+def replace_state_dict(sd: dict[str, torch.Tensor], asd: dict[str, torch.Tensor], guess, path: os.PathLike):
     vae_key_prefix = guess.vae_key_prefix[0]
     text_encoder_key_prefix = guess.text_encoder_key_prefix[0]
 
     if "enc.blk.0.attn_k.weight" in asd:
-        wierd_t5_format_from_city96 = {
+        gguf_t5_format = {  # city96
             "enc.": "encoder.",
             ".blk.": ".block.",
             "token_embd": "shared",
@@ -225,13 +225,12 @@ def replace_state_dict(sd, asd, guess, path):
             "ffn_gate": "layer.1.DenseReluDense.wi_0",
             "ffn_norm": "layer.1.layer_norm",
         }
-        wierd_t5_pre_quant_keys_from_city96 = ["shared.weight"]
         asd_new = {}
         for k, v in asd.items():
-            for s, d in wierd_t5_format_from_city96.items():
+            for s, d in gguf_t5_format.items():
                 k = k.replace(s, d)
             asd_new[k] = v
-        for k in wierd_t5_pre_quant_keys_from_city96:
+        for k in ("shared.weight",):
             asd_new[k] = asd_new[k].dequantize_as_pytorch_parameter()
         asd.clear()
         asd = asd_new
@@ -271,6 +270,7 @@ def replace_state_dict(sd, asd, guess, path):
         "xlrf": None,
         "sdxl": "conditioner.embedders.0.transformer.",
         "flux": "text_encoders.clip_l.transformer.",
+        "wan": None,
     }
     ##  prefixes used by various model types for CLIP-G
     prefix_G = {
@@ -279,35 +279,15 @@ def replace_state_dict(sd, asd, guess, path):
         "xlrf": "conditioner.embedders.0.model.transformer.",
         "sdxl": "conditioner.embedders.1.model.transformer.",
         "flux": None,
-    }
-    ##  prefixes used by various model types for CLIP-H
-    prefix_H = {
-        "-": None,
-        "sd1": None,
-        "xlrf": None,
-        "sdxl": None,
-        "flux": None,
+        "wan": None,
     }
 
-    ##  VAE format 0 (extracted from model, could be sd1, sdxl).
+    ##  VAE format 0 (extracted from model, could be sd1/sdxl)
     if "first_stage_model.decoder.conv_in.weight" in asd:
-        channels = asd["first_stage_model.decoder.conv_in.weight"].shape[1]
-        if model_type == "sd1" or model_type == "xlrf" or model_type == "sdxl":
-            if channels == 4:
-                for k, v in asd.items():
-                    sd[k] = v
-
-    ##  CLIP-H
-    CLIP_H = {"cond_stage_model.model.ln_final.weight": "cond_stage_model.model."}
-    for CLIP_key in CLIP_H.keys():
-        if CLIP_key in asd and asd[CLIP_key].shape[0] == 1024:
-            new_prefix = prefix_H[model_type]
-            old_prefix = CLIP_H[CLIP_key]
-
-            if new_prefix is not None:
-                for k, v in asd.items():
-                    new_k = k.replace(old_prefix, new_prefix)
-                    sd[new_k] = v
+        if model_type in ("sd1", "xlrf", "sdxl"):
+            assert asd["first_stage_model.decoder.conv_in.weight"].shape[1] == 4
+            for k, v in asd.items():
+                sd[k] = v
 
     ##  CLIP-G
     CLIP_G = {"conditioner.embedders.1.model.transformer.resblocks.0.ln_1.bias": "conditioner.embedders.1.model.transformer.", "text_encoders.clip_g.transformer.text_model.encoder.layers.0.layer_norm1.bias": "text_encoders.clip_g.transformer.", "text_model.encoder.layers.0.layer_norm1.bias": "", "transformer.resblocks.0.ln_1.bias": "transformer."}  #   key to identify source model                                                old_prefix
@@ -445,7 +425,7 @@ def replace_state_dict(sd, asd, guess, path):
         for k in keys_to_delete:
             del sd[k]
         for k, v in asd.items():
-            sd[f"{text_encoder_key_prefix}t5xxl.transformer.{k}"] = v
+            sd[f"{text_encoder_key_prefix}t5xxl.transformer.{k}"] = True
         sd[f"{text_encoder_key_prefix}t5xxl.transformer.filename"] = str(path)
 
     return sd
@@ -515,12 +495,14 @@ def forge_loader(sd: os.PathLike, additional_state_dicts: list[os.PathLike] = No
     for component_name, v in config.items():
         if isinstance(v, list) and len(v) == 2:
             lib_name, cls_name = v
-            component_sd = state_dicts.get(component_name, None)
+            component_sd = state_dicts.pop(component_name, None)
             component = load_huggingface_component(estimated_config, component_name, lib_name, cls_name, local_path, component_sd)
             if component_sd is not None:
-                del state_dicts[component_name]
+                del component_sd
             if component is not None:
                 huggingface_components[component_name] = component
+
+    del state_dicts
 
     yaml_config = None
     yaml_config_prediction_type = None
