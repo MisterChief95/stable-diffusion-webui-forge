@@ -22,24 +22,30 @@ The name "Forge" is inspired by "Minecraft Forge". This project aims to become t
 
 <br>
 
-## Features [Aug. 27]
+## Features [Sep. 03]
 > Most base features of the original [Automatic1111 Webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) should still function
 
 #### New Features
 
-- [X] Support [Nunchaku](https://github.com/nunchaku-tech/nunchaku) (SVDQ) Checkpoints
-    - to be properly detected, the filename needs to match the official names or entered in **Settings/Nunchaku**
+- [X] Support [Wan 2.2](https://github.com/Wan-Video/Wan2.2)
+    - `txt2img`, `img2img`, `txt2vid`, `img2vid`
+- [X] Support [Nunchaku](https://github.com/nunchaku-tech/nunchaku) (`SVDQ`) Models
+    - `dev`, `krea`, `kontext`, `t5`
 - [X] Support [Flux Kontext](https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev)
-    - to be properly detected, the file path needs to include `"kontext"`
+    - `img2img`, `inpaint`
+
+> [!Note]
+> Since the `state_dict` between **Flux-Dev**, **Flux-Krea**, and **Flux-Kontext** are exactly the same, to be properly detected as a **Kontext** model, the model needs to include "`kontext`" in its path, either the file or folder name.
+
 - [X] Support [Chroma](https://huggingface.co/lodestones/Chroma)
-    - special thanks: @croquelois
+    - special thanks: [@croquelois](https://github.com/lllyasviel/stable-diffusion-webui-forge/pull/2925)
 - [X] Rewrite Preset System
     - now actually remember the checkpoint/modules selections for each preset
 - [X] Support [uv](https://github.com/astral-sh/uv) package manager
     - requires **manually** installing [uv](https://github.com/astral-sh/uv/releases)
     - drastically speed up installation
     - see [Commandline](#by-neo)
-- [X] Support [SageAttention](https://github.com/thu-ml/SageAttention), [FlashAttention](https://github.com/Dao-AILab/flash-attention), fast `fp16_accumulation`
+- [X] Support [SageAttention](https://github.com/thu-ml/SageAttention), [FlashAttention](https://github.com/Dao-AILab/flash-attention), and fast `fp16_accumulation`
     - see [Commandline](#by-neo)
 - [X] Implement RescaleCFG
     - reduce burnt colors; mainly for `v-pred` checkpoints
@@ -57,26 +63,11 @@ The name "Forge" is inspired by "Minecraft Forge". This project aims to become t
 - [X] Add `pillow-heif` package
     - support `.avif` and `.heif` images
 
-<br>
-
-- [ ] Experimental Support for [Wan](https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B)
-    - support **Wan 2.2 14B**
-    - support both **T2V** and **I2V**
-    - support both **txt2img** and **img2img**
-    - support both **txt2vid** and **img2vid**
-    - replace **Batch size** with **Frames** slider
-    - replace **Distilled CFG** with **Shift** slider
-    - save video in H.264
-
-> [!Tip]
-> If you wish to test it, please switch to the [wan](https://github.com/Haoming02/sd-webui-forge-classic/tree/wan) branch
-
 #### TODO
-- [ ] Fix Memory Leak when switching Models
+
 - [ ] Improve Memory Management during Generation
-- [ ] Live Preview for Wan
-- [ ] Video Player for Wan
-- [ ] Better Detection for Nunchaku & Kontext
+    - currently, even when using the same models you could run in [ComfyUI](https://github.com/comfyanonymous/ComfyUI), you might still get **Out of Memory** error...
+- [ ] Support [Qwen-Image](https://huggingface.co/Qwen/Qwen-Image)
 
 #### Removed Features
 
@@ -319,9 +310,7 @@ In my experience, the speed of each attention function for SDXL is ranked in the
 
 - **Issues** about removed features will simply be ignored
 - **Issues** regarding installation will be ignored if it's obviously user-error
-- **Feature Request** not related to performance or optimization will simply be ignored
-    - For cutting edge features, check out [reForge](https://github.com/Panchovix/stable-diffusion-webui-reForge) instead
-    - Non-Windows platforms will not be supported, as I cannot verify nor maintain them
+- Non-Windows platforms will not be supported, as I cannot verify nor maintain them
 
 </details>
 
