@@ -1,36 +1,35 @@
 import base64
+import datetime
 import io
+import ipaddress
 import os
 import time
-import datetime
-import uvicorn
-import ipaddress
-import requests
-import gradio as gr
-from threading import Lock
+from contextlib import closing
 from io import BytesIO
-from fastapi import APIRouter, Depends, FastAPI, Request, Response
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from fastapi.exceptions import HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
 from secrets import compare_digest
+from threading import Lock
+from typing import Any, Union, get_args, get_origin
 
-import modules.shared as shared
-from modules import sd_samplers, images, scripts, ui, postprocessing, errors, restart, shared_items, script_callbacks, infotext_utils, sd_models, sd_schedulers
-from modules.api import models
-from modules.shared import opts
-from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images, process_extra_images
-import modules.textual_inversion.textual_inversion
-from modules.shared import cmd_opts
-
-from PIL import PngImagePlugin
-from modules import devices
-from typing import Any, Union, get_origin, get_args
+import gradio as gr
 import piexif
 import piexif.helper
-from contextlib import closing
-from modules.progress import create_task_id, add_task_to_queue, start_task, finish_task, current_task
+import requests
+import uvicorn
+from fastapi import APIRouter, Depends, FastAPI, Request, Response
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from PIL import PngImagePlugin
+
+import modules.shared as shared
+import modules.textual_inversion.textual_inversion
+from modules import errors, images, infotext_utils, postprocessing, restart, script_callbacks, scripts, sd_models, sd_samplers, sd_schedulers, shared_items, ui
+from modules.api import models
+from modules.processing import StableDiffusionProcessingImg2Img, StableDiffusionProcessingTxt2Img, process_extra_images, process_images
+from modules.progress import add_task_to_queue, create_task_id, current_task, finish_task, start_task
+from modules.shared import cmd_opts, opts
+
 
 def script_name_to_index(name, scripts):
     try:
@@ -49,8 +48,8 @@ def validate_sampler_name(name):
 
 def setUpscalers(req: dict):
     reqDict = vars(req)
-    reqDict['extras_upscaler_1'] = reqDict.pop('upscaler_1', None)
-    reqDict['extras_upscaler_2'] = reqDict.pop('upscaler_2', None)
+    reqDict["extras_upscaler_1"] = reqDict.pop("upscaler_1", None)
+    reqDict["extras_upscaler_2"] = reqDict.pop("upscaler_2", None)
     return reqDict
 
 
@@ -59,6 +58,7 @@ def verify_url(url):
 
     import socket
     from urllib.parse import urlparse
+
     try:
         parsed_url = urlparse(url)
         domain_name = parsed_url.netloc
@@ -81,7 +81,7 @@ def decode_base64_to_image(encoding):
         if opts.api_forbid_local_requests and not verify_url(encoding):
             raise HTTPException(status_code=500, detail="Request to local resource not allowed")
 
-        headers = {'user-agent': opts.api_useragent} if opts.api_useragent else {}
+        headers = {"user-agent": opts.api_useragent} if opts.api_useragent else {}
         response = requests.get(encoding, timeout=30, headers=headers)
         try:
             image = images.read(BytesIO(response.content))
@@ -102,7 +102,7 @@ def encode_pil_to_base64(image):
     with io.BytesIO() as output_bytes:
         if isinstance(image, str):
             return image
-        if opts.samples_format.lower() == 'png':
+        if opts.samples_format.lower() == "png":
             use_metadata = False
             metadata = PngImagePlugin.PngInfo()
             for key, value in image.info.items():
@@ -114,14 +114,12 @@ def encode_pil_to_base64(image):
         elif opts.samples_format.lower() in ("jpg", "jpeg", "webp"):
             if image.mode in ("RGBA", "P"):
                 image = image.convert("RGB")
-            parameters = image.info.get('parameters', None)
-            exif_bytes = piexif.dump({
-                "Exif": { piexif.ExifIFD.UserComment: piexif.helper.UserComment.dump(parameters or "", encoding="unicode") }
-            })
+            parameters = image.info.get("parameters", None)
+            exif_bytes = piexif.dump({"Exif": {piexif.ExifIFD.UserComment: piexif.helper.UserComment.dump(parameters or "", encoding="unicode")}})
             if opts.samples_format.lower() in ("jpg", "jpeg"):
-                image.save(output_bytes, format="JPEG", exif = exif_bytes, quality=opts.jpeg_quality)
+                image.save(output_bytes, format="JPEG", exif=exif_bytes, quality=opts.jpeg_quality)
             else:
-                image.save(output_bytes, format="WEBP", exif = exif_bytes, quality=opts.jpeg_quality, lossless=opts.webp_lossless)
+                image.save(output_bytes, format="WEBP", exif=exif_bytes, quality=opts.jpeg_quality, lossless=opts.webp_lossless)
 
         else:
             raise HTTPException(status_code=500, detail="Invalid image format")
@@ -134,10 +132,11 @@ def encode_pil_to_base64(image):
 def api_middleware(app: FastAPI):
     rich_available = False
     try:
-        if os.environ.get('WEBUI_RICH_EXCEPTIONS', None) is not None:
+        if os.environ.get("WEBUI_RICH_EXCEPTIONS", None) is not None:
             import anyio  # importing just so it can be placed on silent list
             import starlette  # importing just so it can be placed on silent list
             from rich.console import Console
+
             console = Console()
             rich_available = True
     except Exception:
@@ -149,25 +148,27 @@ def api_middleware(app: FastAPI):
         res: Response = await call_next(req)
         duration = str(round(time.time() - ts, 4))
         res.headers["X-Process-Time"] = duration
-        endpoint = req.scope.get('path', 'err')
-        if shared.cmd_opts.api_log and endpoint.startswith('/sdapi'):
-            print('API {t} {code} {prot}/{ver} {method} {endpoint} {cli} {duration}'.format(
-                t=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
-                code=res.status_code,
-                ver=req.scope.get('http_version', '0.0'),
-                cli=req.scope.get('client', ('0:0.0.0', 0))[0],
-                prot=req.scope.get('scheme', 'err'),
-                method=req.scope.get('method', 'err'),
-                endpoint=endpoint,
-                duration=duration,
-            ))
+        endpoint = req.scope.get("path", "err")
+        if shared.cmd_opts.api_log and endpoint.startswith("/sdapi"):
+            print(
+                "API {t} {code} {prot}/{ver} {method} {endpoint} {cli} {duration}".format(
+                    t=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                    code=res.status_code,
+                    ver=req.scope.get("http_version", "0.0"),
+                    cli=req.scope.get("client", ("0:0.0.0", 0))[0],
+                    prot=req.scope.get("scheme", "err"),
+                    method=req.scope.get("method", "err"),
+                    endpoint=endpoint,
+                    duration=duration,
+                )
+            )
         return res
 
     def handle_exception(request: Request, e: Exception):
         err = {
             "error": type(e).__name__,
-            "detail": vars(e).get('detail', ''),
-            "body": vars(e).get('body', ''),
+            "detail": vars(e).get("detail", ""),
+            "body": vars(e).get("body", ""),
             "errors": str(e),
         }
         if not isinstance(e, HTTPException):  # do not print backtrace on known httpexceptions
@@ -177,7 +178,7 @@ def api_middleware(app: FastAPI):
                 console.print_exception(show_locals=True, max_frames=2, extra_lines=1, suppress=[anyio, starlette], word_wrap=False, width=min([console.width, 200]))
             else:
                 errors.report(message, exc_info=True)
-        return JSONResponse(status_code=vars(e).get('status_code', 500), content=jsonable_encoder(err))
+        return JSONResponse(status_code=vars(e).get("status_code", 500), content=jsonable_encoder(err))
 
     @app.middleware("http")
     async def exception_handling(request: Request, call_next):
@@ -206,7 +207,7 @@ class Api:
         self.router = APIRouter()
         self.app = app
         self.queue_lock = queue_lock
-        #api_middleware(self.app)  # FIXME: (legacy) this will have to be fixed
+        # api_middleware(self.app)  # FIXME: (legacy) this will have to be fixed
         self.add_api_route("/sdapi/v1/txt2img", self.text2imgapi, methods=["POST"], response_model=models.TextToImageResponse)
         self.add_api_route("/sdapi/v1/img2img", self.img2imgapi, methods=["POST"], response_model=models.ImageToImageResponse)
         self.add_api_route("/sdapi/v1/extra-single-image", self.extras_single_image_api, methods=["POST"], response_model=models.ExtrasSingleImageResponse)
@@ -265,8 +266,6 @@ class Api:
         self.embedding_db.add_embedding_dir(cmd_opts.embeddings_dir)
         self.embedding_db.load_textual_inversion_embeddings(force_reload=True, sync_with_sd_model=False)
 
-
-
     def add_api_route(self, path: str, endpoint, **kwargs):
         if shared.cmd_opts.api_auth:
             return self.app.add_api_route(path, endpoint, dependencies=[Depends(self.auth)], **kwargs)
@@ -309,23 +308,23 @@ class Api:
         return script_runner.scripts[script_idx]
 
     def init_default_script_args(self, script_runner):
-        #find max idx from the scripts in runner and generate a none array to init script_args
+        # find max idx from the scripts in runner and generate a none array to init script_args
         last_arg_index = 1
         for script in script_runner.scripts:
             if last_arg_index < script.args_to:
                 last_arg_index = script.args_to
         # None everywhere except position 0 to initialize script args
-        script_args = [None]*last_arg_index
+        script_args = [None] * last_arg_index
         script_args[0] = 0
 
         # get default values
-        with gr.Blocks(): # will throw errors calling ui function without this
+        with gr.Blocks():  # will throw errors calling ui function without this
             for script in script_runner.scripts:
                 if script.ui(script.is_img2img):
                     ui_default_values = []
                     for elem in script.ui(script.is_img2img):
                         ui_default_values.append(elem.value)
-                    script_args[script.args_from:script.args_to] = ui_default_values
+                    script_args[script.args_from : script.args_to] = ui_default_values
         return script_args
 
     def init_script_args(self, request, default_script_args, selectable_scripts, selectable_idx, script_runner, *, input_script_args=None):
@@ -337,7 +336,7 @@ class Api:
 
         # position 0 in script_arg is the idx+1 of the selectable script that is going to be run when using scripts.scripts_*2img.run()
         if selectable_scripts:
-            script_args[selectable_scripts.args_from:selectable_scripts.args_to] = request.script_args
+            script_args[selectable_scripts.args_from : selectable_scripts.args_to] = request.script_args
             script_args[0] = selectable_idx + 1
 
         # Now check for always on scripts
@@ -374,10 +373,10 @@ class Api:
         def get_base_type(annotation):
             origin = get_origin(annotation)
 
-            if origin is Union:             # represents Optional
-                args = get_args(annotation) # filter out NoneType
+            if origin is Union:  # represents Optional
+                args = get_args(annotation)  # filter out NoneType
                 non_none_args = [arg for arg in args if arg is not type(None)]
-                if len(non_none_args) == 1: # annotation was Optional[X]
+                if len(non_none_args) == 1:  # annotation was Optional[X]
                     return non_none_args[0]
 
             return annotation
@@ -388,15 +387,15 @@ class Api:
                 return None
 
             if field.api in request.__fields__:
-                target_type = get_base_type(request.__fields__[field.api].annotation) # extract type from Optional[X]
+                target_type = get_base_type(request.__fields__[field.api].annotation)  # extract type from Optional[X]
             else:
                 target_type = type(field.component.value)
 
             if target_type == type(None):
                 return None
 
-            if isinstance(value, dict) and value.get('__type__') == 'generic_update':  # this is a gradio.update rather than a value
-                value = value.get('value')
+            if isinstance(value, dict) and value.get("__type__") == "generic_update":  # this is a gradio.update rather than a value
+                value = value.get("value")
 
             if value is not None and not isinstance(value, target_type):
                 value = target_type(value)
@@ -447,11 +446,13 @@ class Api:
         selectable_scripts, selectable_script_idx = self.get_selectable_script(txt2imgreq.script_name, script_runner)
         sampler, scheduler = sd_samplers.get_sampler_and_scheduler(txt2imgreq.sampler_name or txt2imgreq.sampler_index, txt2imgreq.scheduler)
 
-        populate = txt2imgreq.copy(update={  # Override __init__ params
-            "sampler_name": validate_sampler_name(sampler),
-            "do_not_save_samples": not txt2imgreq.save_images,
-            "do_not_save_grid": not txt2imgreq.save_images,
-        })
+        populate = txt2imgreq.copy(
+            update={  # Override __init__ params
+                "sampler_name": validate_sampler_name(sampler),
+                "do_not_save_samples": not txt2imgreq.save_images,
+                "do_not_save_grid": not txt2imgreq.save_images,
+            }
+        )
         if populate.sampler_name:
             populate.sampler_index = None  # prevent a warning later on
 
@@ -459,15 +460,15 @@ class Api:
             populate.scheduler = scheduler
 
         args = vars(populate)
-        args.pop('script_name', None)
-        args.pop('script_args', None) # will refeed them to the pipeline directly after initializing them
-        args.pop('alwayson_scripts', None)
-        args.pop('infotext', None)
+        args.pop("script_name", None)
+        args.pop("script_args", None)  # will refeed them to the pipeline directly after initializing them
+        args.pop("alwayson_scripts", None)
+        args.pop("infotext", None)
 
         script_args = self.init_script_args(txt2imgreq, self.default_script_arg_txt2img, selectable_scripts, selectable_script_idx, script_runner, input_script_args=infotext_script_args)
 
-        send_images = args.pop('send_images', True)
-        args.pop('save_images', None)
+        send_images = args.pop("send_images", True)
+        args.pop("save_images", None)
 
         add_task_to_queue(task_id)
 
@@ -483,9 +484,9 @@ class Api:
                     start_task(task_id)
                     if selectable_scripts is not None:
                         p.script_args = script_args
-                        processed = scripts.scripts_txt2img.run(p, *p.script_args) # Need to pass args as list here
+                        processed = scripts.scripts_txt2img.run(p, *p.script_args)  # Need to pass args as list here
                     else:
-                        p.script_args = tuple(script_args) # Need to pass args as tuple here
+                        p.script_args = tuple(script_args)  # Need to pass args as tuple here
                         processed = process_images(p)
                     process_extra_images(processed)
                     finish_task(task_id)
@@ -516,12 +517,14 @@ class Api:
         selectable_scripts, selectable_script_idx = self.get_selectable_script(img2imgreq.script_name, script_runner)
         sampler, scheduler = sd_samplers.get_sampler_and_scheduler(img2imgreq.sampler_name or img2imgreq.sampler_index, img2imgreq.scheduler)
 
-        populate = img2imgreq.copy(update={  # Override __init__ params
-            "sampler_name": validate_sampler_name(sampler),
-            "do_not_save_samples": not img2imgreq.save_images,
-            "do_not_save_grid": not img2imgreq.save_images,
-            "mask": mask,
-        })
+        populate = img2imgreq.copy(
+            update={  # Override __init__ params
+                "sampler_name": validate_sampler_name(sampler),
+                "do_not_save_samples": not img2imgreq.save_images,
+                "do_not_save_grid": not img2imgreq.save_images,
+                "mask": mask,
+            }
+        )
         if populate.sampler_name:
             populate.sampler_index = None  # prevent a warning later on
 
@@ -529,16 +532,16 @@ class Api:
             populate.scheduler = scheduler
 
         args = vars(populate)
-        args.pop('include_init_images', None)  # this is meant to be done by "exclude": True in model, but it's for a reason that I cannot determine.
-        args.pop('script_name', None)
-        args.pop('script_args', None)  # will refeed them to the pipeline directly after initializing them
-        args.pop('alwayson_scripts', None)
-        args.pop('infotext', None)
+        args.pop("include_init_images", None)  # this is meant to be done by "exclude": True in model, but it's for a reason that I cannot determine.
+        args.pop("script_name", None)
+        args.pop("script_args", None)  # will refeed them to the pipeline directly after initializing them
+        args.pop("alwayson_scripts", None)
+        args.pop("infotext", None)
 
         script_args = self.init_script_args(img2imgreq, self.default_script_arg_img2img, selectable_scripts, selectable_script_idx, script_runner, input_script_args=infotext_script_args)
 
-        send_images = args.pop('send_images', True)
-        args.pop('save_images', None)
+        send_images = args.pop("send_images", True)
+        args.pop("save_images", None)
 
         add_task_to_queue(task_id)
 
@@ -555,9 +558,9 @@ class Api:
                     start_task(task_id)
                     if selectable_scripts is not None:
                         p.script_args = script_args
-                        processed = scripts.scripts_img2img.run(p, *p.script_args) # Need to pass args as list here
+                        processed = scripts.scripts_img2img.run(p, *p.script_args)  # Need to pass args as list here
                     else:
-                        p.script_args = tuple(script_args) # Need to pass args as tuple here
+                        p.script_args = tuple(script_args)  # Need to pass args as tuple here
                         processed = process_images(p)
                     process_extra_images(processed)
                     finish_task(task_id)
@@ -576,7 +579,7 @@ class Api:
     def extras_single_image_api(self, req: models.ExtrasSingleImageRequest):
         reqDict = setUpscalers(req)
 
-        reqDict['image'] = decode_base64_to_image(reqDict['image'])
+        reqDict["image"] = decode_base64_to_image(reqDict["image"])
 
         with self.queue_lock:
             result = postprocessing.run_extras(extras_mode=0, image_folder="", input_dir="", output_dir="", save_output=False, **reqDict)
@@ -586,7 +589,7 @@ class Api:
     def extras_batch_images_api(self, req: models.ExtrasBatchImagesRequest):
         reqDict = setUpscalers(req)
 
-        image_list = reqDict.pop('imageList', [])
+        image_list = reqDict.pop("imageList", [])
         image_folder = [decode_base64_to_image(x.data) for x in image_list]
 
         with self.queue_lock:
@@ -623,8 +626,8 @@ class Api:
             progress += 1 / shared.state.job_count * shared.state.sampling_step / shared.state.sampling_steps
 
         time_since_start = time.time() - shared.state.time_start
-        eta = (time_since_start/progress)
-        eta_relative = eta-time_since_start
+        eta = time_since_start / progress
+        eta_relative = eta - time_since_start
 
         progress = min(progress, 1)
 
@@ -656,17 +659,19 @@ class Api:
 
     def get_config(self):
         from modules.sysinfo import get_config
+
         return get_config()
 
     def set_config(self, req: dict[str, Any]):
         from modules.sysinfo import set_config
+
         set_config(req)
 
     def get_cmd_flags(self):
         return vars(shared.cmd_opts)
 
     def get_samplers(self):
-        return [{"name": sampler[0], "aliases":sampler[2], "options":sampler[3]} for sampler in sd_samplers.all_samplers]
+        return [{"name": sampler[0], "aliases": sampler[2], "options": sampler[3]} for sampler in sd_samplers.all_samplers]
 
     def get_schedulers(self):
         return [
@@ -677,7 +682,8 @@ class Api:
                 "default_rho": scheduler.default_rho,
                 "need_inner_model": scheduler.need_inner_model,
             }
-            for scheduler in sd_schedulers.schedulers]
+            for scheduler in sd_schedulers.schedulers
+        ]
 
     def get_upscalers(self):
         return [
@@ -701,20 +707,22 @@ class Api:
 
     def get_sd_models(self):
         import modules.sd_models as sd_models
-        return [{"title": x.title, "model_name": x.model_name, "hash": x.shorthash, "sha256": x.sha256, "filename": x.filename, "config": getattr(x, 'config', None)} for x in sd_models.checkpoints_list.values()]
+
+        return [{"title": x.title, "model_name": x.model_name, "hash": x.shorthash, "sha256": x.sha256, "filename": x.filename, "config": getattr(x, "config", None)} for x in sd_models.checkpoints_list.values()]
 
     def get_sd_vaes_and_text_encoders(self):
         from modules_forge.main_entry import module_list
+
         return [{"model_name": x, "filename": module_list[x]} for x in module_list.keys()]
 
     def get_face_restorers(self):
-        return [{"name":x.name(), "cmd_dir": getattr(x, "cmd_dir", None)} for x in shared.face_restorers]
+        return [{"name": x.name(), "cmd_dir": getattr(x, "cmd_dir", None)} for x in shared.face_restorers]
 
     def get_prompt_styles(self):
         styleList = []
         for k in shared.prompt_styles.styles:
             style = shared.prompt_styles.styles[k]
-            styleList.append({"name":style[0], "prompt": style[1], "negative_prompt": style[2]})
+            styleList.append({"name": style[0], "prompt": style[1], "negative_prompt": style[2]})
 
         return styleList
 
@@ -751,55 +759,61 @@ class Api:
     def get_memory(self):
         try:
             import os
+
             import psutil
+
             process = psutil.Process(os.getpid())
-            res = process.memory_info() # only rss is cross-platform guaranteed so we dont rely on other values
-            ram_total = 100 * res.rss / process.memory_percent() # and total memory is calculated as actual value is not cross-platform safe
-            ram = { 'free': ram_total - res.rss, 'used': res.rss, 'total': ram_total }
+            res = process.memory_info()  # only rss is cross-platform guaranteed so we dont rely on other values
+            ram_total = 100 * res.rss / process.memory_percent()  # and total memory is calculated as actual value is not cross-platform safe
+            ram = {"free": ram_total - res.rss, "used": res.rss, "total": ram_total}
         except Exception as err:
-            ram = { 'error': f'{err}' }
+            ram = {"error": f"{err}"}
         try:
             import torch
+
             if torch.cuda.is_available():
                 s = torch.cuda.mem_get_info()
-                system = { 'free': s[0], 'used': s[1] - s[0], 'total': s[1] }
+                system = {"free": s[0], "used": s[1] - s[0], "total": s[1]}
                 s = dict(torch.cuda.memory_stats(shared.device))
-                allocated = { 'current': s['allocated_bytes.all.current'], 'peak': s['allocated_bytes.all.peak'] }
-                reserved = { 'current': s['reserved_bytes.all.current'], 'peak': s['reserved_bytes.all.peak'] }
-                active = { 'current': s['active_bytes.all.current'], 'peak': s['active_bytes.all.peak'] }
-                inactive = { 'current': s['inactive_split_bytes.all.current'], 'peak': s['inactive_split_bytes.all.peak'] }
-                warnings = { 'retries': s['num_alloc_retries'], 'oom': s['num_ooms'] }
+                allocated = {"current": s["allocated_bytes.all.current"], "peak": s["allocated_bytes.all.peak"]}
+                reserved = {"current": s["reserved_bytes.all.current"], "peak": s["reserved_bytes.all.peak"]}
+                active = {"current": s["active_bytes.all.current"], "peak": s["active_bytes.all.peak"]}
+                inactive = {"current": s["inactive_split_bytes.all.current"], "peak": s["inactive_split_bytes.all.peak"]}
+                warnings = {"retries": s["num_alloc_retries"], "oom": s["num_ooms"]}
                 cuda = {
-                    'system': system,
-                    'active': active,
-                    'allocated': allocated,
-                    'reserved': reserved,
-                    'inactive': inactive,
-                    'events': warnings,
+                    "system": system,
+                    "active": active,
+                    "allocated": allocated,
+                    "reserved": reserved,
+                    "inactive": inactive,
+                    "events": warnings,
                 }
             else:
-                cuda = {'error': 'unavailable'}
+                cuda = {"error": "unavailable"}
         except Exception as err:
-            cuda = {'error': f'{err}'}
+            cuda = {"error": f"{err}"}
         return models.MemoryResponse(ram=ram, cuda=cuda)
 
     def get_extensions_list(self):
         from modules import extensions
+
         extensions.list_extensions()
         ext_list = []
         for ext in extensions.extensions:
             ext: extensions.Extension
             ext.read_info_from_repo()
             if ext.remote is not None:
-                ext_list.append({
-                    "name": ext.name,
-                    "remote": ext.remote,
-                    "branch": ext.branch,
-                    "commit_hash":ext.commit_hash,
-                    "commit_date":ext.commit_date,
-                    "version":ext.version,
-                    "enabled":ext.enabled
-                })
+                ext_list.append(
+                    {
+                        "name": ext.name,
+                        "remote": ext.remote,
+                        "branch": ext.branch,
+                        "commit_hash": ext.commit_hash,
+                        "commit_date": ext.commit_date,
+                        "version": ext.version,
+                        "enabled": ext.enabled,
+                    }
+                )
         return ext_list
 
     def launch(self, server_name, port, root_path):
@@ -811,7 +825,7 @@ class Api:
             timeout_keep_alive=shared.cmd_opts.timeout_keep_alive,
             root_path=root_path,
             ssl_keyfile=shared.cmd_opts.tls_keyfile,
-            ssl_certfile=shared.cmd_opts.tls_certfile
+            ssl_certfile=shared.cmd_opts.tls_certfile,
         )
 
     def kill_webui(self):
@@ -825,4 +839,3 @@ class Api:
     def stop_webui(request):
         shared.state.server_command = "stop"
         return Response("Stopping.")
-
