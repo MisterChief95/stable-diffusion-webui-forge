@@ -272,3 +272,11 @@ class ModelPatcher:
 
         self.object_patches_backup = {}
         return
+
+    def __del__(self):
+        del self.model
+        del self.lora_patches
+        del self.object_patches
+        del self.object_patches_backup
+        del self.lora_loader
+        self.model = None

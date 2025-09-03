@@ -1,3 +1,5 @@
+import weakref
+
 import comfy.lora as lora_utils_comfyui
 import torch
 
@@ -317,10 +319,14 @@ from backend import operations
 
 class LoraLoader:
     def __init__(self, model):
-        self.model = model
+        self._model = weakref.ref(model)
         self.backup = {}
         self.online_backup = []
         self.loaded_hash = str([])
+
+    @property
+    def model(self):
+        return self._model()
 
     @torch.inference_mode()
     def refresh(self, lora_patches, offload_device=torch.device("cpu"), force_refresh=False):

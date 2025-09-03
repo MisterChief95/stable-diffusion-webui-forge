@@ -425,9 +425,30 @@ def forge_model_reload():
 
     timer = Timer()
 
-    if model_data.sd_model:
-        model_data.sd_model = None
+    if model_data.sd_model is not None:
         memory_management.unload_all_models()
+
+        for junk in (
+            "model_config",
+            "forge_objects",
+            "forge_objects_original",
+            "forge_objects_after_applying_lora",
+            "text_processing_engine",
+            "text_processing_engine_l",
+            "text_processing_engine_g",
+            "text_processing_engine_t5",
+            "alphas_cumprod",
+            "conditioner",
+            "embedder",
+            "model",
+        ):
+            try:
+                delattr(model_data.sd_model, junk)
+            except AttributeError:
+                pass
+
+        del model_data.sd_model
+        model_data.sd_model = None
         memory_management.soft_empty_cache()
         gc.collect()
 
