@@ -305,10 +305,7 @@ class Chroma(FluxSchnell):
     huggingface_repo = "Chroma"
 
     unet_config = {
-        "image_model": "flux",
-        "guidance_out_dim": 3072,
-        "guidance_hidden_dim": 5120,
-        "guidance_n_layers": 5,
+        "image_model": "chroma",
     }
 
     sampling_settings = {

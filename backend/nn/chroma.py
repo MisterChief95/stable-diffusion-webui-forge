@@ -146,11 +146,12 @@ class LastLayer(nn.Module):
 
 
 class IntegratedChromaTransformer2DModel(nn.Module):
-    def __init__(self, in_channels: int, vec_in_dim: int, context_in_dim: int, hidden_size: int, mlp_ratio: float, num_heads: int, depth: int, depth_single_blocks: int, axes_dim: list[int], theta: int, qkv_bias: bool, guidance_out_dim: int, guidance_hidden_dim: int, guidance_n_layers: int):
+    def __init__(self, in_channels: int, out_channels: int, context_in_dim: int, hidden_size: int, mlp_ratio: float, num_heads: int, depth: int, depth_single_blocks: int, axes_dim: list[int], theta: int, patch_size: int, qkv_bias: bool, in_dim: int, out_dim: int, hidden_dim: int, n_layers: int):
         super().__init__()
 
-        self.in_channels = in_channels * 4
-        self.out_channels = self.in_channels
+        self.patch_size = patch_size
+        self.in_channels = in_channels
+        self.out_channels = out_channels
 
         if hidden_size % num_heads != 0:
             raise ValueError(f"Hidden size {hidden_size} must be divisible by num_heads {num_heads}")
@@ -164,7 +165,7 @@ class IntegratedChromaTransformer2DModel(nn.Module):
 
         self.pe_embedder = EmbedND(dim=pe_dim, theta=theta, axes_dim=axes_dim)
         self.img_in = nn.Linear(self.in_channels, self.hidden_size, bias=True)
-        self.distilled_guidance_layer = Approximator(64, guidance_out_dim, guidance_hidden_dim, guidance_n_layers)
+        self.distilled_guidance_layer = Approximator(in_dim, out_dim, hidden_dim, n_layers)
         self.txt_in = nn.Linear(context_in_dim, self.hidden_size)
 
         self.double_blocks = nn.ModuleList(
@@ -179,7 +180,16 @@ class IntegratedChromaTransformer2DModel(nn.Module):
             ]
         )
 
-        self.single_blocks = nn.ModuleList([SingleStreamBlock(self.hidden_size, self.num_heads, mlp_ratio=mlp_ratio) for _ in range(depth_single_blocks)])
+        self.single_blocks = nn.ModuleList(
+            [
+                SingleStreamBlock(
+                    self.hidden_size,
+                    self.num_heads,
+                    mlp_ratio=mlp_ratio,
+                )
+                for _ in range(depth_single_blocks)
+            ]
+        )
 
         self.final_layer = LastLayer(self.hidden_size, 1, self.out_channels)
 
@@ -191,7 +201,6 @@ class IntegratedChromaTransformer2DModel(nn.Module):
         Args:
             tensor (torch.Tensor): Input tensor with shape [batch_size, vectors, dim].
         """
-        batch_size, vectors, dim = tensor.shape
         block_dict = {}
         for i in range(single_block_count):
             key = f"single_blocks.{i}.modulation.lin"
@@ -271,18 +280,17 @@ class IntegratedChromaTransformer2DModel(nn.Module):
         img = self.final_layer(img, final_mod)
         return img
 
-    def forward(self, x, timestep, context, **kwargs):
+    def forward(self, x: torch.Tensor, timestep, context, **kwargs):
         bs, c, h, w = x.shape
         input_device = x.device
         input_dtype = x.dtype
-        patch_size = 2
-        pad_h = (patch_size - x.shape[-2] % patch_size) % patch_size
-        pad_w = (patch_size - x.shape[-1] % patch_size) % patch_size
+        pad_h = (self.patch_size - x.shape[-2] % self.patch_size) % self.patch_size
+        pad_w = (self.patch_size - x.shape[-1] % self.patch_size) % self.patch_size
         x = torch.nn.functional.pad(x, (0, pad_w, 0, pad_h), mode="circular")
-        img = rearrange(x, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=patch_size, pw=patch_size)
+        img = rearrange(x, "b c (h ph) (w pw) -> b (h w) (c ph pw)", ph=self.patch_size, pw=self.patch_size)
         del x, pad_h, pad_w
-        h_len = (h + (patch_size // 2)) // patch_size
-        w_len = (w + (patch_size // 2)) // patch_size
+        h_len = (h + (self.patch_size // 2)) // self.patch_size
+        w_len = (w + (self.patch_size // 2)) // self.patch_size
         img_ids = torch.zeros((h_len, w_len, 3), device=input_device, dtype=input_dtype)
         img_ids[..., 1] = img_ids[..., 1] + torch.linspace(0, h_len - 1, steps=h_len, device=input_device, dtype=input_dtype)[:, None]
         img_ids[..., 2] = img_ids[..., 2] + torch.linspace(0, w_len - 1, steps=w_len, device=input_device, dtype=input_dtype)[None, :]
