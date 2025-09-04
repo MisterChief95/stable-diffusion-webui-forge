@@ -15,8 +15,11 @@ def prepare_free_memory(aggressive=False):
         print('Cleanup all memory.')
         return
 
-    memory_management.free_memory(memory_required=memory_management.minimum_inference_memory(),
-                                 device=memory_management.get_torch_device())
+    memory_management.free_memory(
+        memory_required=memory_management.minimum_inference_memory(),
+        device=memory_management.get_torch_device(),
+        for_inference=True
+    )
     print('Cleanup minimal inference memory.')
     return
 
