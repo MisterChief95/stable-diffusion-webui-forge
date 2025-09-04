@@ -46,7 +46,7 @@ __pycache__
 /tmp
 /ui-config.json
 /user.css
-/venv
+/venv*
 /webui-user.bat
 /webui-user.sh
 /webui.settings.bat
@@ -55,3 +55,4 @@ huggingface_space_mirror/
 notification.mp3
 random_test.py
 trace.json
+/.claude
