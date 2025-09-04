@@ -36,14 +36,12 @@ class ScriptRescaleCFG(scripts.ScriptBuiltinUI):
 
         return [cfg]
 
-    def after_extra_networks_activate(self, p, cfg, *args, **kwargs):
+    def before_process(self, p, cfg, *args, **kwargs):
         if opts.show_rescale_cfg and cfg > 0.0:
             p.extra_generation_params.update({"Rescale CFG": cfg})
 
     def process_before_every_sampling(self, p, cfg, *args, **kwargs):
-        if not opts.show_rescale_cfg or cfg < 0.05:
-            return
-        if p.is_hr_pass:
+        if not opts.show_rescale_cfg or cfg < 0.05 or p.is_hr_pass:
             return
 
         self.apply_rescale_cfg(p, cfg)
@@ -61,8 +59,8 @@ class ScriptRescaleCFG(scripts.ScriptBuiltinUI):
             x_orig = args["input"]
 
             x = x_orig / (sigma * sigma + 1.0)
-            cond = ((x - (x_orig - cond)) * (sigma**2 + 1.0) ** 0.5) / (sigma)
-            uncond = ((x - (x_orig - uncond)) * (sigma**2 + 1.0) ** 0.5) / (sigma)
+            cond = ((x - (x_orig - cond)) * (sigma**2 + 1.0) ** 0.5) / sigma
+            uncond = ((x - (x_orig - uncond)) * (sigma**2 + 1.0) ** 0.5) / sigma
 
             x_cfg = uncond + cond_scale * (cond - uncond)
             ro_pos = torch.std(cond, dim=(1, 2, 3), keepdim=True)
@@ -76,5 +74,3 @@ class ScriptRescaleCFG(scripts.ScriptBuiltinUI):
         unet = p.sd_model.forge_objects.unet.clone()
         unet.set_model_sampler_cfg_function(rescale_cfg)
         p.sd_model.forge_objects.unet = unet
-
-        print(f"rescale_cfg = {cfg}")

@@ -33,7 +33,7 @@ class ScriptMahiro(scripts.ScriptBuiltinUI):
         self.infotext_fields = [PasteField(enable, "MaHiRo", api="mahiro")]
         return [enable]
 
-    def after_extra_networks_activate(self, p, enable, *args, **kwargs):
+    def before_process(self, p, enable, *args, **kwargs):
         if opts.show_mahiro and enable:
             p.extra_generation_params.update({"MaHiRo": enable})
 
@@ -60,5 +60,3 @@ class ScriptMahiro(scripts.ScriptBuiltinUI):
         unet = p.sd_model.forge_objects.unet.clone()
         unet.set_model_sampler_post_cfg_function(mahiro_normd)
         p.sd_model.forge_objects.unet = unet
-
-        print("using MaHiRo")

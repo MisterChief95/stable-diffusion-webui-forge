@@ -717,7 +717,16 @@ class LoadedModel:
             self.model.model_patches_to(self.model.offload_device)
 
     def __eq__(self, other: "LoadedModel"):
-        return self.model is other.model
+        # Direct instance comparison
+        if self.model is other.model:
+            return True
+
+        # Check if both are UnetPatchers sharing the same underlying model
+        if (hasattr(self.model, 'model') and hasattr(other.model, 'model') and
+                self.model.model is other.model.model):
+            return True
+
+        return False
 
     def __del__(self):
         del self.model
