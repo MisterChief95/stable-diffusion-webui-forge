@@ -10,7 +10,7 @@ from backend import stream, utils
 from backend.args import args
 
 
-cpu = torch.device('cpu')
+cpu = torch.device("cpu")
 
 
 class VRAMState(Enum):
@@ -104,7 +104,7 @@ def get_total_memory(dev=None, torch_total_too=False):
     if dev is None:
         dev = get_torch_device()
 
-    if hasattr(dev, 'type') and (dev.type == 'cpu' or dev.type == 'mps'):
+    if hasattr(dev, "type") and (dev.type == "cpu" or dev.type == "mps"):
         mem_total = psutil.virtual_memory().total
         mem_total_torch = mem_total
     else:
@@ -113,12 +113,12 @@ def get_total_memory(dev=None, torch_total_too=False):
             mem_total_torch = mem_total
         elif is_intel_xpu():
             stats = torch.xpu.memory_stats(dev)
-            mem_reserved = stats['reserved_bytes.all.current']
+            mem_reserved = stats["reserved_bytes.all.current"]
             mem_total_torch = mem_reserved
             mem_total = torch.xpu.get_device_properties(dev).total_memory
         else:
             stats = torch.cuda.memory_stats(dev)
-            mem_reserved = stats['reserved_bytes.all.current']
+            mem_reserved = stats["reserved_bytes.all.current"]
             _, mem_total_cuda = torch.cuda.mem_get_info(dev)
             mem_total_torch = mem_reserved
             mem_total = mem_total_cuda
@@ -259,7 +259,7 @@ if PIN_SHARED_MEMORY:
 
 
 def get_torch_device_name(device):
-    if hasattr(device, 'type'):
+    if hasattr(device, "type"):
         if device.type == "cuda":
             try:
                 allocator_backend = torch.cuda.get_allocator_backend()
@@ -278,19 +278,19 @@ try:
     torch_device_name = get_torch_device_name(get_torch_device())
     print("Device: {}".format(torch_device_name))
 except:
-    torch_device_name = ''
+    torch_device_name = ""
     print("Could not pick default device.")
 
-if 'rtx' in torch_device_name.lower():
+if "rtx" in torch_device_name.lower():
     if not args.cuda_malloc:
-        print('Hint: your device supports --cuda-malloc for potential speed improvements.')
+        print("Hint: your device supports --cuda-malloc for potential speed improvements.")
 
 
 class MemoryCache:
     """Cache for memory information to reduce redundant GPU memory queries"""
     
     def __init__(self):
-        self.cache = {}  # device_str -> {'valid': bool, 'mem_free_total': int, 'mem_free_torch': int, 'mem_total': int}
+        self.cache = {}  # device_str -> {"valid": bool, "mem_free_total": int, "mem_free_torch": int, "mem_total": int}
     
     def _device_key(self, device):
         """Convert device to string key for cache"""
@@ -302,8 +302,8 @@ class MemoryCache:
         
         if device_key in self.cache:
             cache_entry = self.cache[device_key]
-            if cache_entry.get('valid', False):
-                return (cache_entry['mem_free_total'], cache_entry['mem_free_torch'], cache_entry['mem_total'])
+            if cache_entry.get("valid", False):
+                return (cache_entry["mem_free_total"], cache_entry["mem_free_torch"], cache_entry["mem_total"])
         
         return None
     
@@ -317,10 +317,10 @@ class MemoryCache:
             mem_total = mem_free_total
             
         self.cache[device_key] = {
-            'valid': True,
-            'mem_free_total': mem_free_total,
-            'mem_free_torch': mem_free_torch,
-            'mem_total': mem_total
+            "valid": True,
+            "mem_free_total": mem_free_total,
+            "mem_free_torch": mem_free_torch,
+            "mem_total": mem_total
         }
     
     def invalidate_cache(self, device=None):
@@ -328,18 +328,18 @@ class MemoryCache:
         if device is not None:
             device_key = self._device_key(device)
             if device_key in self.cache:
-                self.cache[device_key]['valid'] = False
+                self.cache[device_key]["valid"] = False
         else:
             for cache_entry in self.cache.values():
-                cache_entry['valid'] = False
+                cache_entry["valid"] = False
     
     def get_cache_status(self):
         """Debug method to check cache status"""
         status = {}
         for device_key, cache_entry in self.cache.items():
             status[device_key] = {
-                'valid': cache_entry.get('valid', False),
-                'mem_free_mb': cache_entry['mem_free_total'] / (1024 * 1024)
+                "valid": cache_entry.get("valid", False),
+                "mem_free_mb": cache_entry["mem_free_total"] / (1024 * 1024)
             }
         return status
 
@@ -372,12 +372,12 @@ def state_dict_parameters(sd):
 
 def state_dict_dtype(state_dict):
     for k, v in state_dict.items():
-        if hasattr(v, 'gguf_cls'):
-            return 'gguf'
-        if 'bitsandbytes__nf4' in k:
-            return 'nf4'
-        if 'bitsandbytes__fp4' in k:
-            return 'fp4'
+        if hasattr(v, "gguf_cls"):
+            return "gguf"
+        if "bitsandbytes__nf4" in k:
+            return "nf4"
+        if "bitsandbytes__fp4" in k:
+            return "fp4"
 
     dtype_counts = {}
 
@@ -400,11 +400,11 @@ def state_dict_dtype(state_dict):
 
 
 def bake_gguf_model(model):
-    if getattr(model, 'gguf_baked', False):
+    if getattr(model, "gguf_baked", False):
         return
 
     for p in model.parameters():
-        gguf_cls = getattr(p, 'gguf_cls', None)
+        gguf_cls = getattr(p, "gguf_cls", None)
         if gguf_cls is not None:
             gguf_cls.bake(p)
 
@@ -418,7 +418,7 @@ def bake_gguf_model(model):
 def module_size(module, exclude_device=None, include_device=None, return_split=False):
     module_mem = 0
     weight_mem = 0
-    weight_patterns = ['weight']
+    weight_patterns = ["weight"]
 
     for k, p in module.named_parameters():
         t = p.data
@@ -433,7 +433,7 @@ def module_size(module, exclude_device=None, include_device=None, return_split=F
 
         element_size = t.element_size()
 
-        if getattr(p, 'quant_type', None) in ['fp4', 'nf4']:
+        if getattr(p, "quant_type", None) in ["fp4", "nf4"]:
             if element_size > 1:
                 # not quanted yet
                 element_size = 0.55  # a bit more than 0.5 because of quant state parameters
@@ -555,8 +555,8 @@ class LoadedModel:
             for m in gpu_modules_only_extras:
                 m.prev_parameters_manual_cast = m.parameters_manual_cast
                 m.parameters_manual_cast = True
-                module_move(m, device=self.device, recursive=False, excluded_pattens=['weight'])
-                if hasattr(m, 'weight') and m.weight is not None:
+                module_move(m, device=self.device, recursive=False, excluded_pattens=["weight"])
+                if hasattr(m, "weight") and m.weight is not None:
                     if pin_memory:
                         m.weight = utils.tensor2parameter(m.weight.to(self.model.offload_device).pin_memory())
                     else:
@@ -564,8 +564,8 @@ class LoadedModel:
                 mem_counter += m.extra_mem
                 swap_counter += m.weight_mem
 
-            swap_flag = 'Shared' if PIN_SHARED_MEMORY else 'CPU'
-            method_flag = 'asynchronous' if stream.should_use_stream() else 'blocked'
+            swap_flag = "Shared" if PIN_SHARED_MEMORY else "CPU"
+            method_flag = "asynchronous" if stream.should_use_stream() else "blocked"
             print(f"{swap_flag} Swap Loaded ({method_flag} method): {swap_counter / (1024 * 1024):.2f} MB, GPU Loaded: {mem_counter / (1024 * 1024):.2f} MB")
 
             self.model_accelerated = True
@@ -624,7 +624,7 @@ def free_memory(memory_required, device, keep_loaded=[], free_all=False, for_inf
         soft_empty_cache(for_inference=True)
         return
 
-    # this check fully unloads any 'abandoned' models
+    # this check fully unloads any "abandoned" models
     for i in range(len(current_loaded_models) - 1, -1, -1):
         if sys.getrefcount(current_loaded_models[i].model) <= 2:
             current_loaded_models.pop(i).model_unload(avoid_model_moving=True)
@@ -660,7 +660,7 @@ def free_memory(memory_required, device, keep_loaded=[], free_all=False, for_inf
             if mem_free_torch > mem_free_total * 0.25:
                 soft_empty_cache()
     
-    print('Done.')
+    print("Done.")
     return
 
 
@@ -705,7 +705,7 @@ def load_models_gpu(models, memory_required=0, hard_memory_preservation=0):
 
         moving_time = time.perf_counter() - execution_start_time
         if moving_time > 0.1:
-            print(f'Memory cleanup has taken {moving_time:.2f} seconds')
+            print(f"Memory cleanup has taken {moving_time:.2f} seconds")
 
         return
 
@@ -772,7 +772,7 @@ def load_models_gpu(models, memory_required=0, hard_memory_preservation=0):
         current_loaded_models.insert(0, loaded_model)
 
     moving_time = time.perf_counter() - execution_start_time
-    print(f'Moving model(s) has taken {moving_time:.2f} seconds')
+    print(f"Moving model(s) has taken {moving_time:.2f} seconds")
 
     return
 
@@ -952,7 +952,7 @@ print(f"VAE dtype preferences: {VAE_DTYPES} -> {vae_dtype()}")
 
 
 def get_autocast_device(dev):
-    if hasattr(dev, 'type'):
+    if hasattr(dev, "type"):
         return dev.type
     return "cuda"
 
@@ -1031,7 +1031,7 @@ def cast_to_device(tensor, device, dtype, copy=False):
     if tensor.dtype == torch.float32 or tensor.dtype == torch.float16:
         device_supports_cast = True
     elif tensor.dtype == torch.bfloat16:
-        if hasattr(device, 'type') and device.type.startswith("cuda"):
+        if hasattr(device, "type") and device.type.startswith("cuda"):
             device_supports_cast = True
         elif is_intel_xpu():
             device_supports_cast = True
@@ -1091,7 +1091,7 @@ def pytorch_attention_flash_attention():
 def force_upcast_attention_dtype():
     upcast = args.force_upcast_attention
     try:
-        if platform.mac_ver()[0] in ['14.5']:  # black image bug on OSX Sonoma 14.5
+        if platform.mac_ver()[0] in ["14.5"]:  # black image bug on OSX Sonoma 14.5
             upcast = True
     except:
         pass
@@ -1119,7 +1119,7 @@ def get_free_memory(dev=None, torch_free_too=False, use_cache=True):
     # Query actual memory if cache miss or disabled
     # Note: mem_free_total represents the primary available memory for the device
     # mem_free_torch is kept separate for torch_free_too parameter compatibility
-    if hasattr(dev, 'type') and (dev.type == 'cpu' or dev.type == 'mps'):
+    if hasattr(dev, "type") and (dev.type == "cpu" or dev.type == "mps"):
         mem_free_total = psutil.virtual_memory().available
         mem_free_torch = mem_free_total
         mem_total = psutil.virtual_memory().total
@@ -1130,8 +1130,8 @@ def get_free_memory(dev=None, torch_free_too=False, use_cache=True):
             mem_total = mem_free_total  # DirectML doesn't provide total memory info
         elif is_intel_xpu():
             stats = torch.xpu.memory_stats(dev)
-            mem_active = stats['active_bytes.all.current']
-            mem_reserved = stats['reserved_bytes.all.current']
+            mem_active = stats["active_bytes.all.current"]
+            mem_reserved = stats["reserved_bytes.all.current"]
             mem_free_torch = mem_reserved - mem_active
             mem_total = torch.xpu.get_device_properties(dev).total_memory
             mem_free_xpu = mem_total - mem_reserved
@@ -1140,8 +1140,8 @@ def get_free_memory(dev=None, torch_free_too=False, use_cache=True):
             mem_free_total = mem_free_xpu
         else:
             stats = torch.cuda.memory_stats(dev)
-            mem_active = stats['active_bytes.all.current']
-            mem_reserved = stats['reserved_bytes.all.current']
+            mem_active = stats["active_bytes.all.current"]
+            mem_reserved = stats["reserved_bytes.all.current"]
             mem_free_cuda, mem_total = torch.cuda.mem_get_info(dev)
             mem_free_torch = mem_reserved - mem_active
             # mem_free_cuda already includes all available memory (unreserved + free portions of reserved)
@@ -1169,22 +1169,22 @@ def mps_mode():
 
 
 def is_device_type(device, type):
-    if hasattr(device, 'type'):
+    if hasattr(device, "type"):
         if (device.type == type):
             return True
     return False
 
 
 def is_device_cpu(device):
-    return is_device_type(device, 'cpu')
+    return is_device_type(device, "cpu")
 
 
 def is_device_mps(device):
-    return is_device_type(device, 'mps')
+    return is_device_type(device, "mps")
 
 
 def is_device_cuda(device):
-    return is_device_type(device, 'cuda')
+    return is_device_type(device, "cuda")
 
 
 def should_use_fp16(device=None, model_params=0, prioritize_performance=True, manual_cast=False):
@@ -1298,7 +1298,7 @@ def can_install_bnb():
         if not torch.cuda.is_available():
             return False
 
-        cuda_version = tuple(int(x) for x in torch.version.cuda.split('.'))
+        cuda_version = tuple(int(x) for x in torch.version.cuda.split("."))
 
         if cuda_version >= (11, 7):
             return True
