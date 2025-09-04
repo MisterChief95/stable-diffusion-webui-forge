@@ -1,3 +1,5 @@
+import math
+
 import torch
 
 from backend import attention, memory_management
@@ -45,15 +47,13 @@ class KModel(torch.nn.Module):
         model_output = self.diffusion_model(xc, t, context=context, control=control, transformer_options=transformer_options, **extra_conds).float()
         return self.predictor.calculate_denoised(sigma, model_output, x)
 
-    def memory_required(self, input_shape):
-        area = input_shape[0] * input_shape[2] * input_shape[3]
-        dtype_size = memory_management.dtype_size(self.computation_dtype)
+    def memory_required(self, input_shape: list[int]) -> float:
+        """https://github.com/comfyanonymous/ComfyUI/blob/v0.3.56/comfy/model_base.py#L350"""
+        input_shapes = [input_shape]
+        area = sum(map(lambda input_shape: input_shape[0] * math.prod(input_shape[2:]), input_shapes))
 
-        if attention.attention_function in [attention.attention_pytorch, attention.attention_xformers]:
-            scaler = 1.28
+        if memory_management.xformers_enabled():
+            return (area * memory_management.dtype_size(
+                self.computation_dtype) * 0.01 * self.config.memory_usage_factor) * (1024 * 1024)
         else:
-            scaler = 1.65
-            if attention.get_attn_precision() == torch.float32:
-                dtype_size = 4
-
-        return scaler * area * dtype_size * 16384
+            return (area * 0.15 * self.config.memory_usage_factor) * (1024 * 1024)

@@ -114,10 +114,6 @@ class UnetPatcher(ModelPatcher):
         self.append_model_option("sampler_pre_cfg_function", modifier, ensure_uniqueness)
         return
 
-    def set_memory_peak_estimation_modifier(self, modifier):
-        self.model_options["memory_peak_estimation_modifier"] = modifier
-        return
-
     def add_alphas_cumprod_modifier(self, modifier, ensure_uniqueness=False):
         """
 

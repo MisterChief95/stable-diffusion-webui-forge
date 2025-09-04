@@ -723,12 +723,21 @@ class LoadedModel:
         del self.model
 
 
+WINDOWS = any(platform.win32_ver())
+
+EXTRA_RESERVED_VRAM = 400 * 1024 * 1024
+if WINDOWS:
+    EXTRA_RESERVED_VRAM = 600 * 1024 * 1024
+    if total_vram > (15 * 1024):
+        EXTRA_RESERVED_VRAM = 800 * 1024 * 1024
+
+
 current_inference_memory = 1024 * 1024 * 1024
+"""set by refresh_memory_management_settings in main_entry.py"""
 
 
 def minimum_inference_memory():
-    global current_inference_memory
-    return current_inference_memory
+    return current_inference_memory * 0.8 + EXTRA_RESERVED_VRAM
 
 
 def unload_model_clones(model):

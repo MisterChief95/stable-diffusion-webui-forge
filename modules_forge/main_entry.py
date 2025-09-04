@@ -73,6 +73,7 @@ def make_checkpoint_manager_ui():
 
     def gr_refresh_on_load():
         ckpt_list, vae_list = refresh_models()
+        refresh_memory_management_settings()
         return [gr.update(value=shared.opts.sd_model_checkpoint, choices=ckpt_list), gr.update(value=[os.path.basename(x) for x in shared.opts.forge_additional_modules], choices=vae_list)]
 
     Context.root_block.load(fn=gr_refresh_on_load, outputs=[ui_checkpoint, ui_vae], show_progress=False, queue=False)

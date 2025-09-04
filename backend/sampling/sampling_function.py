@@ -373,11 +373,10 @@ def sampling_prepare(unet: "UnetPatcher", x: torch.Tensor, *, is_img2img: bool =
     else:
         unet.set_transformer_option("ref_latents", None)
 
-    B, C, H, W = x.shape[0], x.shape[1], x.shape[-2], x.shape[-1]
+    shape = list(x.shape)
+    mem_shape = [2 * shape[0]] + shape[1:]
 
-    memory_estimation_function = unet.model_options.get("memory_peak_estimation_modifier", unet.memory_required)
-
-    unet_inference_memory = memory_estimation_function([B * 2, C, H, W])
+    unet_inference_memory = unet.memory_required(mem_shape)
     additional_inference_memory = unet.extra_preserved_memory_during_sampling
     additional_model_patchers = unet.extra_model_patchers_during_sampling
 
