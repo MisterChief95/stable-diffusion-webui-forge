@@ -70,8 +70,9 @@ parser.add_argument("--unix-filenames-sanitization", action="store_true", help="
 parser.add_argument("--filenames-max-length", type=int, default=128, help="maximal length of filenames of saved images. If you override it, it can conflict with your file system")
 parser.add_argument("--no-prompt-history", action="store_true", help="disable read prompt from last generation feature; settings this argument will not create '--data_path/params.txt' file")
 
-# Paths  # TODO
+# Paths
 parser.add_argument("--ckpt-dirs", type=normalized_filepath, action="append", help="Directories for Checkpoint model(s)", default=[])
+parser.add_argument("--lora-dirs", type=normalized_filepath, action="append", help="Directories for LoRA(s)", default=[])
 parser.add_argument("--vae-dirs", type=normalized_filepath, action="append", help="Directories for VAE model(s)", default=[])
 parser.add_argument("--text-encoder-dirs", type=normalized_filepath, action="append", help="Directories for Text Encoder model(s)", default=[])
 parser.add_argument("--embeddings-dir", type=normalized_filepath, help="Directory for Textual Inversion model(s)", default=os.path.join(models_path, "embeddings"))

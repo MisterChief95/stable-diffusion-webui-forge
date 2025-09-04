@@ -422,9 +422,11 @@ def configure_comfy_reference(comfy_home: Path):
     refs = (
         ModelRef(arg_name="--ckpt-dirs", relative_path="checkpoints"),
         ModelRef(arg_name="--ckpt-dirs", relative_path="diffusion_models"),
+        ModelRef(arg_name="--ckpt-dirs", relative_path="unet"),
         ModelRef(arg_name="--text-encoder-dirs", relative_path="clip"),
         ModelRef(arg_name="--text-encoder-dirs", relative_path="text_encoders"),
-        ModelRef(arg_name="--vae-dirs", relative_path="VAE"),
+        ModelRef(arg_name="--lora-dirs", relative_path="loras"),
+        ModelRef(arg_name="--vae-dirs", relative_path="vae"),
     )
 
     for ref in refs:
