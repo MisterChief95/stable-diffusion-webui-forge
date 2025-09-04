@@ -87,7 +87,7 @@ def make_checkpoint_manager_ui():
 
     mem_comps = [ui_forge_inference_memory, ui_forge_async_loading, ui_forge_pin_shared_memory]
 
-    ui_forge_inference_memory.change(ui_refresh_memory_management_settings, inputs=mem_comps, queue=False, show_progress=False)
+    ui_forge_inference_memory.release(ui_refresh_memory_management_settings, inputs=mem_comps, queue=False, show_progress=False)
     ui_forge_async_loading.change(ui_refresh_memory_management_settings, inputs=mem_comps, queue=False, show_progress=False)
     ui_forge_pin_shared_memory.change(ui_refresh_memory_management_settings, inputs=mem_comps, queue=False, show_progress=False)
 
