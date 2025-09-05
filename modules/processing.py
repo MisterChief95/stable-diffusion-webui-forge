@@ -1343,12 +1343,12 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             if not state.processing_has_refined_job_count:
                 if state.job_count == -1:
                     state.job_count = self.n_iter
-                
+
                 # Calculate iterative multiplier for hires steps
                 iterative_multiplier = 1
                 if self.hr_iterative_steps > 1:
                     iterative_multiplier = self.hr_iterative_steps
-                
+
                 if getattr(self, 'txt2img_upscale', False):
                     total_steps = (self.hr_second_pass_steps or self.steps) * iterative_multiplier * state.job_count
                 else:
@@ -1493,6 +1493,9 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             return self.sample_hr_pass_iterative(samples, decoded_samples, seeds, subseeds, subseed_strength, prompts,
                                                  target_width, target_height, save_intermediate)
         else:
+            # Update job status to show hires fix progress
+            if hasattr(shared.state, 'textinfo'):
+                shared.state.textinfo = f"Hires Fix"
             return self.sample_hr_pass_single(samples, decoded_samples, seeds, subseeds, subseed_strength, prompts,
                                               target_width, target_height, save_intermediate)
 
