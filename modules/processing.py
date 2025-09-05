@@ -1010,8 +1010,9 @@ def process_images_inner(p: StableDiffusionProcessing) -> Processed:
                     p.extra_generation_params['VAE Decoder'] = opts.sd_vae_decode_method
                 x_samples_ddim = decode_latent_batch(p.sd_model, samples_ddim, target_device=devices.cpu, check_for_nans=True)
 
-            x_samples_ddim = torch.stack(x_samples_ddim).float()
-            x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
+            with torch.no_grad():
+                x_samples_ddim = torch.stack(x_samples_ddim).float()
+                x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
 
             if len(x_samples_ddim.shape) == 5:
                 x_samples_ddim = x_samples_ddim.reshape(-1, *x_samples_ddim.shape[-3:])
@@ -1214,7 +1215,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
     hr_negative_prompt: str = ''
     hr_cfg: float = 1.0
     hr_distilled_cfg: float = 3.5
-    hr_iterative_steps: int = 1,
+    hr_iterative_steps: int = 1
     hr_iter_target_denoise: float = 0.0
     hr_iter_target_cfg: float = 0.0
     hr_iter_target_steps: int = 0
@@ -1342,12 +1343,22 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             if not state.processing_has_refined_job_count:
                 if state.job_count == -1:
                     state.job_count = self.n_iter
+                
+                # Calculate iterative multiplier for hires steps
+                iterative_multiplier = 1
+                if self.hr_iterative_steps > 1:
+                    iterative_multiplier = self.hr_iterative_steps
+                
                 if getattr(self, 'txt2img_upscale', False):
-                    total_steps = (self.hr_second_pass_steps or self.steps) * state.job_count
+                    total_steps = (self.hr_second_pass_steps or self.steps) * iterative_multiplier * state.job_count
                 else:
-                    total_steps = (self.steps + (self.hr_second_pass_steps or self.steps)) * state.job_count
+                    hires_steps = (self.hr_second_pass_steps or self.steps) * iterative_multiplier
+                    total_steps = (self.steps + hires_steps) * state.job_count
                 shared.total_tqdm.updateTotal(total_steps)
-                state.job_count = state.job_count * 2
+                if self.hr_iterative_steps > 1:
+                    state.job_count = state.job_count * (1 + iterative_multiplier)
+                else:
+                    state.job_count = state.job_count * 2
                 state.processing_has_refined_job_count = True
 
             if self.hr_second_pass_steps:
@@ -1382,7 +1393,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                 image = np.array(self.firstpass_image).astype(np.float32) / 255.0
                 image = np.moveaxis(image, 2, 0)
                 image = torch.from_numpy(np.expand_dims(image, axis=0))
-                image = image.to(shared.device, dtype=torch.float32)
+                with torch.no_grad():
+                    image = image.to(shared.device, dtype=torch.float32)
 
                 if opts.sd_vae_encode_method != 'Full':
                     self.extra_generation_params['VAE Encoder'] = opts.sd_vae_encode_method
@@ -1421,7 +1433,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             devices.torch_gc()
 
             if self.latent_scale_mode is None:
-                decoded_samples = torch.stack(decode_latent_batch(self.sd_model, samples, target_device=devices.cpu, check_for_nans=True)).to(dtype=torch.float32)
+                with torch.no_grad():
+                    decoded_samples = torch.stack(decode_latent_batch(self.sd_model, samples, target_device=devices.cpu, check_for_nans=True)).to(dtype=torch.float32)
             else:
                 decoded_samples = None
 
@@ -1472,10 +1485,8 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             if not isinstance(image, Image.Image):
                 image = sd_samplers.sample_to_image(image, index, approximation=0)
 
-            info = create_infotext(self, self.all_prompts, self.all_seeds, self.all_subseeds, [],
-                                   iteration=self.iteration, position_in_batch=index)
-            images.save_image(image, self.outpath_samples, "", seeds[index], prompts[index], opts.samples_format,
-                              info=info, p=self, suffix=suffix)
+            info = create_infotext(self, self.all_prompts, self.all_seeds, self.all_subseeds, [], iteration=self.iteration, position_in_batch=index)
+            images.save_image(image, self.outpath_samples, "", seeds[index], prompts[index], opts.samples_format, info=info, p=self, suffix=suffix)
 
         # Check if iterative upscaling is enabled
         if self.hr_iterative_steps > 1:
@@ -1513,13 +1524,11 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
 
         if self.hr_iterative_steps > 1:
             if self.hr_iter_target_denoise > 0:
-                denoise_factor = (self.hr_iter_target_denoise / self.denoising_strength) ** (
-                            1.0 / (self.hr_iterative_steps - 1))
+                denoise_factor = (self.hr_iter_target_denoise / self.denoising_strength) ** (1.0 / (self.hr_iterative_steps - 1))
             if self.hr_iter_target_cfg > 0:
                 cfg_factor = (self.hr_iter_target_cfg / self.hr_cfg) ** (1.0 / (self.hr_iterative_steps - 1))
             if self.hr_iter_target_steps > 0:
-                steps_factor = (self.hr_iter_target_steps / (self.hr_second_pass_steps or self.steps)) ** (
-                            1.0 / (self.hr_iterative_steps - 1))
+                steps_factor = (self.hr_iter_target_steps / (self.hr_second_pass_steps or self.steps)) ** (1.0 / (self.hr_iterative_steps - 1))
 
         for step in range(self.hr_iterative_steps):
             if shared.state.interrupted:
@@ -1600,10 +1609,6 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
                         self.extra_generation_params['VAE Encoder'] = opts.sd_vae_encode_method
                     current_samples = images_tensor_to_samples(current_decoded_samples,
                                                                approximation_indexes.get(opts.sd_vae_encode_method))
-                else:
-                    # For latent mode, the current_samples are already in the right format
-                    pass
-
         return current_samples
 
     def sample_hr_pass_single(self, samples, decoded_samples, seeds, subseeds, subseed_strength, prompts, step_width,
@@ -2006,8 +2011,9 @@ class StableDiffusionProcessingImg2Img(StableDiffusionProcessing):
                 latmask = np.around(latmask)
             latmask = np.tile(latmask[None], (self.init_latent.shape[1], 1, 1))
 
-            self.mask = torch.asarray(1.0 - latmask).to(shared.device).type(devices.dtype)
-            self.nmask = torch.asarray(latmask).to(shared.device).type(devices.dtype)
+            with torch.no_grad():
+                self.mask = torch.asarray(1.0 - latmask).to(shared.device).type(devices.dtype)
+                self.nmask = torch.asarray(latmask).to(shared.device).type(devices.dtype)
 
             # this needs to be fixed to be done in sample() using actual seeds for batches
             if self.inpainting_fill == 2:
