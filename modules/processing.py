@@ -1214,6 +1214,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
     hr_negative_prompt: str = ''
     hr_cfg: float = 1.0
     hr_distilled_cfg: float = 3.5
+    hr_iterative_steps: int = 1,
     hr_iter_target_denoise: float = 0.0
     hr_iter_target_cfg: float = 0.0
     hr_iter_target_steps: int = 0
@@ -1489,7 +1490,7 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
         """Performs iterative upscaling with multiple smaller steps"""
 
         # Calculate starting dimensions
-        if self.latent_scale_mode is not None or self.nn_latent_scale_mode is not None:
+        if self.latent_scale_mode is not None:
             current_width = samples.shape[3] * opt_f
             current_height = samples.shape[2] * opt_f
         else:
@@ -1619,58 +1620,6 @@ class StableDiffusionProcessingTxt2Img(StableDiffusionProcessing):
             samples = torch.nn.functional.interpolate(samples, size=(step_height // opt_f, step_width // opt_f),
                                                       mode=self.latent_scale_mode["mode"],
                                                       antialias=self.latent_scale_mode["antialias"])
-
-            # Avoid making the inpainting conditioning unless necessary as
-            # this does need some extra compute to decode / encode the image again.
-            if getattr(self, "inpainting_mask_weight", shared.opts.inpainting_mask_weight) < 1.0:
-                image_conditioning = self.img2img_image_conditioning(decode_first_stage(self.sd_model, samples),
-                                                                     samples)
-            else:
-                image_conditioning = self.txt2img_image_conditioning(samples)
-        elif self.nn_latent_scale_mode is not None:
-            for i in range(samples.shape[0]):
-                save_intermediate(samples, i, step_suffix + "-before-highres-fix")
-
-            # Calculate the scale factor from current and target dimensions
-            current_width = samples.shape[3] * opt_f
-            current_height = samples.shape[2] * opt_f
-            scale_x = step_width / current_width
-            scale_y = step_height / current_height
-
-            # Use the average scale or validate that both dimensions scale equally
-            if abs(scale_x - scale_y) > 0.01:  # Allow small differences due to rounding
-                scale_factor = (scale_x + scale_y) / 2
-                logging.warning(
-                    f"Different scale factors for width ({scale_x:.3f}) and height ({scale_y:.3f}). Using average: {scale_factor:.3f}")
-            else:
-                scale_factor = scale_x
-
-            # Validate and round to the nearest supported NN scale
-            try:
-                validated_scale = validate_nn_upscale_factor(scale_factor)
-                logging.info(
-                    f"Using neural network latent upscaler '{self.nn_latent_scale_mode}' with scale factor {validated_scale}")
-            except ValueError as e:
-                logging.error(str(e))
-                raise e
-
-            # Initialize the NN upscaler
-            nn_upscaler = NNLatentUpscale()
-
-            # Determine the model version based on the upscaler type
-            if self.nn_latent_scale_mode == "SDXL NeuralNetwork":
-                version = "SDXL NeuralNetwork"
-            elif self.nn_latent_scale_mode == "SD 1.x NeuralNetwork":
-                version = "SD 1.x NeuralNetwork"
-            else:
-                # Default to SDXL if we can't determine
-                version = "SDXL NeuralNetwork"
-                logging.warning(f"Unknown NN upscaler '{self.nn_latent_scale_mode}', defaulting to SDXL")
-
-            # Upscale the latent samples
-            latent_dict = {"samples": samples}
-            upscaled_samples = nn_upscaler.upscale(latent_dict, version, validated_scale)
-            samples = upscaled_samples
 
             # Avoid making the inpainting conditioning unless necessary as
             # this does need some extra compute to decode / encode the image again.
